@@ -53,6 +53,7 @@ shl_arg_t *shl_get_argument(const char *long_name);
 #define init_argparser shl_init_argparser
 #define add_argument   shl_add_argument
 #define get_argument   shl_get_argument
+#define arg_t          shl_arg_t
 #endif // SHL_STRIP_PREFIX
 
 // Use SHL logger if available

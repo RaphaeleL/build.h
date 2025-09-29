@@ -87,9 +87,9 @@ int main(int argc, char *argv[]) {
 
   init_argparser(argc, argv);
 
-  shl_arg_t *a = get_argument("--a");
-  shl_arg_t *b = get_argument("--b");
-  shl_arg_t *o = get_argument("--operation");
+  arg_t *a = get_argument("--a");
+  arg_t *b = get_argument("--b");
+  arg_t *o = get_argument("--operation");
 
   if (a && b && o) {
     eval(atoi(a->value), atoi(b->value), o->value[0]);
