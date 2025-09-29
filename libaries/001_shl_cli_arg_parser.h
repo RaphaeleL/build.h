@@ -18,8 +18,6 @@
 extern "C" {
 #endif // __cplusplus
 
-// TODO: add more casting methods like `int shl_arg_as_int(shl_arg_t *arg)`
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
