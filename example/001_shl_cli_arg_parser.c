@@ -1,5 +1,5 @@
 /*
- * 000_shl_cli_arg_parser.c
+ * 001_shl_cli_arg_parser.c
  *
  * Example Usage for the SHL CLI Argument Parser
  *
@@ -16,7 +16,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/000_shl_cli_arg_parser.h"
+#include "../libaries/001_shl_cli_arg_parser.h"
 
 int main(int argc, char *argv[]) {
   init_logger(SHL_LOG_DEBUG);

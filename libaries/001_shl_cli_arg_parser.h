@@ -1,5 +1,5 @@
 /*
- * 000_shl_cli_arg_parser.h
+ * 001_shl_cli_arg_parser.h
  *
  * SHL for a CLI Argument Parser
  *
@@ -59,7 +59,7 @@ shl_arg_t *shl_get_argument(const char *long_name);
 
 // Use SHL logger if available
 #ifdef SHL_USE_LOGGER
-#include "001_shl_logger.h"
+#include "000_shl_logger.h"
 #else
 #define info(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #define debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)

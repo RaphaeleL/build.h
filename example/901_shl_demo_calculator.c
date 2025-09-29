@@ -17,7 +17,9 @@
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#include "../libaries/001_shl_logger.h"
+#define SHL_USE_LOGGER
+#include "../libaries/000_shl_logger.h"
+#include "../libaries/001_shl_cli_arg_parser.h"
 
 typedef struct {
   int a, b;
@@ -75,11 +77,23 @@ static void eval(int a, int b, char op) {
     free(c.result);
 }
 
-int main() {
-  eval(2, 3, '+');
-  eval(9, 3, '-');
-  eval(5, 2, '*');
-  eval(8, 4, '/');
+int main(int argc, char *argv[]) {
+
+  init_logger(SHL_LOG_DEBUG);
+
+  add_argument("--a", "2", "The first number");
+  add_argument("--b", "3", "The second number");
+  add_argument("--operation", "+", "The operation");
+
+  init_argparser(argc, argv);
+
+  shl_arg_t *a = shl_get_argument("--a");
+  shl_arg_t *b = shl_get_argument("--b");
+  shl_arg_t *o = shl_get_argument("--operation");
+
+  if (a && b && o) {
+    eval(shl_arg_as_int(a), shl_arg_as_int(b), o->value[0]);
+  }
 
   return 0;
 }

@@ -13,7 +13,7 @@ SRC := $(shell find . -name "*.c")
 
 CC      = cc
 WARNINGS= -Wall -Wextra
-CFLAGS  = -g -O3 $(WARNINGS) -std=c99 #-I/opt/homebrew/opt/llvm/include
+CFLAGS  = -O3 $(WARNINGS) -std=c99 #-I/opt/homebrew/opt/llvm/include
 #LDFLAGS = -L/opt/homebrew/opt/llvm/lib
 JUNK    = *.DS_Store *~ core a.out *.dSYM
 

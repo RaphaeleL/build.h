@@ -16,7 +16,7 @@
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#include "../libaries/001_shl_logger.h"
+#include "../libaries/000_shl_logger.h"
 
 typedef struct {
   int a, b;
