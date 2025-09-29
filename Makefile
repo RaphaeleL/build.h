@@ -9,7 +9,7 @@ else
 endif
 export E Q
 
-SRC := $(shell find . -name "*.c")
+SRC := $(shell find . -name "*.c" | sort)
 
 CC      = cc
 WARNINGS= -Wall -Wextra
