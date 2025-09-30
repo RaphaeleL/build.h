@@ -18,9 +18,6 @@
 #define SHL_USE_LOGGER
 #include "../libaries/000_shl_logger.h"
 
-// TODO: not sure if SHL_USE_LOGGER, SHL_LOG_WITH_TIME, SHL_LOG_WITH_COLOR
-//  should a macro or a setting in init_logger. it could be a struct
-
 int main() {
     init_logger((LogConfig_t){.level = LOG_DEBUG, .color = true, .time = true});
 
