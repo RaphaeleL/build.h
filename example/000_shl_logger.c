@@ -15,6 +15,7 @@
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
+#define SHL_USE_LOGGER
 #include "../libaries/000_shl_logger.h"
 
 int main() {
