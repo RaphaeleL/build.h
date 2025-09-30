@@ -14,7 +14,6 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#define SHL_LOG_WITH_COLOR
 #include "./libaries/000_shl_logger.h"
 #include "./libaries/002_shl_no_build.h"
 
@@ -23,8 +22,8 @@
 // TODO: command_flags and compiler_flags should be an array
 
 int main() {
+    init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
     auto_rebuild();
-    init_logger(LOG_INFO);
 
     SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
     SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };

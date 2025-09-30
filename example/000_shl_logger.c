@@ -16,15 +16,13 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#define SHL_LOG_WITH_TIME
-#define SHL_LOG_WITH_COLOR
 #include "../libaries/000_shl_logger.h"
 
 // TODO: not sure if SHL_USE_LOGGER, SHL_LOG_WITH_TIME, SHL_LOG_WITH_COLOR
 //  should a macro or a setting in init_logger. it could be a struct
 
 int main() {
-    init_logger(LOG_DEBUG); // allow everything
+    init_logger((LogConfig_t){.level = LOG_DEBUG, .color = true, .time = true});
 
     debug("This is a debug message");
     info("Starting program with pid=%d", 1234);

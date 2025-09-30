@@ -19,7 +19,7 @@
 #include "../libaries/001_shl_cli_arg_parser.h"
 
 int main(int argc, char *argv[]) {
-    init_logger(SHL_LOG_DEBUG);
+    init_logger((LogConfig_t){.level = LOG_DEBUG});
 
     add_argument("--foo", "bar", "The foo argument");
     add_argument("--number", "42", "The number argument");

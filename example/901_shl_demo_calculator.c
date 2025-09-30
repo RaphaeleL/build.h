@@ -78,8 +78,7 @@ static void eval(int a, int b, char op) {
 }
 
 int main(int argc, char *argv[]) {
-
-    init_logger(SHL_LOG_DEBUG);
+    init_logger((LogConfig_t){.level = LOG_DEBUG});
 
     add_argument("--a", "2", "The first number");
     add_argument("--b", "3", "The second number");

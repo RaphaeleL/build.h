@@ -21,6 +21,7 @@
 // TODO: log to system log? (like journalctl)
 
 #include <stdarg.h>
+#include <stdbool.h>
 
 // Log levels
 typedef enum {
@@ -33,8 +34,14 @@ typedef enum {
     SHL_LOG_NONE
 } shl_log_level_t;
 
+typedef struct {
+    shl_log_level_t level;
+    bool color;
+    bool time;
+} SHL_LogConfig_t;
+
 // Initialize logger with minimum level
-void shl_init_logger(shl_log_level_t level);
+void shl_init_logger(SHL_LogConfig_t config);
 
 // Use SHL logger if available
 #ifndef SHL_USE_LOGGER
@@ -69,6 +76,7 @@ void shl_init_logger(shl_log_level_t level);
     #define LOG_WARN      SHL_LOG_WARN
     #define LOG_ERROR     SHL_LOG_ERROR
     #define LOG_CRITICAL  SHL_LOG_CRITICAL
+    #define LogConfig_t   SHL_LogConfig_t
 #endif // SHL_STRIP_PREFIX
 
 #ifdef SHL_IMPLEMENTATION
@@ -85,9 +93,13 @@ void shl_init_logger(shl_log_level_t level);
     #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
 
     static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
+    static bool shl_logger_color = true;
+    static bool shl_logger_time = false;
 
-    void shl_init_logger(shl_log_level_t level) {
-        shl_logger_min_level = level;
+    void shl_init_logger(SHL_LogConfig_t config) {
+        shl_logger_min_level = config.level;
+        shl_logger_color = config.color;
+        shl_logger_time = config.time;
     }
 
     static const char *shl_level_to_str(shl_log_level_t level) {
@@ -117,34 +129,23 @@ void shl_init_logger(shl_log_level_t level);
     void shl_log(shl_log_level_t level, const char *fmt, ...) {
         if (level < shl_logger_min_level || level >= SHL_LOG_NONE) return;
 
-        const char *level_str   = shl_level_to_str(level);
-#ifdef SHL_LOG_WITH_COLOR
-        const char *level_color = shl_level_to_color(level);
-#else
-        const char *level_color = "";
-#endif // SHL_LOG_WITH_COLOR
+        const char *level_str = shl_level_to_str(level);
 
-#ifdef SHL_LOG_WITH_TIME
-        // Timestamp
-        time_t t = time(NULL);
-        struct tm *lt = localtime(&t);
-        char buf[32];
-        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
-        // Print level and timestamp
-        fprintf(stderr, "%s[%s]%s %s >>> ",
-            level_color,
-            level_str,
-            SHL_COLOR_RESET,
-            buf
-        );
-#else
-        // Print level only
-        fprintf(stderr, "%s[%s]%s ",
-            level_color,
-            level_str,
-            SHL_COLOR_RESET
-        );
-#endif // SHL_LOG_WITH_TIME
+        const char *level_color = "";
+//        warn("%b", shl_logger_color);
+        if (shl_logger_color) {
+            level_color = shl_level_to_color(level);
+        }
+
+        if (shl_logger_time) {
+            time_t t = time(NULL);
+            struct tm *lt = localtime(&t);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
+            fprintf(stderr, "%s[%s]%s %s >>> ", level_color, level_str, SHL_COLOR_RESET, buf);
+        } else {
+            fprintf(stderr, "%s[%s]%s ", level_color, level_str, SHL_COLOR_RESET);
+        }
 
         // Print formatted message
         va_list args;
