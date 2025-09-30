@@ -20,17 +20,20 @@
 #include "../libaries/002_shl_no_build.h"
 
 int main() {
+    SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
+    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };
+
     BuildConfig config = {
         .source = "example/901_shl_demo_calculator.c",
-        .output = "calc",
+        .output = "out/calc",
         .compiler = "gcc",
         .compiler_flags = "-Wall -Wextra -O2",
         .linker_flags = "-lm"
     };
 
-    if (!build_project(&config)) {
-        info("Build failed.");
-    }
+    if (!run(&sysp_1)) { info("Build failed."); }
+    if (!run(&sysp_2)) { info("Build failed."); }
+    if (!build_project(&config)) {info("Build failed.");}
 
     return 0;
 }

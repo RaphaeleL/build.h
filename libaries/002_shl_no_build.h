@@ -31,7 +31,6 @@ typedef struct {
     const char* compiler;
     const char* compiler_flags;
     const char* linker_flags;
-    bool cli;
     bool async;
     bool autorun;
 } SHL_BuildConfig;
@@ -39,7 +38,6 @@ typedef struct {
 typedef struct {
     const char* command;
     const char* command_flags;
-    bool cli;
 } SHL_SystemConfig;
 
 typedef struct {

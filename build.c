@@ -27,13 +27,13 @@ int main() {
     // TODO: make build.c on windows possible
     // TODO: command flags as an array ?
 
-    SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out", .cli = true };
-    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out", .cli =  true };
+    SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
+    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };
 
     const char *examples[][2] = {
         { "example/000_shl_logger.c",          "out/000_logger" },
         { "example/001_shl_cli_arg_parser.c",  "out/001_argparser" },
-        // { "example/002_shl_no_build.c",        "out/002_no_build" },
+        { "example/002_shl_no_build.c",        "out/002_no_build" },
         { "example/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "example/902_shl_demo_pointer.c",    "out/902_demo_pointer" }
     };
