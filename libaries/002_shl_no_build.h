@@ -23,6 +23,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define MAX_TASKS 32
+
 typedef struct {
     const char* source;
     const char* output;
@@ -30,6 +32,8 @@ typedef struct {
     const char* compiler_flags;
     const char* linker_flags;
     bool cli;
+    bool async;
+    bool autorun;
 } SHL_BuildConfig;
 
 typedef struct {
@@ -38,17 +42,29 @@ typedef struct {
     bool cli;
 } SHL_SystemConfig;
 
+typedef struct {
+    SHL_BuildConfig config;
+    bool success;
+} SHL_BuildTask;
+
 bool shl_build_project(const SHL_BuildConfig* config);
 bool shl_run(const SHL_SystemConfig* config);
 void shl_auto_rebuild();
+bool shl_build_project_async(const SHL_BuildConfig* config);
+void shl_wait_for_all_builds(void);
+bool shl_dispatch_build(const SHL_BuildConfig* config);
 
 // Strip prefix macros (optional shorter names)
 #ifdef SHL_STRIP_PREFIX
-    #define BuildConfig       SHL_BuildConfig
-    #define SystemConfig      SHL_SystemConfig
-    #define auto_rebuild      shl_auto_rebuild
-    #define build_project     shl_build_project
-    #define run               shl_run
+    #define BuildConfig         SHL_BuildConfig
+    #define BuildTask           SHL_BuildTask
+    #define SystemConfig        SHL_SystemConfig
+    #define auto_rebuild        shl_auto_rebuild
+    #define build_project       shl_build_project
+    #define run                 shl_run
+    #define build_project_async shl_build_project_async
+    #define wait_for_all_builds shl_wait_for_all_builds
+    #define dispatch_build      shl_dispatch_build
 #endif // SHL_STRIP_PREFIX
 
 #define SHL_USE_LOGGER
@@ -58,6 +74,56 @@ void shl_auto_rebuild();
     #include <time.h>
     #include <sys/stat.h>
     #include <sys/types.h>
+    #include <pthread.h>
+    #include <ctype.h>
+
+    static pthread_t task_threads[MAX_TASKS];
+    static SHL_BuildTask task_data[MAX_TASKS];
+    static int task_count = 0;
+
+    static void* shl_build_thread(void* arg) {
+        SHL_BuildTask* task = (SHL_BuildTask*)arg;
+        task->success = shl_build_project(&task->config);
+
+        if (task->success && task->config.autorun) {
+            info("Auto-running %s", task->config.output);
+            char cmd[1024];
+            snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
+            int result = system(cmd);
+            if (result != 0) {
+                error("Program %s exited with code %d", task->config.output, result);
+            }
+        }
+        return NULL;
+    }
+
+    bool shl_build_project_async(const SHL_BuildConfig* config) {
+        if (task_count >= MAX_TASKS) {
+            error("Too many async build tasks (max %d)", MAX_TASKS);
+            return false;
+        }
+
+        task_data[task_count].config = *config;
+        task_data[task_count].success = false;
+
+        if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
+            error("Failed to create build thread.");
+            return false;
+        }
+
+        task_count++;
+        return true;
+    }
+
+    void shl_wait_for_all_builds(void) {
+        for (int i = 0; i < task_count; i++) {
+            pthread_join(task_threads[i], NULL);
+            if (!task_data[i].success) {
+                error("Build failed for %s", task_data[i].config.source);
+            }
+        }
+        task_count = 0;
+    }
 
     void shl_auto_rebuild(void) {
         struct stat src_attr, out_attr;
@@ -92,6 +158,25 @@ void shl_auto_rebuild();
         }
     }
 
+    bool shl_dispatch_build(const SHL_BuildConfig* config) {
+        if (config->async) {
+            debug("Building in parallel!");
+            return shl_build_project_async(config);
+        } else {
+            debug("Building in sequential!");
+            return shl_build_project(config);
+        }
+    }
+
+    static char *shl_trim(char *s) {
+        char *end;
+        while (isspace((unsigned char)*s)) s++;
+        if (*s == 0) return s;
+        end = s + strlen(s) - 1;
+        while (end > s && isspace((unsigned char)*end)) end--;
+        end[1] = '\0';
+        return s;
+    }
 
     bool shl_run(const SHL_SystemConfig* config) {
         if (!config || !config->command || !config->command_flags) {

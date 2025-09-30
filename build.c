@@ -23,27 +23,38 @@ int main() {
     auto_rebuild();
 
     // TODO: no rebuild of buildconfig if no changes
-    // TODO: implement async / parallel execution
     // TODO: make build.c on windows possible
     // TODO: command flags as an array ?
 
     SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out", .cli = true };
-    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out", .cli = true };
+    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out", .cli =  true };
 
-    BuildConfig build_1 = { .source = "example/000_shl_logger.c ", .output = "out/000", .compiler = "gcc" };
-    BuildConfig build_2 = { .source = "example/001_shl_cli_arg_parser.c", .output = "out/001", .compiler = "gcc" };
-    BuildConfig build_3 = { .source = "example/002_shl_no_build.c", .output = "out/002", .compiler = "gcc" };
-    BuildConfig build_4 = { .source = "example/901_shl_demo_calculator.c", .output = "out/901", .compiler = "gcc" };
-    BuildConfig build_5 = { .source = "example/902_shl_demo_pointer.c", .output = "out/902", .compiler = "gcc" };
+    const char *examples[][2] = {
+        { "example/000_shl_logger.c",      "out/000" },
+        { "example/001_shl_cli_arg_parser.c", "out/001" },
+        { "example/002_shl_no_build.c",    "out/002" },
+        { "example/901_shl_demo_calculator.c", "out/901" },
+        { "example/902_shl_demo_pointer.c",    "out/902" }
+    };
+
+    size_t n_examples = sizeof(examples) / sizeof(examples[0]);
+    BuildConfig builds[sizeof(examples) / sizeof(examples[0])];
 
     if (!run(&sysp_1)) { info("Build failed."); }
     if (!run(&sysp_2)) { info("Build failed."); }
 
-    if (!build_project(&build_1)) { info("Build failed."); }
-    if (!build_project(&build_2)) { info("Build failed."); }
-    if (!build_project(&build_3)) { info("Build failed."); }
-    if (!build_project(&build_4)) { info("Build failed."); }
-    if (!build_project(&build_5)) { info("Build failed."); }
+    for (size_t i = 0; i < n_examples; i++) {
+        builds[i] = (BuildConfig){
+            .source   = examples[i][0],
+            .output   = examples[i][1],
+            .compiler = "gcc",
+            .autorun  = false,
+            .async    = false
+        };
+        if (!dispatch_build(&builds[i])) { info("Build failed."); }
+    }
+
+    shl_wait_for_all_builds();
 
     return 0;
 }
