@@ -15,7 +15,7 @@
 #define SHL_TEMPLATE_H
 
 #ifdef __cplusplus
-  extern "C" {
+    extern "C" {
 #endif // __cplusplus
 
 // Here are your needed includes
@@ -36,27 +36,27 @@
 // Example how to use the 000_shl_logger.h in a different shl
 // Use SHL logger if available
 #ifdef SHL_USE_LOGGER            // check if we activated the logger
-  #include "000_shl_logger.h"    // include it (since we log in here!)
+    #include "000_shl_logger.h"    // include it (since we log in here!)
 #else                            // fallback to printf
-  #define info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-  #define debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-  #define warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-  #define error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-  #define critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    #define debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+    #define warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    #define error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+    #define critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #endif // SHL_USE_LOGGER
 
 #ifdef SHL_IMPLEMENTATION
-  #include <stdio.h>
+    #include <stdio.h>
 
-  // Here is the place to implement the function
-  void shl_foo(int hello) {
-	info("Hello %d", hello);
-  }
+    // Here is the place to implement the function
+    void shl_foo(int hello) {
+        info("Hello %d", hello);
+    }
 
 #endif // SHL_IMPLEMENTATION
 
 #ifdef __cplusplus
-  }
+   }
 #endif // __cplusplus
 
 #endif // SHL_TEMPLATE_H

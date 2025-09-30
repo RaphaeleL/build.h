@@ -22,10 +22,10 @@
 #include "../libaries/001_shl_cli_arg_parser.h"
 
 typedef struct {
-  int a, b;
-  int *result;
-  void (*fn)(int, int, int *);
-  char sym;
+    int a, b;
+    int *result;
+    void (*fn)(int, int, int *);
+    char sym;
 } Calculator;
 
 static void _add(int a, int b, int *c) { *c = a + b; }
@@ -42,58 +42,58 @@ static void eval(int a, int b, char op) {
             .b = b,
             .result = malloc(sizeof(int)), .fn = _add,
             .sym = '+'
-		  };
-		  break;
+          };
+          break;
         case '-':
           c = (Calculator) {
             .a = a,
             .b = b,
             .result = malloc(sizeof(int)), .fn = _sub,
             .sym = '-'
-		  };
-		  break;
+          };
+          break;
         case '/':
           c = (Calculator) {
             .a = a,
             .b = b,
             .result = malloc(sizeof(int)), .fn = _div,
             .sym = '/'
-		  };
-		  break;
+          };
+          break;
         case '*':
           c = (Calculator) {
             .a = a,
             .b = b,
             .result = malloc(sizeof(int)), .fn = _mul,
             .sym = '*'
-		  };
-		  break;
+          };
+          break;
         default:
-		  critical("Unknown operator: %c", op);
-		  return;
+          critical("Unknown operator: %c", op);
+          return;
     }
-	c.fn(c.a, c.b, c.result);
-	info("%d %c %d = %d", c.a, c.sym, c.b, *c.result);
+    c.fn(c.a, c.b, c.result);
+    info("%d %c %d = %d", c.a, c.sym, c.b, *c.result);
     free(c.result);
 }
 
 int main(int argc, char *argv[]) {
 
-  init_logger(SHL_LOG_DEBUG);
+    init_logger(SHL_LOG_DEBUG);
 
-  add_argument("--a", "2", "The first number");
-  add_argument("--b", "3", "The second number");
-  add_argument("--operation", "+", "The operation");
+    add_argument("--a", "2", "The first number");
+    add_argument("--b", "3", "The second number");
+    add_argument("--operation", "+", "The operation");
 
-  init_argparser(argc, argv);
+    init_argparser(argc, argv);
 
-  arg_t *a = get_argument("--a");
-  arg_t *b = get_argument("--b");
-  arg_t *o = get_argument("--operation");
+    arg_t *a = get_argument("--a");
+    arg_t *b = get_argument("--b");
+    arg_t *o = get_argument("--operation");
 
-  if (a && b && o) {
-    eval(atoi(a->value), atoi(b->value), o->value[0]);
-  }
+    if (a && b && o) {
+        eval(atoi(a->value), atoi(b->value), o->value[0]);
+    }
 
-  return 0;
+    return 0;
 }

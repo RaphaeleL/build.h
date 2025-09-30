@@ -15,7 +15,7 @@
 #define SHL_LOGGER_H
 
 #ifdef __cplusplus
-  extern "C" {
+    extern "C" {
 #endif // __cplusplus
 
 // TODO: log to system log? (like journalctl)
@@ -37,107 +37,107 @@ void shl_init_logger(shl_log_level_t level);
 
 // Use SHL logger if available
 #ifndef SHL_USE_LOGGER
-  #define shl_debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define shl_info(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define shl_warn(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define shl_error(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_info(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_warn(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_error(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #else
-  #define shl_debug(fmt, ...) shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
-  #define shl_info(fmt, ...) shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
-  #define shl_warn(fmt, ...) shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
-  #define shl_error(fmt, ...) shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
-  #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
+    #define shl_debug(fmt, ...) shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
+    #define shl_info(fmt, ...) shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
+    #define shl_warn(fmt, ...) shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
+    #define shl_error(fmt, ...) shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
+    #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 #endif // SHL_USE _LOGGER
 
 // Strip prefix macros
 #ifdef SHL_STRIP_PREFIX
-  #define init_logger   shl_init_logger
-  #define debug         shl_debug
-  #define info          shl_info
-  #define warn          shl_warn
-  #define error         shl_error
-  #define critical      shl_critical
-  #define LOG_NONE      SHL_LOG_NONE
-  #define LOG_DEBUG     SHL_LOG_DEBUG
-  #define LOG_INFO      SHL_LOG_INFO
-  #define LOG_WARN      SHL_LOG_WARN
-  #define LOG_ERROR     SHL_LOG_ERROR
-  #define LOG_CRITICAL SHL_LOG_CRITICAL
+    #define init_logger   shl_init_logger
+    #define debug         shl_debug
+    #define info          shl_info
+    #define warn          shl_warn
+    #define error         shl_error
+    #define critical      shl_critical
+    #define LOG_NONE      SHL_LOG_NONE
+    #define LOG_DEBUG     SHL_LOG_DEBUG
+    #define LOG_INFO      SHL_LOG_INFO
+    #define LOG_WARN      SHL_LOG_WARN
+    #define LOG_ERROR     SHL_LOG_ERROR
+    #define LOG_CRITICAL SHL_LOG_CRITICAL
 #endif // SHL_STRIP_PREFIX
 
 #ifdef SHL_IMPLEMENTATION
-  #include <stdio.h>
-  #include <time.h>
+    #include <stdio.h>
+    #include <time.h>
 
-  // ANSI colors
-  #define SHL_COLOR_RESET     "\x1b[0m"
-  #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
-  #define SHL_COLOR_INFO      "\x1b[32m" // green
-  #define SHL_COLOR_WARN      "\x1b[33m" // yellow
-  #define SHL_COLOR_ERROR     "\x1b[31m" // red
-  #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
+    // ANSI colors
+    #define SHL_COLOR_RESET     "\x1b[0m"
+    #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
+    #define SHL_COLOR_INFO      "\x1b[32m" // green
+    #define SHL_COLOR_WARN      "\x1b[33m" // yellow
+    #define SHL_COLOR_ERROR     "\x1b[31m" // red
+    #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
 
-  static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
+    static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
 
-  void shl_init_logger(shl_log_level_t level) {
-    shl_logger_min_level = level;
-  }
-
-  static const char *shl_level_to_str(shl_log_level_t level) {
-    switch (level) {
-	case SHL_LOG_DEBUG:    return "DEBUG";
-	case SHL_LOG_INFO:     return "INFO";
-	case SHL_LOG_WARN:     return "WARN";
-	case SHL_LOG_ERROR:    return "ERROR";
-	case SHL_LOG_CRITICAL: return "CRITICAL";
-	default:               return "UNK";
+    void shl_init_logger(shl_log_level_t level) {
+        shl_logger_min_level = level;
     }
-  }
 
-  static const char *shl_level_to_color(shl_log_level_t level) {
-    switch (level) {
-	case SHL_LOG_DEBUG:    return SHL_COLOR_DEBUG;
-	case SHL_LOG_INFO:     return SHL_COLOR_INFO;
-	case SHL_LOG_WARN:     return SHL_COLOR_WARN;
-	case SHL_LOG_ERROR:    return SHL_COLOR_ERROR;
-	case SHL_LOG_CRITICAL: return SHL_COLOR_CRITICAL;
-	default:               return SHL_COLOR_RESET;
+    static const char *shl_level_to_str(shl_log_level_t level) {
+        switch (level) {
+        case SHL_LOG_DEBUG:    return "DEBUG";
+        case SHL_LOG_INFO:     return "INFO";
+        case SHL_LOG_WARN:     return "WARN";
+        case SHL_LOG_ERROR:    return "ERROR";
+        case SHL_LOG_CRITICAL: return "CRITICAL";
+        default:               return "UNK";
+        }
     }
-  }
 
-  void shl_log(shl_log_level_t level, const char *fmt, ...) {
-    if (level < shl_logger_min_level || level >= SHL_LOG_NONE) return;
+    static const char *shl_level_to_color(shl_log_level_t level) {
+        switch (level) {
+        case SHL_LOG_DEBUG:    return SHL_COLOR_DEBUG;
+        case SHL_LOG_INFO:     return SHL_COLOR_INFO;
+        case SHL_LOG_WARN:     return SHL_COLOR_WARN;
+        case SHL_LOG_ERROR:    return SHL_COLOR_ERROR;
+        case SHL_LOG_CRITICAL: return SHL_COLOR_CRITICAL;
+        default:               return SHL_COLOR_RESET;
+        }
+    }
 
-    // Timestamp
-    time_t t = time(NULL);
-    struct tm *lt = localtime(&t);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
+    void shl_log(shl_log_level_t level, const char *fmt, ...) {
+        if (level < shl_logger_min_level || level >= SHL_LOG_NONE) return;
 
-    const char *level_str   = shl_level_to_str(level);
-    const char *level_color = shl_level_to_color(level);
+        // Timestamp
+        time_t t = time(NULL);
+        struct tm *lt = localtime(&t);
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
 
-    // Print colored level, left-aligned in a fixed column
-    fprintf(stderr, "%s[%s]%s %s >>> ",
-            level_color,
-            level_str,
-            SHL_COLOR_RESET,
-            buf);
+        const char *level_str   = shl_level_to_str(level);
+        const char *level_color = shl_level_to_color(level);
 
-    // Print formatted message
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
+        // Print colored level, left-aligned in a fixed column
+        fprintf(stderr, "%s[%s]%s %s >>> ",
+                level_color,
+                level_str,
+                SHL_COLOR_RESET,
+                buf);
 
-    fprintf(stderr, "\n");
-  }
+        // Print formatted message
+        va_list args;
+        va_start(args, fmt);
+        vfprintf(stderr, fmt, args);
+        va_end(args);
+
+        fprintf(stderr, "\n");
+    }
 
 #endif // SHL_IMPLEMENTATION
 
 #ifdef __cplusplus
-  }
+    }
 #endif // __cplusplus
 
 #endif // SHL_LOGGER_H

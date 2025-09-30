@@ -19,19 +19,19 @@
 #include "../libaries/002_shl_no_build.h"
 
 int main() {
-  init_logger(SHL_LOG_DEBUG);
+    init_logger(SHL_LOG_DEBUG);
 
-    SHL_BuildConfig config = {
-        .source_file = "example/901_shl_demo_calculator.c",
-        .output_file = "calc",
-        .compiler = "gcc",
-        .compiler_flags = "-Wall -Wextra -O2",
-        .linker_flags = "-lm"
-    };
+      SHL_BuildConfig config = {
+          .source_file = "example/901_shl_demo_calculator.c",
+          .output_file = "calc",
+          .compiler = "gcc",
+          .compiler_flags = "-Wall -Wextra -O2",
+          .linker_flags = "-lm"
+      };
 
-    if (!shl_build_project(&config)) {
-        info("Build failed.");
-    }
+      if (!shl_build_project(&config)) {
+          info("Build failed.");
+      }
 
-  return 0;
+    return 0;
 }

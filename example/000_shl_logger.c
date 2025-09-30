@@ -18,13 +18,13 @@
 #include "../libaries/000_shl_logger.h"
 
 int main() {
-  init_logger(LOG_DEBUG); // allow everything
+    init_logger(LOG_DEBUG); // allow everything
 
-  debug("This is a debug message");
-  info("Starting program with pid=%d", 1234);
-  warn("Low memory detected");
-  error("Fatal error: %s", "out of memory");
-  critical("Fatal error: %s", "out of memory");
+    debug("This is a debug message");
+    info("Starting program with pid=%d", 1234);
+    warn("Low memory detected");
+    error("Fatal error: %s", "out of memory");
+    critical("Fatal error: %s", "out of memory");
 
-  return 0;
+    return 0;
 }
