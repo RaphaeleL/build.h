@@ -33,15 +33,15 @@
   // #define foo   shl_foo
 #endif // SHL_STRIP_PREFIX
 
+// Example how to use the 000_shl_logger.h in a different shl
 // Use SHL logger if available
-#ifdef SHL_USE_LOGGER
-  // This might need to be adjusted if copied somewhere else
-  #include "000_shl_logger.h"
-#else
-  #define info(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define warn(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-  #define error(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+#ifdef SHL_USE_LOGGER            // check if we activated the logger
+  #include "000_shl_logger.h"    // include it (since we log in here!)
+#else                            // fallback to printf
+  #define info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+  #define debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+  #define warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+  #define error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
   #define critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #endif // SHL_USE_LOGGER
 
