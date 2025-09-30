@@ -63,7 +63,7 @@ void shl_init_logger(shl_log_level_t level);
     #define LOG_INFO      SHL_LOG_INFO
     #define LOG_WARN      SHL_LOG_WARN
     #define LOG_ERROR     SHL_LOG_ERROR
-    #define LOG_CRITICAL SHL_LOG_CRITICAL
+    #define LOG_CRITICAL  SHL_LOG_CRITICAL
 #endif // SHL_STRIP_PREFIX
 
 #ifdef SHL_IMPLEMENTATION
@@ -109,21 +109,29 @@ void shl_init_logger(shl_log_level_t level);
     void shl_log(shl_log_level_t level, const char *fmt, ...) {
         if (level < shl_logger_min_level || level >= SHL_LOG_NONE) return;
 
-        // Timestamp
-        time_t t = time(NULL);
-        struct tm *lt = localtime(&t);
-        char buf[32];
-        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
-
         const char *level_str   = shl_level_to_str(level);
         const char *level_color = shl_level_to_color(level);
 
-        // Print colored level, left-aligned in a fixed column
-        fprintf(stderr, "%s[%s]%s %s >>> ",
-                level_color,
-                level_str,
-                SHL_COLOR_RESET,
-                buf);
+        #ifdef SHL_LOG_WITH_TIME
+            // Timestamp
+            time_t t = time(NULL);
+            struct tm *lt = localtime(&t);
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
+
+            // Print level and timestamp
+            fprintf(stderr, "%s[%s]%s %s >>> ",
+            level_color,
+            level_str,
+            SHL_COLOR_RESET,
+            buf);
+        #else
+            // Print level only
+            fprintf(stderr, "%s[%s]%s ",
+            level_color,
+            level_str,
+            SHL_COLOR_RESET);
+        #endif // SHL_LOG_WITH_TIME
 
         // Print formatted message
         va_list args;
