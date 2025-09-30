@@ -77,7 +77,7 @@ static void eval(int a, int b, char op) {
     free(c.result);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
     init_logger((LogConfig_t){.level = LOG_DEBUG});
 
     add_argument("--a", "2", "The first number");

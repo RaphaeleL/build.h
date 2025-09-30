@@ -18,8 +18,6 @@
     extern "C" {
 #endif // __cplusplus
 
-// TODO: Implement -> int get_amount_of_flags();
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
