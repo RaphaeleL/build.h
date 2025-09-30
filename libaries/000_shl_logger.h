@@ -20,8 +20,10 @@
 
 // TODO: log to system log? (like journalctl)
 
+#include <stdio.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <time.h>
 
 // Log levels
 typedef enum {
@@ -80,8 +82,6 @@ void shl_init_logger(SHL_LogConfig_t config);
 #endif // SHL_STRIP_PREFIX
 
 #ifdef SHL_IMPLEMENTATION
-    #include <stdio.h>
-    #include <time.h>
 
     // ANSI colors
     #define SHL_COLOR_RESET     "\x1b[0m"

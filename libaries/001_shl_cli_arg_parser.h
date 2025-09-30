@@ -18,9 +18,14 @@
     extern "C" {
 #endif // __cplusplus
 
+// TODO: Implement -> int get_amount_of_flags();
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#define SHL_USE_LOGGER
+#include "000_shl_logger.h"
 
 #define SHL_ARG_MAX 128
 
@@ -56,14 +61,7 @@ shl_arg_t *shl_get_argument(const char *long_name);
     #define arg_t          shl_arg_t
 #endif // SHL_STRIP_PREFIX
 
-#define SHL_USE_LOGGER
-#include "000_shl_logger.h"
-
 #ifdef SHL_IMPLEMENTATION
-    #define SHL_IMPLEMENTATION
-    #define SHL_STRIP_PREFIX
-    #include "000_shl_logger.h"
-
     void shl_init_argparser(int argc, char *argv[]) {
         shl_add_argument("--help", NULL, "Show this help message"); // no value expected
 

@@ -22,6 +22,15 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <time.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+// TODO: Not sure if i want to depend on 000_shl_logger.h
+#define SHL_USE_LOGGER
+#include "000_shl_logger.h"
 
 #define MAX_TASKS 32
 
@@ -65,16 +74,8 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
     #define dispatch_build      shl_dispatch_build
 #endif // SHL_STRIP_PREFIX
 
-#define SHL_USE_LOGGER
-#include "000_shl_logger.h"
 
 #ifdef SHL_IMPLEMENTATION
-    #include <time.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-    #include <pthread.h>
-    #include <ctype.h>
-
     static pthread_t task_threads[MAX_TASKS];
     static SHL_BuildTask task_data[MAX_TASKS];
     static int task_count = 0;

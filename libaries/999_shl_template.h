@@ -19,7 +19,7 @@
 #endif // __cplusplus
 
 // Here are your needed includes
-// #include <stdio.h>
+#include <stdio.h>
 // #include <stdbool.h>
 // #include <string.h>
 // #include <stdlib.h>
@@ -38,8 +38,6 @@
 #include "000_shl_logger.h"
 
 #ifdef SHL_IMPLEMENTATION
-    #include <stdio.h>
-
     // Here is the place to implement the function
     void shl_foo(int hello) {
         info("Hello %d", hello);
