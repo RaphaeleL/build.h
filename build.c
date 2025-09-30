@@ -30,9 +30,9 @@ int main() {
     SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out", .cli =  true };
 
     const char *examples[][2] = {
-        { "example/000_shl_logger.c",      "out/000" },
-        { "example/001_shl_cli_arg_parser.c", "out/001" },
-        { "example/002_shl_no_build.c",    "out/002" },
+        { "example/000_shl_logger.c",          "out/000" },
+        { "example/001_shl_cli_arg_parser.c",  "out/001" },
+        { "example/002_shl_no_build.c",        "out/002" },
         { "example/901_shl_demo_calculator.c", "out/901" },
         { "example/902_shl_demo_pointer.c",    "out/902" }
     };
