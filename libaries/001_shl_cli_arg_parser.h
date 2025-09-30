@@ -56,16 +56,8 @@ shl_arg_t *shl_get_argument(const char *long_name);
     #define arg_t          shl_arg_t
 #endif // SHL_STRIP_PREFIX
 
-// Use SHL logger if available
-#ifdef SHL_USE_LOGGER
-    #include "000_shl_logger.h"
-#else
-    #define info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    #define debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    #define warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    #define error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    #define critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-#endif // SHL_USE_LOGGER
+#define SHL_USE_LOGGER
+#include "000_shl_logger.h"
 
 #ifdef SHL_IMPLEMENTATION
     #define SHL_IMPLEMENTATION

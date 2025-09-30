@@ -39,16 +39,8 @@ bool shl_build_project(const SHL_BuildConfig* config);
     #define build_project shl_build_project
 #endif // SHL_STRIP_PREFIX
 
-// Use SHL logger if available
-#ifdef SHL_USE_LOGGER
-    #include "000_shl_logger.h"
-#else
-    #define info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    #define debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    #define warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    #define error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    #define critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-#endif // SHL_USE_LOGGER
+#define SHL_USE_LOGGER
+#include "000_shl_logger.h"
 
 #ifdef SHL_IMPLEMENTATION
     #include <stdio.h>
