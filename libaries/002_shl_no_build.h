@@ -29,14 +29,24 @@ typedef struct {
     const char* compiler;
     const char* compiler_flags;
     const char* linker_flags;
+    bool cli;
 } SHL_BuildConfig;
 
+typedef struct {
+    const char* command;
+    const char* command_flags;
+    bool cli;
+} SHL_SystemConfig;
+
 bool shl_build_project(const SHL_BuildConfig* config);
+bool shl_run(const SHL_SystemConfig* config);
 
 // Strip prefix macros (optional shorter names)
 #ifdef SHL_STRIP_PREFIX
     #define BuildConfig   SHL_BuildConfig
+    #define SystemConfig  SHL_SystemConfig
     #define build_project shl_build_project
+    #define run           shl_run
 #endif // SHL_STRIP_PREFIX
 
 #define SHL_USE_LOGGER
@@ -44,6 +54,29 @@ bool shl_build_project(const SHL_BuildConfig* config);
 
 #ifdef SHL_IMPLEMENTATION
     #include <stdio.h>
+
+    bool shl_run(const SHL_SystemConfig* config) {
+        if (!config || !config->command || !config->command_flags) {
+            error("Invalid system configuration.");
+            return false;
+        }
+
+        char command[1024];
+        snprintf(command, sizeof(command), "%s %s",
+        config->command,
+        config->command_flags ? config->command_flags : "");
+
+        info("Executing system command: %s", command);
+        int result = system(command);
+        if (result != 0) {
+            error("Build failed with exit code %d.", result);
+            return false;
+        }
+
+        debug("Build succeeded");
+        return true;
+
+    }
 
     bool shl_build_project(const SHL_BuildConfig* config) {
         if (!config || !config->source || !config->output || !config->compiler) {
@@ -53,11 +86,11 @@ bool shl_build_project(const SHL_BuildConfig* config);
 
         char command[1024];
         snprintf(command, sizeof(command), "%s %s %s -o %s %s",
-                 config->compiler,
-                 config->compiler_flags ? config->compiler_flags : "",
-                 config->source,
-                 config->output,
-                 config->linker_flags ? config->linker_flags : "");
+        config->compiler,
+        config->compiler_flags ? config->compiler_flags : "",
+        config->source,
+        config->output,
+        config->linker_flags ? config->linker_flags : "");
 
         info("Executing build command: %s", command);
         int result = system(command);
@@ -66,7 +99,7 @@ bool shl_build_project(const SHL_BuildConfig* config);
             return false;
         }
 
-        info("Build succeeded, output: %s", config->output);
+        debug("Build succeeded, output: %s", config->output);
         return true;
     }
 
