@@ -112,26 +112,25 @@ void shl_init_logger(shl_log_level_t level);
         const char *level_str   = shl_level_to_str(level);
         const char *level_color = shl_level_to_color(level);
 
-        #ifdef SHL_LOG_WITH_TIME
-            // Timestamp
-            time_t t = time(NULL);
-            struct tm *lt = localtime(&t);
-            char buf[32];
-            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
-
-            // Print level and timestamp
-            fprintf(stderr, "%s[%s]%s %s >>> ",
-            level_color,
-            level_str,
-            SHL_COLOR_RESET,
-            buf);
-        #else
-            // Print level only
-            fprintf(stderr, "%s[%s]%s ",
-            level_color,
-            level_str,
-            SHL_COLOR_RESET);
-        #endif // SHL_LOG_WITH_TIME
+#ifdef SHL_LOG_WITH_TIME
+        // Timestamp
+        time_t t = time(NULL);
+        struct tm *lt = localtime(&t);
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
+        // Print level and timestamp
+        fprintf(stderr, "%s[%s]%s %s >>> ",
+        level_color,
+        level_str,
+        SHL_COLOR_RESET,
+        buf);
+#else
+        // Print level only
+        fprintf(stderr, "%s[%s]%s ",
+        level_color,
+        level_str,
+        SHL_COLOR_RESET);
+#endif // SHL_LOG_WITH_TIME
 
         // Print formatted message
         va_list args;
