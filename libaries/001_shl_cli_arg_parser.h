@@ -73,25 +73,49 @@ shl_arg_t *shl_get_argument(const char *long_name);
     #include "000_shl_logger.h"
 
     void shl_init_argparser(int argc, char *argv[]) {
-        // parse argv
+        shl_add_argument("--help", NULL, "Show this help message"); // no value expected
+
         for (int i = 1; i < argc; i++) {
             for (int j = 0; j < shl_parser.count; j++) {
-              shl_arg_t *arg = &shl_parser.args[j];
-              if (strcmp(argv[i], arg->long_name) == 0 && i+1 < argc) {
-                  arg->value = argv[i+1];
-                  i++;
-              } else if (argv[i][0] == '-' && argv[i][1] == arg->short_name) {
-                  if (i+1 < argc) arg->value = argv[i+1], i++;
-              }
+                shl_arg_t *arg = &shl_parser.args[j];
+
+                // Long option match
+                if (strcmp(argv[i], arg->long_name) == 0) {
+                    if (strcmp(arg->long_name, "--help") == 0) {
+                        arg->value = "1"; // flag is set
+                    } else if (i + 1 < argc) {
+                        arg->value = argv[i + 1];
+                        i++;
+                    }
+                }
+                // Short option match
+                else if (argv[i][0] == '-' && argv[i][1] == arg->short_name) {
+                    if (arg->short_name == 'h') {
+                        arg->value = "1"; // flag is set
+                    } else if (i + 1 < argc) {
+                        arg->value = argv[i + 1];
+                        i++;
+                    }
+                }
             }
         }
 
-        // Log all arguments
-        for (int i = 0; i < shl_parser.count; i++) {
-            shl_arg_t *arg = &shl_parser.args[i];
-            debug("Argument %s (-%c) = %s", arg->long_name, arg->short_name, arg->value);
+        // Show help if requested
+        shl_arg_t *help = shl_get_argument("--help");
+        if (help && help->value) {
+            printf("Usage:\n");
+            for (int i = 0; i < shl_parser.count; i++) {
+                shl_arg_t *arg = &shl_parser.args[i];
+                printf("  %s, -%c: %s (default: %s)\n",
+                arg->long_name,
+                arg->short_name,
+                arg->help_msg ? arg->help_msg : "",
+                arg->default_val ? arg->default_val : "none");
+            }
+            exit(0);
         }
     }
+
 
     shl_argparser_t shl_parser = { .count = 0 };
 
