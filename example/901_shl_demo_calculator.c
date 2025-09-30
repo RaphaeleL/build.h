@@ -1,15 +1,18 @@
 /*
+ * ===========================================================================
  * calculator.c
  *
- * An overengineered calculator designed to demonstrate the use of pointers
- * within structs.
+ * Overengineered calculator to demonstrate:
+ *  - Use of pointers within structs
+ *  - Function pointers in structs
+ *  - CLI argument parsing with SHL CLI Argument Parser
+ *  - Logging with SHL Logger
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
- *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #include <stdio.h>

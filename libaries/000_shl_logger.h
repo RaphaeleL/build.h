@@ -1,14 +1,54 @@
 /*
+ * ===========================================================================
  * 000_shl_logger.h
  *
- * SHL for a Logger
+ * SHL: Minimal logger for C projects
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
+ * Provides:
+ *  - Logging with levels: DEBUG, INFO, HINT, WARN, ERROR, CRITICAL
+ *  - Optional colored output
+ *  - Optional timestamps
+ *  - Configurable minimum log level
  *
+ * Dependencies:
+ *  - Standard C library headers: stdio.h, stdlib.h, stdarg.h, time.h, stdbool.h
+ *
+ * Configuration:
+ *  - SHL_USE_LOGGER: If defined, uses shl_log() macros; otherwise printf is used
+ *  - SHL_STRIP_PREFIX: If defined, strips 'SHL_' prefix for shorter names
+ *  - SHL_IMPLEMENTATION: Define in one source file to include implementation
+ *
+ * Usage:
+ *  #define SHL_IMPLEMENTATION
+ *  #include "000_shl_logger.h"
+ *
+ *  SHL_LogConfig_t cfg = { SHL_LOG_DEBUG, true, true };
+ *  shl_init_logger(cfg);
+ *
+ *  shl_debug("Debug message: %d", 42);
+ *  shl_info("Info message");
+ *  shl_warn("Warning!");
+ *  shl_error("Something went wrong");
+ *
+ * Notes:
+ *  - Time output is optional via SHL_LogConfig_t.time
+ *  - Color output is optional via SHL_LogConfig_t.color
+ *  - Logging levels below the configured minimum are ignored
+ *  - ANSI colors are used for terminal output
+ *
+ * Limitations:
+ *  - Single-threaded logging; no internal locking for multithreaded logging
+ *  - Output goes to stderr; no file logging yet
+ *  - Buffer sizes are fixed by the underlying fprintf
+ *
+ * History:
+ *  - n/a
+ *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #ifndef SHL_LOGGER_H

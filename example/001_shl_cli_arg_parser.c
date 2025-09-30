@@ -1,14 +1,14 @@
 /*
+ * ===========================================================================
  * 001_shl_cli_arg_parser.c
  *
- * Example Usage for the SHL CLI Argument Parser
+ * Example usage for SHL CLI Argument Parser
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
- *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #include <stdio.h>

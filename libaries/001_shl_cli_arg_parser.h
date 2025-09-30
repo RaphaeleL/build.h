@@ -1,14 +1,54 @@
 /*
+ * ===========================================================================
  * 001_shl_cli_arg_parser.h
  *
- * SHL for a CLI Argument Parser
+ * SHL: Minimal CLI argument parser for C projects
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
+ * Provides:
+ *  - Define and parse command-line arguments (long and short options)
+ *  - Default values and help messages
+ *  - Access parsed values as string or integer
+ *  - Automatic help display with usage information
  *
+ * Dependencies:
+ *  - Standard C library headers: stdio.h, stdlib.h, string.h
+ *  - Optional logger: 000_shl_logger.h (enabled with SHL_USE_LOGGER)
+ *
+ * Configuration:
+ *  - SHL_ARG_MAX: Maximum number of arguments (default 128)
+ *  - SHL_STRIP_PREFIX: If defined, strips 'shl_' prefix for shorter names
+ *  - SHL_IMPLEMENTATION: Define in one source file to include implementation
+ *
+ * Usage:
+ *  #define SHL_IMPLEMENTATION
+ *  #include "001_shl_cli_arg_parser.h"
+ *
+ *  shl_init_argparser(argc, argv);
+ *  shl_add_argument("--port", "8080", "Port to listen on");
+ *  shl_add_argument("--verbose", "0", "Enable verbose output");
+ *
+ *  shl_arg_t *port_arg = shl_get_argument("--port");
+ *  int port = shl_arg_as_int(port_arg);
+ *
+ * Notes:
+ *  - "--help" is automatically added; prints usage and exits
+ *  - Short options are inferred from first letter of long option
+ *  - Parsed values overwrite defaults
+ *  - Works in single-threaded context
+ *
+ * Limitations:
+ *  - Maximum number of arguments is fixed (SHL_ARG_MAX)
+ *  - No advanced features like required args, types beyond string/int
+ *  - Only supports single-character short options
+ *
+ * History:
+ *  - n/a
+ *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #ifndef SHL_CLI_ARG_PARSER_H

@@ -1,14 +1,14 @@
 /*
+ * ===========================================================================
  * pointer.c
  *
- * Demonstrattion of pointers.
+ * Demonstration of pointers in C
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
- *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #include <stdio.h>

@@ -1,14 +1,58 @@
 /*
+ * ===========================================================================
  * 002_shl_no_build.h
  *
- * SHL for a build tool that does not require any build system.
+ * SHL: Minimal build tool for projects without a build system.
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
+ * Provides:
+ *  - Build projects sequentially or asynchronously
+ *  - Auto-rebuild if source files are newer than output
+ *  - Execute system commands with optional logging
  *
+ * Dependencies:
+ *  - Standard C library headers: stdio.h, stdlib.h, string.h, ctype.h, time.h
+ *  - POSIX headers: pthread.h, sys/stat.h, sys/types.h
+ *  - Optional logger: 000_shl_logger.h (enabled with SHL_USE_LOGGER)
+ *
+ * Configuration:
+ *  - MAX_TASKS: Maximum concurrent async build tasks (default 32)
+ *  - SHL_STRIP_PREFIX: If defined, strips 'SHL_' prefix for shorter names
+ *  - SHL_IMPLEMENTATION: Define in one source file to include implementation
+ *
+ * Usage:
+ *  #define SHL_IMPLEMENTATION
+ *  #include "002_shl_no_build.h"
+ *
+ *  SHL_BuildConfig cfg = {
+ *      .source = "main.c",
+ *      .output = "main",
+ *      .compiler = "gcc",
+ *      .compiler_flags = "-O2",
+ *      .linker_flags = "-lm",
+ *      .async = true,
+ *      .autorun = true
+ *  };
+ *  shl_dispatch_build(&cfg);
+ *  shl_wait_for_all_builds();
+ *
+ * Notes:
+ *  - Only one source file should define SHL_IMPLEMENTATION
+ *  - Autorun will execute the output binary automatically after a successful build
+ *  - Logging requires SHL_USE_LOGGER to be defined and 000_shl_logger.h present
+ *  - Async builds use pthreads; the max number is controlled by MAX_TASKS
+ *
+ * Limitations:
+ *  - Designed for small, simple projects
+ *  - Commands and paths are currently fixed-size buffers (1024 bytes)
+ *
+ * History:
+ *  - n/a
+ *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #ifndef SHL_NO_BUILD_H

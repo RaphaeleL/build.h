@@ -1,14 +1,14 @@
 /*
+ * ===========================================================================
  * 000_shl_logger.c
  *
- * Example Usage for the SHL Logger
+ * Example usage for SHL Logger
  *
- * Created at:  29. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
- *
+ * Created: 29 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #include <stdio.h>

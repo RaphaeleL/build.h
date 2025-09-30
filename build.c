@@ -1,14 +1,14 @@
 /*
+ * ===========================================================================
  * build.c
  *
- * Custom Build Tool Usage for the SHL Examples
+ * Custom build tool usage for SHL examples
  *
- * Created at:  30. Sep 2025
- * Author:      Raphaele Salvatore Licciardo
- *
+ * Created: 30 Sep 2025
+ * Author : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
+ * ===========================================================================
  */
 
 #define SHL_IMPLEMENTATION
