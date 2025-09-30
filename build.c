@@ -11,21 +11,19 @@
  *
  */
 
-#include <stdio.h>
-
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
 #include "./libaries/000_shl_logger.h"
 #include "./libaries/002_shl_no_build.h"
 
+// TODO: BuildConfig should have a auto_rebuild
+// TODO: Make the Shit work on Windows
+// TODO: command_flags and compiler_flags should be an array
+
 int main() {
     auto_rebuild();
     init_logger(LOG_INFO);
-
-    // TODO: no rebuild of buildconfig if no changes
-    // TODO: make build.c on windows possible
-    // TODO: command flags as an array ?
 
     SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
     SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };
