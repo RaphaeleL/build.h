@@ -19,9 +19,7 @@
 #include "../libaries/002_shl_no_build.h"
 
 int main() {
-    init_logger(SHL_LOG_DEBUG);
-
-    SHL_BuildConfig config = {
+    BuildConfig config = {
         .source_file = "example/901_shl_demo_calculator.c",
         .output_file = "calc",
         .compiler = "gcc",
@@ -29,7 +27,7 @@ int main() {
         .linker_flags = "-lm"
     };
 
-    if (!shl_build_project(&config)) {
+    if (!build_project(&config)) {
         info("Build failed.");
     }
 
