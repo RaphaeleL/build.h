@@ -24,11 +24,12 @@
 
 // Log levels
 typedef enum {
-    SHL_LOG_DEBUG = 0,
-    SHL_LOG_INFO,
-    SHL_LOG_WARN,
-    SHL_LOG_ERROR,
-    SHL_LOG_CRITICAL,
+    SHL_LOG_DEBUG = 0,   // like a extended log
+    SHL_LOG_INFO,        //
+    SHL_LOG_HINT,        // a special hint, not something wrong
+    SHL_LOG_WARN,        // something before error
+    SHL_LOG_ERROR,       // well, the ship is sinking
+    SHL_LOG_CRITICAL,    // fucked up but not breaking (e.g. memory leak)
     SHL_LOG_NONE
 } shl_log_level_t;
 
@@ -39,28 +40,32 @@ void shl_init_logger(shl_log_level_t level);
 #ifndef SHL_USE_LOGGER
     #define shl_debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
     #define shl_info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_hint(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
     #define shl_warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
     #define shl_error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
     #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #else
     #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
     #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
+    #define shl_hint(fmt, ...)     shl_log(SHL_LOG_HINT, fmt, ##__VA_ARGS__)
     #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
     #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
     #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
-#endif // SHL_USE _LOGGER
+#endif // SHL_USE_LOGGER
 
 // Strip prefix macros
 #ifdef SHL_STRIP_PREFIX
     #define init_logger   shl_init_logger
     #define debug         shl_debug
     #define info          shl_info
+    #define hint          shl_hint
     #define warn          shl_warn
     #define error         shl_error
     #define critical      shl_critical
     #define LOG_NONE      SHL_LOG_NONE
     #define LOG_DEBUG     SHL_LOG_DEBUG
     #define LOG_INFO      SHL_LOG_INFO
+    #define LOG_HINT      SHL_LOG_HINT
     #define LOG_WARN      SHL_LOG_WARN
     #define LOG_ERROR     SHL_LOG_ERROR
     #define LOG_CRITICAL  SHL_LOG_CRITICAL
@@ -74,6 +79,7 @@ void shl_init_logger(shl_log_level_t level);
     #define SHL_COLOR_RESET     "\x1b[0m"
     #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
     #define SHL_COLOR_INFO      "\x1b[32m" // green
+    #define SHL_COLOR_HINT      "\x1b[34m" // blue
     #define SHL_COLOR_WARN      "\x1b[33m" // yellow
     #define SHL_COLOR_ERROR     "\x1b[31m" // red
     #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
@@ -88,6 +94,7 @@ void shl_init_logger(shl_log_level_t level);
         switch (level) {
         case SHL_LOG_DEBUG:    return "DEBUG";
         case SHL_LOG_INFO:     return "INFO";
+        case SHL_LOG_HINT:     return "HINT";
         case SHL_LOG_WARN:     return "WARN";
         case SHL_LOG_ERROR:    return "ERROR";
         case SHL_LOG_CRITICAL: return "CRITICAL";
@@ -99,6 +106,7 @@ void shl_init_logger(shl_log_level_t level);
         switch (level) {
         case SHL_LOG_DEBUG:    return SHL_COLOR_DEBUG;
         case SHL_LOG_INFO:     return SHL_COLOR_INFO;
+        case SHL_LOG_HINT:     return SHL_COLOR_HINT;
         case SHL_LOG_WARN:     return SHL_COLOR_WARN;
         case SHL_LOG_ERROR:    return SHL_COLOR_ERROR;
         case SHL_LOG_CRITICAL: return SHL_COLOR_CRITICAL;
@@ -110,7 +118,11 @@ void shl_init_logger(shl_log_level_t level);
         if (level < shl_logger_min_level || level >= SHL_LOG_NONE) return;
 
         const char *level_str   = shl_level_to_str(level);
+#ifdef SHL_LOG_WITH_COLOR
         const char *level_color = shl_level_to_color(level);
+#else
+        const char *level_color = "";
+#endif // SHL_LOG_WITH_COLOR
 
 #ifdef SHL_LOG_WITH_TIME
         // Timestamp
@@ -120,16 +132,18 @@ void shl_init_logger(shl_log_level_t level);
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
         // Print level and timestamp
         fprintf(stderr, "%s[%s]%s %s >>> ",
-        level_color,
-        level_str,
-        SHL_COLOR_RESET,
-        buf);
+            level_color,
+            level_str,
+            SHL_COLOR_RESET,
+            buf
+        );
 #else
         // Print level only
         fprintf(stderr, "%s[%s]%s ",
-        level_color,
-        level_str,
-        SHL_COLOR_RESET);
+            level_color,
+            level_str,
+            SHL_COLOR_RESET
+        );
 #endif // SHL_LOG_WITH_TIME
 
         // Print formatted message
