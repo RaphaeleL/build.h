@@ -40,20 +40,58 @@ typedef struct {
 
 bool shl_build_project(const SHL_BuildConfig* config);
 bool shl_run(const SHL_SystemConfig* config);
+void shl_auto_rebuild();
 
 // Strip prefix macros (optional shorter names)
 #ifdef SHL_STRIP_PREFIX
-    #define BuildConfig   SHL_BuildConfig
-    #define SystemConfig  SHL_SystemConfig
-    #define build_project shl_build_project
-    #define run           shl_run
+    #define BuildConfig       SHL_BuildConfig
+    #define SystemConfig      SHL_SystemConfig
+    #define auto_rebuild      shl_auto_rebuild
+    #define build_project     shl_build_project
+    #define run               shl_run
 #endif // SHL_STRIP_PREFIX
 
 #define SHL_USE_LOGGER
 #include "000_shl_logger.h"
 
 #ifdef SHL_IMPLEMENTATION
-    #include <stdio.h>
+    #include <time.h>
+    #include <sys/stat.h>
+    #include <sys/types.h>
+
+    void shl_auto_rebuild(void) {
+        struct stat src_attr, out_attr;
+
+        const char *src = "build.c";
+        const char *out = "build";
+
+        if (stat(src, &src_attr) != 0) {
+            perror("stat source");
+            return;
+        }
+
+        bool need_rebuild = false;
+        if (stat(out, &out_attr) != 0) {
+            need_rebuild = true;
+        } else if (difftime(src_attr.st_mtime, out_attr.st_mtime) > 0) {
+            need_rebuild = true;
+        }
+
+        if (need_rebuild) {
+            info("Rebuilding: %s -> %s", src, out);
+            BuildConfig own_build = {
+                .source = "build.c",
+                .output = "build",
+                .compiler = "gcc"
+            };
+            if (!build_project(&own_build)) {
+                error("Rebuild failed.");
+            }
+        } else {
+            info("Up to date: %s", out);
+        }
+    }
+
 
     bool shl_run(const SHL_SystemConfig* config) {
         if (!config || !config->command || !config->command_flags) {

@@ -20,17 +20,15 @@
 #include "./libaries/002_shl_no_build.h"
 
 int main() {
+    auto_rebuild();
 
-    // TODO: auto rebuild build.c on timestamp ?
     // TODO: no rebuild of buildconfig if no changes
     // TODO: implement async / parallel execution
     // TODO: make build.c on windows possible
     // TODO: command flags as an array ?
 
-    BuildConfig build_0 = { .source = "build.c ", .output = "build", .compiler = "gcc" };
-
-    SystemConfig sys_p_1 = { .command = "rm", .command_flags = "-rf out", .cli = true };
-    SystemConfig sys_p_2 = { .command = "mkdir", .command_flags = "out", .cli = true };
+    SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out", .cli = true };
+    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out", .cli = true };
 
     BuildConfig build_1 = { .source = "example/000_shl_logger.c ", .output = "out/000", .compiler = "gcc" };
     BuildConfig build_2 = { .source = "example/001_shl_cli_arg_parser.c", .output = "out/001", .compiler = "gcc" };
@@ -38,9 +36,8 @@ int main() {
     BuildConfig build_4 = { .source = "example/901_shl_demo_calculator.c", .output = "out/901", .compiler = "gcc" };
     BuildConfig build_5 = { .source = "example/902_shl_demo_pointer.c", .output = "out/902", .compiler = "gcc" };
 
-    if (!build_project(&build_0)) { info("Build failed."); }
-    if (!run(&sys_p_1)) { info("Build failed."); }
-    if (!run(&sys_p_2)) { info("Build failed."); }
+    if (!run(&sysp_1)) { info("Build failed."); }
+    if (!run(&sysp_2)) { info("Build failed."); }
 
     if (!build_project(&build_1)) { info("Build failed."); }
     if (!build_project(&build_2)) { info("Build failed."); }
