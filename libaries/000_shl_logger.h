@@ -37,16 +37,16 @@ void shl_init_logger(shl_log_level_t level);
 
 // Use SHL logger if available
 #ifndef SHL_USE_LOGGER
-    #define shl_debug(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-    #define shl_info(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-    #define shl_warn(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-    #define shl_error(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    #define shl_error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
     #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
 #else
-    #define shl_debug(fmt, ...) shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
-    #define shl_info(fmt, ...) shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
-    #define shl_warn(fmt, ...) shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
-    #define shl_error(fmt, ...) shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
+    #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
+    #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
+    #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
+    #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
     #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 #endif // SHL_USE _LOGGER
 
