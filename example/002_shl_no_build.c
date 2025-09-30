@@ -21,8 +21,8 @@
 
 int main() {
     BuildConfig config = {
-        .source_file = "example/901_shl_demo_calculator.c",
-        .output_file = "calc",
+        .source = "example/901_shl_demo_calculator.c",
+        .output = "calc",
         .compiler = "gcc",
         .compiler_flags = "-Wall -Wextra -O2",
         .linker_flags = "-lm"

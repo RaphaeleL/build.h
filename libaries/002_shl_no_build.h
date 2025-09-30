@@ -24,8 +24,8 @@
 #include <stdlib.h>
 
 typedef struct {
-    const char* source_file;
-    const char* output_file;
+    const char* source;
+    const char* output;
     const char* compiler;
     const char* compiler_flags;
     const char* linker_flags;
@@ -46,7 +46,7 @@ bool shl_build_project(const SHL_BuildConfig* config);
     #include <stdio.h>
 
     bool shl_build_project(const SHL_BuildConfig* config) {
-        if (!config || !config->source_file || !config->output_file || !config->compiler) {
+        if (!config || !config->source || !config->output || !config->compiler) {
             error("Invalid build configuration.");
             return false;
         }
@@ -55,8 +55,8 @@ bool shl_build_project(const SHL_BuildConfig* config);
         snprintf(command, sizeof(command), "%s %s %s -o %s %s",
                  config->compiler,
                  config->compiler_flags ? config->compiler_flags : "",
-                 config->source_file,
-                 config->output_file,
+                 config->source,
+                 config->output,
                  config->linker_flags ? config->linker_flags : "");
 
         info("Executing build command: %s", command);
@@ -66,7 +66,7 @@ bool shl_build_project(const SHL_BuildConfig* config);
             return false;
         }
 
-        info("Build succeeded, output: %s", config->output_file);
+        info("Build succeeded, output: %s", config->output);
         return true;
     }
 
