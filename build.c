@@ -39,8 +39,8 @@ int main() {
     size_t n_examples = sizeof(examples) / sizeof(examples[0]);
     BuildConfig builds[sizeof(examples) / sizeof(examples[0])];
 
-    if (!run(&sysp_1)) { info("Build failed."); }
-    if (!run(&sysp_2)) { info("Build failed."); }
+    if (!run(&sysp_1)) return 1;
+    if (!run(&sysp_2)) return 1;
 
     for (size_t i = 0; i < n_examples; i++) {
         builds[i] = (BuildConfig){
@@ -50,7 +50,7 @@ int main() {
             .autorun  = false,
             .async    = false
         };
-        if (!dispatch_build(&builds[i])) { info("Build failed."); }
+        if (!dispatch_build(&builds[i])) return 1;
     }
 
     shl_wait_for_all_builds();

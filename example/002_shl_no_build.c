@@ -31,9 +31,9 @@ int main() {
         .linker_flags = "-lm"
     };
 
-    if (!run(&sysp_1)) { info("Build failed."); }
-    if (!run(&sysp_2)) { info("Build failed."); }
-    if (!build_project(&config)) {info("Build failed.");}
+    if (!run(&sysp_1)) return 1;
+    if (!run(&sysp_2)) return 1;
+    if (!build_project(&config)) return 1;
 
     return 0;
 }
