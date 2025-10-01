@@ -53,7 +53,7 @@ int main() {
         if (!dispatch_build(&builds[i])) return 1;
     }
 
-    shl_wait_for_all_builds();
+    wait_for_all_builds();
 
     return 0;
 }
