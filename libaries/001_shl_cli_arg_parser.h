@@ -149,7 +149,7 @@ shl_arg_t *shl_get_argument(const char *long_name);
 
     void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
         if (shl_parser.count >= SHL_ARG_MAX) {
-            error("Maximum number of arguments reached");
+            error("Maximum number of arguments reached\n");
             return;
         }
         shl_arg_t *arg = &shl_parser.args[shl_parser.count++];

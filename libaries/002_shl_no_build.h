@@ -129,12 +129,12 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         task->success = shl_build_project(&task->config);
 
         if (task->success && task->config.autorun) {
-            info("Auto-running %s", task->config.output);
+            info("Auto-running %s\n", task->config.output);
             char cmd[1024];
             snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
             int result = system(cmd);
             if (result != 0) {
-                error("Program %s exited with code %d", task->config.output, result);
+                error("Program %s exited with code %d\n", task->config.output, result);
             }
         }
         return NULL;
@@ -142,7 +142,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     bool shl_build_project_async(const SHL_BuildConfig* config) {
         if (task_count >= MAX_TASKS) {
-            error("Too many async build tasks (max %d)", MAX_TASKS);
+            error("Too many async build tasks (max %d)\n", MAX_TASKS);
             return false;
         }
 
@@ -150,7 +150,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         task_data[task_count].success = false;
 
         if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
-            error("Failed to create build thread.");
+            error("Failed to create build thread.\n");
             return false;
         }
 
@@ -162,7 +162,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         for (int i = 0; i < task_count; i++) {
             pthread_join(task_threads[i], NULL);
             if (!task_data[i].success) {
-                error("Build failed for %s", task_data[i].config.source);
+                error("Build failed for %s\n", task_data[i].config.source);
             }
         }
         task_count = 0;
@@ -187,26 +187,26 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         }
 
         if (need_rebuild) {
-            info("Rebuilding: %s -> %s", src, out);
+            info("Rebuilding: %s -> %s\n", src, out);
             BuildConfig own_build = {
                 .source = "build.c",
                 .output = "build",
                 .compiler = "gcc"
             };
             if (!build_project(&own_build)) {
-                error("Rebuild failed.");
+                error("Rebuild failed.\n");
             }
         } else {
-            info("Up to date: %s", out);
+            info("Up to date: %s\n", out);
         }
     }
 
     bool shl_dispatch_build(const SHL_BuildConfig* config) {
         if (config->async) {
-            debug("Building in parallel!");
+            debug("Building in parallel!\n");
             return shl_build_project_async(config);
         } else {
-            debug("Building in sequential!");
+            debug("Building in sequential!\n");
             return shl_build_project(config);
         }
     }
@@ -223,7 +223,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     bool shl_run(const SHL_SystemConfig* config) {
         if (!config || !config->command || !config->command_flags) {
-            error("Invalid system configuration.");
+            error("Invalid system configuration.\n");
             return false;
         }
 
@@ -232,10 +232,10 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         config->command,
         config->command_flags ? config->command_flags : "");
 
-        info("Executing system command: %s", command);
+        info("Executing system command: %s\n", command);
         int result = system(command);
         if (result != 0) {
-            error("Build failed with exit code %d.", result);
+            error("Build failed with exit code %d.\n", result);
             return false;
         }
 
@@ -246,7 +246,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     bool shl_build_project(const SHL_BuildConfig* config) {
         if (!config || !config->source || !config->output || !config->compiler) {
-            error("Invalid build configuration.");
+            error("Invalid build configuration.\n");
             return false;
         }
 
@@ -258,14 +258,14 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         config->output,
         config->linker_flags ? config->linker_flags : "");
 
-        info("Executing build command: %s", command);
+        info("Executing build command: %s\n", command);
         int result = system(command);
         if (result != 0) {
-            error("Build failed with exit code %d.", result);
+            error("Build failed with exit code %d.\n", result);
             return false;
         }
 
-        debug("Build succeeded, output: %s", config->output);
+        debug("Build succeeded, output: %s\n", config->output);
         return true;
     }
 

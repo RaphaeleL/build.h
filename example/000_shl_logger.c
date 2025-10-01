@@ -21,12 +21,12 @@
 int main() {
     init_logger((LogConfig_t){.level = LOG_DEBUG, .color = true, .time = true});
 
-    debug("This is a debug message");
-    info("Starting program with pid=%d", 1234);
-    hint("Starting program with pid=%d", 1234);
-    warn("Low memory detected");
-    error("Fatal error: %s", "out of memory");
-    critical("Fatal error: %s", "out of memory");
+    debug("This is a debug message\n");
+    info("Starting program with pid=%d\n", 1234);
+    hint("Starting program with pid=%d\n", 1234);
+    warn("Low memory detected\n");
+    error("Fatal error: %s\n", "out of memory");
+    critical("Fatal error: %s\n", "out of memory");
 
     return 0;
 }

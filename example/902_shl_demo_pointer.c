@@ -46,7 +46,7 @@ void example_a() {
     int a = 2;
     int b = 3;
     add_v1(a, b, &result);
-    info("a) %d + %d = %d", a, b, result);
+    info("a) %d + %d = %d\n", a, b, result);
 }
 
 void example_b() {
@@ -55,7 +55,7 @@ void example_b() {
     int a = 2;
     int b = 3;
     add_v1(a, b, result);
-    info("b) %d + %d = %d", a, b, *result);
+    info("b) %d + %d = %d\n", a, b, *result);
 }
 
 void example_c() {
@@ -63,7 +63,7 @@ void example_c() {
     int a = 2;
     int b = 3;
     add_v1(a, b, result);
-    info("c) %d + %d = %d", a, b, *result);
+    info("c) %d + %d = %d\n", a, b, *result);
     free(result);
 }
 
@@ -75,7 +75,7 @@ void example_d() {
     add_v1(4, 5, ptr + 1);
     add_v1(10, 20, ptr + 2);
 
-    info("d) %d, %d, %d", results[0], results[1], results[2]);
+    info("d) %d, %d, %d\n", results[0], results[1], results[2]);
 }
 
 void example_e() {
@@ -86,7 +86,7 @@ void example_e() {
     add_v1(4, 5, &results[1]);
     add_v1(10, 20, &results[2]);
 
-    info("e) %d, %d, %d", results[0], results[1], results[2]);
+    info("e) %d, %d, %d\n", results[0], results[1], results[2]);
 
     free(results);
 }
@@ -99,7 +99,7 @@ void example_f() {
 
     int result = 0;
     calculator->fn(calculator->a, calculator->b, &result);
-    info("f) %d + %d = %d", calculator->a, calculator->b, result);
+    info("f) %d + %d = %d\n", calculator->a, calculator->b, result);
 
     free(calculator);
 }
@@ -111,12 +111,14 @@ void example_g() {
     calculator->fn = add_v2;
 
     int result = calculator->fn(calculator->a, calculator->b);
-    info("g) %d + %d = %d", calculator->a, calculator->b, result);
+    info("g) %d + %d = %d\n", calculator->a, calculator->b, result);
 
     free(calculator);
 }
 
 int main() {
+    init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
+
     example_a(); // stack
     example_b(); // stack allocation
     example_c(); // heap allocation

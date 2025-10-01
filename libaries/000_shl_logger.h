@@ -172,7 +172,6 @@ void shl_init_logger(SHL_LogConfig_t config);
         const char *level_str = shl_level_to_str(level);
 
         const char *level_color = "";
-//        warn("%b", shl_logger_color);
         if (shl_logger_color) {
             level_color = shl_level_to_color(level);
         }
@@ -187,13 +186,10 @@ void shl_init_logger(SHL_LogConfig_t config);
             fprintf(stderr, "%s[%s]%s ", level_color, level_str, SHL_COLOR_RESET);
         }
 
-        // Print formatted message
         va_list args;
         va_start(args, fmt);
         vfprintf(stderr, fmt, args);
         va_end(args);
-
-        fprintf(stderr, "\n");
     }
 
 #endif // SHL_IMPLEMENTATION

@@ -28,14 +28,14 @@ int main(int argc, char *argv[]) {
 
     shl_arg_t *arg1 = shl_get_argument("--number");
     if (arg1 && shl_arg_as_int(arg1) == 5) {
-        info("Number is 5!");
+        info("Number is 5!\n");
     } else {
-        info("Number is not 5, it is %d", shl_arg_as_int(arg1));
+        info("Number is not 5, it is %d\n", shl_arg_as_int(arg1));
     }
 
     shl_arg_t *arg2 = shl_get_argument("--foo");
     if (arg2) {
-        info("Foo is %s", arg2->value);
+        info("Foo is %s\n", arg2->value);
     }
 
     return 0;
