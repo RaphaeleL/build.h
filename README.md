@@ -12,17 +12,16 @@ The goal of this project is to deliver **lightweight**, **portable**, and **easy
 * **Portable**: designed to work across Linux, macOS, and Windows.
 * **Well-documented**: each SHL comes with usage examples.
 
-## Structure
+## Build the Examples
 
-```
-/shl/
-   ├── shl_001_example.h   # Example single header library
-   ├── shl_002_math.h      # Math utilities
-   ├── shl_003_io.h        # File I/O helpers
-   └── ...
+Just compile the `build.c` custom build tool and execute it. Every `example/` will be compiled.
+
+```bash
+gcc build.c -o build
+./build
 ```
 
-## Usage
+## Usage in your own Project
 
 1. Copy the desired `.h` file into your project.
 2. Include it in your source file:
