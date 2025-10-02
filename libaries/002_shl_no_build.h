@@ -187,7 +187,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         }
 
         if (need_rebuild) {
-            info("Rebuilding: %s -> %s\n", src, out);
+            hint("Rebuilding: %s -> %s\n", src, out);
             BuildConfig own_build = {
                 .source = "build.c",
                 .output = "build",
