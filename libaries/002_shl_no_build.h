@@ -66,9 +66,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
 #include <ctype.h>
-#include <time.h>
 #include <pthread.h>
+#elif defined(_WIN32) || defined(_WIN64)
+// TODO
+#endif
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -149,11 +153,14 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
         task_data[task_count].config = *config;
         task_data[task_count].success = false;
-
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
         if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
             error("Failed to create build thread.\n");
             return false;
         }
+#elif defined(_WIN32) || defined(_WIN64)
+        // TODO
+#endif
 
         task_count++;
         return true;
@@ -161,7 +168,11 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     void shl_wait_for_all_builds(void) {
         for (int i = 0; i < task_count; i++) {
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
             pthread_join(task_threads[i], NULL);
+#elif defined(_WIN32) || defined(_WIN64)
+            // TODO
+#endif
             if (!task_data[i].success) {
                 error("Build failed for %s\n", task_data[i].config.source);
             }
@@ -198,7 +209,7 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
                 error("Rebuild failed.\n");
                 exit(1);
             }
-            
+
             // Restart the process with the new executable
             info("Restarting with updated build executable...\n");
             execv("./build", NULL);
@@ -221,6 +232,11 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     static char *shl_trim(char *s) {
         char *end;
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
+        while (isspace((unsigned char)*s)) s++;
+#elif defined(_WIN32) || defined(_WIN64)
+        // TODO
+#endif
         while (isspace((unsigned char)*s)) s++;
         if (*s == 0) return s;
         end = s + strlen(s) - 1;
