@@ -71,6 +71,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 // TODO: Not sure if i want to depend on 000_shl_logger.h
 #define SHL_USE_LOGGER
@@ -195,7 +196,14 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
             };
             if (!build_project(&own_build)) {
                 error("Rebuild failed.\n");
+                exit(1);
             }
+            
+            // Restart the process with the new executable
+            info("Restarting with updated build executable...\n");
+            execv("./build", NULL);
+            error("Failed to restart build process.\n");
+            exit(1);
         } else {
             info("Up to date: %s\n", out);
         }
