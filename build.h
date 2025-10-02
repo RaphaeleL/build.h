@@ -20,7 +20,6 @@
 
 // TODO: log to system log? (like journalctl)
 // TODO: BuildConfig should have a auto_rebuild
-// TODO: Make the Shit work on Windows
 // TODO: command_flags and compiler_flags should be an array
 
 #include <stdio.h>
@@ -43,7 +42,8 @@
     #include <pthread.h>
     #include <unistd.h>
 #elif defined(_WIN32) || defined(_WIN64)
-    // TODO
+    #include <windows.h>
+    #include <io.h>
 #endif
 
 // +++ LOGGER +++
@@ -84,21 +84,6 @@ void shl_init_logger(SHL_LogConfig_t config);
     #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
     #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 #endif // SHL_USE_LOGGER
-
-// +++ HELPER +++
-
-#ifndef SHL_ASSERT
-    #include <assert.h>
-    #define SHL_ASSERT assert
-#endif /* NOB_ASSERT */
-
-#define SHL_UNUSED(value) (void)(value)
-#define SHL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
-#define SHL_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
-
-#define SHL_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
-#define SHL_ARRAY_GET(array, index) \
-    (SHL_ASSERT((size_t)(index) < SHL_ARRAY_LEN(array)), (array)[(size_t)(index)])
 
 // +++ CLI PARSER +++
 
@@ -433,6 +418,28 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
     }
 
     // +++ NO BUILD +++
+
+    static void shl_ensure_dir_for_file(const char* filepath) {
+        char dir[1024];
+        strncpy(dir, filepath, sizeof(dir));
+        dir[sizeof(dir)-1] = '\0';
+
+        // Find the last slash/backslash
+        char *slash = strrchr(dir, '/');
+#if defined(_WIN32) || defined(_WIN64)
+        if (!slash) slash = strrchr(dir, '\\');
+#endif
+        if (slash) {
+          *slash = '\0';
+#if defined(_WIN32) || defined(_WIN64)
+          _mkdir(dir);
+#else
+          mkdir(dir, 0755);
+#endif
+        }
+}
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
     static pthread_t task_threads[MAX_TASKS];
     static SHL_BuildTask task_data[MAX_TASKS];
     static int task_count = 0;
@@ -461,14 +468,10 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
         task_data[task_count].config = *config;
         task_data[task_count].success = false;
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
         if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
             shl_error("Failed to create build thread.\n");
             return false;
         }
-#elif defined(_WIN32) || defined(_WIN64)
-        // TODO
-#endif
 
         task_count++;
         return true;
@@ -476,23 +479,69 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     void shl_wait_for_all_builds(void) {
         for (int i = 0; i < task_count; i++) {
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
             pthread_join(task_threads[i], NULL);
-#elif defined(_WIN32) || defined(_WIN64)
-            // TODO
-#endif
             if (!task_data[i].success) {
                 shl_error("Build failed for %s\n", task_data[i].config.source);
             }
         }
         task_count = 0;
     }
+#elif defined(_WIN32) || defined(_WIN64)
+    static HANDLE task_threads[MAX_TASKS];
+    static SHL_BuildTask task_data[MAX_TASKS];
+    static int task_count = 0;
+    static DWORD WINAPI shl_build_thread_win(LPVOID arg) {
+        SHL_BuildTask* task = (SHL_BuildTask*)arg;
+        task->success = shl_build_project(&task->config);
+
+        if (task->success && task->config.autorun) {
+            shl_info("Auto-running %s\n", task->config.output);
+            system(task->config.output);
+        }
+        return 0;
+    }
+
+    bool shl_build_project_async(const SHL_BuildConfig* config) {
+        if (task_count >= MAX_TASKS) {
+            shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
+            return false;
+        }
+
+        task_data[task_count].config = *config;
+        task_data[task_count].success = false;
+
+        task_threads[task_count] = CreateThread(NULL, 0, shl_build_thread_win, &task_data[task_count], 0, NULL);
+        if (!task_threads[task_count]) {
+            shl_error("Failed to create build thread.\n");
+            return false;
+        }
+
+        task_count++;
+        return true;
+    }
+
+    void shl_wait_for_all_builds(void) {
+        for (int i = 0; i < task_count; i++) {
+            WaitForSingleObject(task_threads[i], INFINITE);
+            CloseHandle(task_threads[i]);
+            if (!task_data[i].success) {
+                shl_error("Build failed for %s\n", task_data[i].config.source);
+            }
+        }
+        task_count = 0;
+    }
+#endif
+
 
     void shl_auto_rebuild(void) {
         struct stat src_attr, out_attr;
 
         const char *src = "build.c";
+#if defined(_WIN32) || defined(_WIN64)
+        const char *out = "build_new.exe";
+#else
         const char *out = "build";
+#endif
 
         if (stat(src, &src_attr) != 0) {
             perror("stat source");
@@ -508,9 +557,10 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
         if (need_rebuild) {
             shl_hint("Rebuilding: %s -> %s\n", src, out);
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
             SHL_BuildConfig own_build = {
                 .source = "build.c",
-                .output = "build",
+                .output = out,
                 .compiler = "gcc"
             };
             if (!shl_build_project(&own_build)) {
@@ -520,15 +570,49 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
             // Restart the process with the new executable
             shl_info("Restarting with updated build executable...\n");
+
             execv("./build", NULL);
             shl_error("Failed to restart build process.\n");
             exit(1);
+#elif defined(_WIN32) || defined(_WIN64)
+            // TODO: Not working on Windows
+
+            const char *tmp_out = "build_new.exe";
+            SHL_BuildConfig own_build = {
+                .source = "build.c",
+                .output = tmp_out,
+                .compiler = "gcc"
+            };
+            if (!shl_build_project(&own_build)) {
+                shl_error("Rebuild failed.\n");
+                exit(1);
+            }
+
+            shl_info("Restarting with updated build executable...\n");
+
+            STARTUPINFO si = { sizeof(si) };
+            PROCESS_INFORMATION pi;
+            if (!CreateProcess(tmp_out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                shl_error("Failed to restart build process.\n");
+                exit(1);
+            }
+
+            ExitProcess(0);
+#endif
+
         } else {
             shl_info("Up to date: %s\n", out);
         }
     }
 
     bool shl_dispatch_build(const SHL_BuildConfig* config) {
+        if (!config || !config->output) {
+            shl_error("Invalid build config\n");
+            return false;
+        }
+
+        shl_ensure_dir_for_file(config->output);
+
         if (config->async) {
             shl_debug("Building in parallel!\n");
             return shl_build_project_async(config);
@@ -561,8 +645,9 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
         char command[1024];
         snprintf(command, sizeof(command), "%s %s",
-        config->command,
-        config->command_flags ? config->command_flags : "");
+            config->command,
+            config->command_flags ? config->command_flags : ""
+        );
 
         shl_info("Executing system command: %s\n", command);
         int result = system(command);
@@ -584,11 +669,20 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
         char command[1024];
         snprintf(command, sizeof(command), "%s %s %s -o %s %s",
-        config->compiler,
-        config->compiler_flags ? config->compiler_flags : "",
-        config->source,
-        config->output,
-        config->linker_flags ? config->linker_flags : "");
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
+            config->compiler,
+            config->compiler_flags ? config->compiler_flags : "",
+            config->source,
+            config->output,
+            config->linker_flags ? config->linker_flags : ""
+#elif defined(_WIN32) || defined(_WIN64)
+            config->compiler,
+            config->compiler_flags ? config->compiler_flags : "",
+            config->source,
+            config->output,
+            config->linker_flags ? config->linker_flags : ""
+#endif
+        );
 
         shl_info("Executing build command: %s\n", command);
         int result = system(command);
