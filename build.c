@@ -1,25 +1,7 @@
-/*
- * ===========================================================================
- * build.c
- *
- * Custom build tool usage for SHL examples
- *
- * Created: 30 Sep 2025
- * Author : Raphaele Salvatore Licciardo
- *
- * Copyright (c) 2025 Raphaele Salvatore Licciardo
- * ===========================================================================
- */
-
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "./libaries/000_shl_logger.h"
-#include "./libaries/002_shl_no_build.h"
-
-// TODO: BuildConfig should have a auto_rebuild
-// TODO: Make the Shit work on Windows
-// TODO: command_flags and compiler_flags should be an array
+#include "./build.h"
 
 int main() {
     init_logger((LogConfig_t){.level = LOG_INFO, .color = false});

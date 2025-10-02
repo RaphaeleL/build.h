@@ -16,7 +16,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/001_shl_cli_arg_parser.h"
+#include "../build.h"
 
 int main(int argc, char *argv[]) {
     init_logger((LogConfig_t){.level = LOG_DEBUG});

@@ -1,8 +1,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/000_shl_logger.h"
-#include "../libaries/003_shl_dynamic_array.h"
+#include "../build.h"
 
 typedef shl_list(int) Vector;
 
@@ -42,6 +41,8 @@ int main(void) {
     pushn(&vector, another_extra, 7);
     print_da(&vector);
 
+    drop(&vector);
+    drop(&vector);
     drop(&vector);
     print_da(&vector);
 

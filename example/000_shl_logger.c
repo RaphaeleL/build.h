@@ -16,7 +16,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/000_shl_logger.h"
+#include "../build.h"
 
 int main() {
     init_logger((LogConfig_t){.level = LOG_DEBUG, .color = true, .time = true});

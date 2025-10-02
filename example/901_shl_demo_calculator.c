@@ -21,8 +21,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/000_shl_logger.h"
-#include "../libaries/001_shl_cli_arg_parser.h"
+#include "../build.h"
 
 typedef struct {
     int a, b;

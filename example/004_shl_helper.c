@@ -1,6 +1,6 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#include "../libaries/004_shl_helper.h"
+#include "../build.h"
 
 void pretty_print_array(int* xs, int len) {
     for (int i = 0; i < len; ++i) {

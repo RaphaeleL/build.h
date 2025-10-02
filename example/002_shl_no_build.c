@@ -16,8 +16,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
-#include "../libaries/000_shl_logger.h"
-#include "../libaries/002_shl_no_build.h"
+#include "../build.h"
 
 int main() {
     SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
