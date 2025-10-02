@@ -25,6 +25,9 @@ int main(void) {
 
     print_da(&vector);
 
+    swap(&vector, 3);
+    print_da(&vector);
+
     push(&vector, 10);
     push(&vector, 11);
     push(&vector, 12);
@@ -33,9 +36,6 @@ int main(void) {
 
     int extra[] = {42, 43, 44};
     pushn(&vector, extra, 3);
-    print_da(&vector);
-
-    remove_swap(&vector, 2);
     print_da(&vector);
 
     int another_extra[] = {2, 3, 4, 5, 6, 7, 8};

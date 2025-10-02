@@ -11,7 +11,7 @@
  *  - pushn(vec, src, n)  : Append multiple elements from an array
  *  - drop(vec)           : Remove the last element
  *  - dropn(vec, n)       : Remove element at index n, shifting elements down
- *  - remove_swap(vec, i) : Remove element at index i by swapping with last
+ *  - swap(vec, i) :      : Swap element at index i with last
  *  - resize(vec, n)      : Resize array to exactly n elements (may grow)
  *  - release(vec)        : Free all allocated memory
  *  - back(vec)           : Get last element (asserts non-empty)
@@ -165,15 +165,17 @@
 #define shl_back(vec) \
     ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : (error("shl_back() on empty array\n"), abort(), (vec)->data[0]))
 
-// Remove element at index i (swap with last)
-#define shl_remove_swap(vec, i)                         \
-    do {                                                \
-        size_t __idx = (i);                             \
-        if (__idx >= (vec)->len) {                      \
-            error("shl_remove_swap(): out of range\n"); \
-            abort();                                    \
-        }                                               \
-        (vec)->data[__idx] = (vec)->data[--(vec)->len]; \
+// Swap element i with last element (without removing)
+#define shl_swap(vec, i)                                   \
+    do {                                                   \
+        size_t __idx = (i);                                \
+        if (__idx >= (vec)->len) {                         \
+            error("shl_swap(): out of range\n");           \
+            abort();                                       \
+        }                                                  \
+        typeof((vec)->data[0]) __tmp = (vec)->data[__idx]; \
+        (vec)->data[__idx] = (vec)->data[(vec)->len - 1];  \
+        (vec)->data[(vec)->len - 1] = __tmp;               \
     } while (0)
 
 // Struct wrapper
@@ -191,7 +193,7 @@
     #define resize       shl_resize
     #define release      shl_release
     #define back         shl_back
-    #define remove_swap  shl_remove_swap
+    #define swap         shl_swap
     #define list         shl_list
 #endif // SHL_STRIP_PREFIX
 
