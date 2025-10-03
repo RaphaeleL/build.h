@@ -2,8 +2,6 @@
 
 A single-header **quality-of-life (QoL) utility library for C**. It provides logging, CLI argument parsing, dynamic arrays, and lightweight build-system helpers in a portable way (Linux, macOS, Windows).
 
----
-
 ## Features
 
 ### Logger
@@ -39,8 +37,6 @@ A single-header **quality-of-life (QoL) utility library for C**. It provides log
 
   - `SHL_ASSERT`, `SHL_UNUSED`, `SHL_ARRAY_LEN`, `SHL_TODO`, `SHL_UNREACHABLE`.
   - Strip-prefix mode (`#define SHL_STRIP_PREFIX`) for shorter names like `debug()`, `push()`, etc.
-
----
 
 ## Getting Started
 
@@ -97,8 +93,6 @@ printf("Last: %d\n", shl_back(&nums));
 shl_release(&nums);
 ```
 
----
-
 ##  Roadmap
 
 > Not sure if the single header build.h is a good choice, some user might only want a logger, others only want a cli parser. Might be changed in the future.
@@ -119,8 +113,6 @@ shl_release(&nums);
 - [ ] Easier Parallelization
 - [ ] Better Error Handling
 
----
-
 ## Installation
 
 Just drop `build.h` into your project.
@@ -132,8 +124,6 @@ To define implementation once, add:
 ```
 
 All other translation units should just `#include "build.h"` without defining `SHL_IMPLEMENTATION`.
-
----
 
 ## License
 
