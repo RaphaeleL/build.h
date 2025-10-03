@@ -3,6 +3,8 @@
 #define SHL_USE_LOGGER
 #include "./build.h"
 
+#define async_auto_run false 
+
 int main() {
     init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
     auto_rebuild();
@@ -28,7 +30,7 @@ int main() {
         if (!dispatch_build(&builds[i])) return 1;
     }
 
-    wait_for_all_builds();
+    if (async_auto_run) wait_for_all_builds();
 
     return 0;
 }
