@@ -21,6 +21,7 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
+#define SHL_USE_CLI_PARSER
 #include "../build.h"
 
 typedef struct {

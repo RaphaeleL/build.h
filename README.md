@@ -4,19 +4,30 @@ A single-header **quality-of-life (QoL) utility library for C**. It provides log
 
 ## Getting Started
 
-Checkout the `examples\` Directory with many different example usages. Just drop `build.h` into your project. There are several define options, with `#define SHL_IMPLEMENTATION` you enable the default implementation in the `build.h` file. The `#define SHL_STRIP_PREFIX` is removing every `shl_` prefix. And last, the `build.h` is internally using its own logger, if you don't want that, and rather use the plain `printf()` just enable / disable `#define SHL_USE_LOGGER`. If you now include `#include "./build.h"` you should be ready to start!
+Checkout the `examples\` Directory with many different example usages. Just drop `build.h` into your project. There are several `define` options, those control the behaviour of `build.h`
+
+- `SHL_USE_SHL_IMPLEMENTATION` - enable the default implementation
+- `SHL_USE_LOGGER` - enable the logger
+- `SHL_USE_CLI_PARSER` - enable the cli argument parsing
+- `SHL_USE_NO_BUILD` - enable the no build tool
+- `SHL_USE_HELPER` - enable some custom helper tools, like `TODO("not implemented yet")`
+- `SHL_USE_DYN_ARRAY` - enable dynamic arrays, a list like tooling in c!
+
+If you now include `#include "./build.h"` itself, you should be ready to start! Below is an example. this examples assumes there is a file `main.c` which is our target. When we are compiling this file (assume its `build.c`) with `gcc -o build build.c` and execute if afterwards with `./build`, it is doing multiple things as once.
+
+1. check if build.c has changed, if so: recompile `build.c` and rerun itself
+2. compile the target (here `main.c`)
+3: autorun is on true, thereby: run the target.
+
+See the Code below:
 
 ```c
 // File: build.c
 
-// Enable the Implementation in build.h
 #define SHL_IMPLEMENTATION
-
-// Strip all shl_ Prefixes
 #define SHL_STRIP_PREFIX
-
-// Use the intern Logger
 #define SHL_USE_LOGGER
+#define SHL_USE_NO_BUILD
 
 #include "./build.h"
 
@@ -36,7 +47,13 @@ int main() {
     };
 
     // lets start the process, oh and it might fail.
-    if (!dispatch_build(&build)) return 1;
+    if (dispatch_build(&build)) {
+        info("Build was successfully");
+        return 1;
+    } else {
+        error("Build was failed!");
+        return 1;
+    }
 
     return 0;
 }

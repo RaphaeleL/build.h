@@ -1,6 +1,8 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
+#define SHL_USE_NO_BUILD
+#define SHL_USE_HELPER
 #include "./build.h"
 
 int main() {
@@ -8,26 +10,23 @@ int main() {
     auto_rebuild();
 
     const char *examples[][2] = {
-        { "example/000_shl_logger.c",          "out/000_logger" },
-        { "example/001_shl_cli_arg_parser.c",  "out/001_argparser" },
-        { "example/002_shl_dynamic_array.c",   "out/002_dyn_array" },
-        { "example/003_shl_helper.c",          "out/003_helper" },
-        { "example/901_shl_demo_calculator.c", "out/901_demo_calculator" },
-        { "example/902_shl_demo_pointer.c",    "out/902_demo_pointer" }
+        { "examples/000_shl_logger.c",          "out/000_logger" },
+        { "examples/001_shl_cli_arg_parser.c",  "out/001_argparser" },
+        { "examples/002_shl_dynamic_array.c",   "out/002_dyn_array" },
+        { "examples/003_shl_helper.c",          "out/003_helper" },
+        { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
+        { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" }
     };
 
-    size_t n_examples = sizeof(examples) / sizeof(examples[0]);
-    BuildConfig builds[sizeof(examples) / sizeof(examples[0])];
+    BuildConfig builds[ARRAY_LEN(examples)];
 
-    for (size_t i = 0; i < n_examples; i++) {
+    for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
         builds[i] = (BuildConfig){
-            .source   = examples[i][0],
-            .output   = examples[i][1]
+            .source = examples[i][0], .output = examples[i][1],
+            .autorun = !true
         };
         if (!dispatch_build(&builds[i])) return 1;
     }
-
-    if (async_auto_run) wait_for_all_builds();
 
     return 0;
 }
