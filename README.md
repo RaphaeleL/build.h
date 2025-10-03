@@ -4,14 +4,21 @@ A single-header **quality-of-life (QoL) utility library for C**. It provides log
 
 ## Getting Started
 
-Just drop `build.h` into your project. There are several `define` options, those control the behaviour of `build.h`
+Just drop `build.h` into your project. 
 
-- `SHL_USE_SHL_IMPLEMENTATION` - enable the default implementation
+```bash
+wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
+```
+
+There are several `define` options, which control the behaviour of `build.h`:
+
 - `SHL_USE_LOGGER` - enable the logger
 - `SHL_USE_CLI_PARSER` - enable the cli argument parsing
 - `SHL_USE_NO_BUILD` - enable the no build tool
-- `SHL_USE_HELPER` - enable some custom helper tools, like `TODO("not implemented yet")`
-- `SHL_USE_DYN_ARRAY` - enable dynamic arrays, a list like tooling in c!
+- `SHL_USE_HELPER` - enable some custom helper dev tools
+- `SHL_USE_DYN_ARRAY` - enable dynamic arrays
+
+Since it's just an header file, you need to define `SHL_IMPLEMENTATION` in **one** of your source files before including `build.h`, to enable the implementation inside of the header.
 
 If you now include `#include "./build.h"` itself, you should be ready to start! Below is an example. this examples assumes there is a file `main.c` which is our target. When we are compiling this file (assume its `build.c`) with `gcc -o build build.c` and execute if afterwards with `./build`, it is doing multiple things as once.
 
@@ -49,7 +56,7 @@ int main() {
 
 ##  Roadmap
 
-> Not sure if the single header build.h is a good choice, some user might only want a logger, others only want a cli parser. Might be changed in the future.
+Since each Tool is independent and you can just enable the ones you need. The roadmap below shows what is already implemented and what is planned. They will all be included in the same single-header file. In the future this might be split into multiple files, but for now I want to keep it simple.
 
 - [x] Logger
 - [x] No Build
