@@ -32,28 +32,16 @@ See the Code below:
 #include "./build.h"
 
 int main() {
-    // Auto. detect changes on this file, and auto rebuild during the execution of it
     auto_rebuild();
 
-    // Lets create a Build Config, src/main.c should be compiled to out/main the
-    // out/ folder is auto. created. with autorun with are auto. run the executable
-    // when we are running this script.
-    // thereby we are able to auto detect changes on build.c, compile main.c and run
-    // the executable, all with one command ./build
     BuildConfig build = (BuildConfig){
       .source   = "src/main.c",
       .output   = "out/main",
       .autorun  = true
     };
 
-    // lets start the process, oh and it might fail.
-    if (dispatch_build(&build)) {
-        info("Build was successfully");
-        return 1;
-    } else {
-        error("Build was failed!");
-        return 1;
-    }
+    if (!dispatch_build(&build)) return 1;
+    info("We are finished! yeeey.");
 
     return 0;
 }
