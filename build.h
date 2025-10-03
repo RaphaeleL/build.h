@@ -1,13 +1,14 @@
 /*
  * ===========================================================================
- * build.h
+ * File         : build.h
+ * Description  : A collection of quality-of-life (QoL) utilities for C.
  *
- * A collection of QoL functionalities for C.
- *
- * Created: 30 Sep 2025
- * Author : Raphaele Salvatore Licciardo
+ * Created      : 30 Sep 2025
+ * Last Updated : 03 Oct 2025
+ * Author       : Raphaele Salvatore Licciardo
  *
  * Copyright (c) 2025 Raphaele Salvatore Licciardo
+ * All rights reserved.
  * ===========================================================================
  */
 
@@ -18,9 +19,10 @@
     extern "C" {
 #endif // __cplusplus
 
-// TODO: log to system log? (like journalctl)
-// TODO: BuildConfig should have a auto_rebuild
-// TODO: command_flags and compiler_flags should be an array
+// TODO: Log should be more precise (like to a file, or journalctl)
+// TODO: The BuildConfig struct should have a auto_rebuild, it shouldn't be a DEFINE
+// TODO: The arrays in BuildConfig and SystemConfig could be a Dyn Array
+// TODO: Auto Rebuild is not Working on Windows
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,11 +35,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifndef SHL_ASSERT
-    #include <assert.h>
-    #define SHL_ASSERT assert
-#endif /* SHL_ASSERT */
-
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
     #include <pthread.h>
     #include <unistd.h>
@@ -46,7 +43,14 @@
     #include <io.h>
 #endif
 
-// +++ LOGGER +++
+#ifndef SHL_ASSERT
+    #include <assert.h>
+    #define SHL_ASSERT assert
+#endif /* SHL_ASSERT */
+
+// +++++++++++++++++++++++++++++++++
+// +++ LOGGER ++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++
 
 // Log levels
 typedef enum {
@@ -85,7 +89,9 @@ void shl_init_logger(SHL_LogConfig_t config);
     #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 #endif // SHL_USE_LOGGER
 
-// +++ CLI PARSER +++
+// +++++++++++++++++++++++++++++++++
+// +++ CLI PARSER ++++++++++++++++++
+// +++++++++++++++++++++++++++++++++
 
 #define SHL_ARG_MAX 128
 
@@ -107,8 +113,12 @@ extern shl_argparser_t shl_parser;
 void shl_init_argparser(int argc, char *argv[]);
 void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg);
 shl_arg_t *shl_get_argument(const char *long_name);
+shl_arg_t *shl_next_argument();
 
-// +++ NO BUILD +++
+// +++++++++++++++++++++++++++++++++
+// +++ NO BUILD ++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++
+
 #define MAX_TASKS 32
 
 typedef struct {
@@ -137,7 +147,9 @@ void shl_auto_rebuild();
 void shl_wait_for_all_builds(void);
 bool shl_dispatch_build(SHL_BuildConfig* config);
 
-// +++ DYNAMIC ARRAY +++
+// +++++++++++++++++++++++++++++++++
+// +++ DYNAMIC ARRAY +++++++++++++++
+// +++++++++++++++++++++++++++++++++
 
 #define SHL_INIT_CAP 8
 
@@ -253,7 +265,9 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
 #define shl_list(T) \
     struct { T *data; size_t len, cap; }
 
-// +++ HELPER +++
+// +++++++++++++++++++++++++++++++++
+// +++ HELPER ++++++++++++++++++++++
+// +++++++++++++++++++++++++++++++++
 
 #define SHL_UNUSED(value) (void)(value)
 #define SHL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
@@ -266,7 +280,9 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
 
 #ifdef SHL_IMPLEMENTATION
 
+    // +++++++++++++++++++++++++++++++++
     // +++ LOGGER +++
+    // +++++++++++++++++++++++++++++++++
 
     // ANSI colors
     #define SHL_COLOR_RESET     "\x1b[0m"
@@ -337,7 +353,9 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
         va_end(args);
     }
 
+    // +++++++++++++++++++++++++++++++++
     // +++ CLI PARSER +++
+    // +++++++++++++++++++++++++++++++++
 
     void shl_init_argparser(int argc, char *argv[]) {
         shl_add_argument("--help", NULL, "Show this help message"); // no value expected
@@ -398,6 +416,14 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
         arg->value = default_val; // initial value
     }
 
+    shl_arg_t *shl_next_argument() {
+      // the devevloper application (foo.c) is creating arguments with add_argument(). Later the
+      // application is checking which arguments are set, since the developers knows which
+      // arguments are set, he can specific search for them. or not? whats the use case of a
+      //  next argument whichout knowing the name, while knowing the name?
+      SHL_TODO("Not implemented yet.");
+    }
+
     shl_arg_t *shl_get_argument(const char *long_name) {
         for (int i = 0; i < shl_parser.count; i++) {
             if (strcmp(shl_parser.args[i].long_name, long_name) == 0)
@@ -416,7 +442,9 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
         return arg->value ? arg->value : "";
     }
 
+    // +++++++++++++++++++++++++++++++++
     // +++ NO BUILD +++
+    // +++++++++++++++++++++++++++++++++
 
     static void shl_ensure_dir_for_file(const char* filepath) {
         char dir[1024];
@@ -576,8 +604,7 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
             shl_error("Failed to restart build process.\n");
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-            // TODO: Not working on Windows
-
+            // TODO: Auto Rebuild is not Working on Windows.
             const char *tmp_out = "build_new.exe";
             SHL_BuildConfig own_build = {
                 .source = "build.c",
@@ -600,7 +627,6 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
 
             ExitProcess(0);
 #endif
-
         } else {
             shl_info("Up to date: %s\n", out);
         }
@@ -621,45 +647,50 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
 
         shl_ensure_dir_for_file(config->output);
 
-        if (config->autorun) {
-        const char *out = config->output;
-        char command[256];
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
-        snprintf(command, sizeof(command), "./%s", out);
-#elif defined(_WIN32) || defined(_WIN64)
-        static char fixed_output[256];
-        snprintf(fixed_output, sizeof(fixed_output), "%s", config->output);
-        for (char *p = fixed_output; *p; p++) {
-            if (*p == '/') *p = '\\';
-        }
-        snprintf(command, sizeof(command), ".\\%s", fixed_output);
-#endif
-        system(command);
-        }
-
         // if (config->async) {
         //     shl_debug("Building in parallel!\n");
         //     return shl_build_project_async(config);
         // } else {
         //     shl_debug("Building in sequential!\n");
-        return shl_build_project(config);
+        //     return shl_build_project(config);
         // }
+
+        bool res = shl_build_project(config);
+
+        if (res && config->autorun) {
+            const char *out = config->output;
+            char command[256];
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
+            snprintf(command, sizeof(command), "./%s", out);
+#elif defined(_WIN32) || defined(_WIN64)
+            static char fixed_output[256];
+            snprintf(fixed_output, sizeof(fixed_output), "%s", config->output);
+            for (char *p = fixed_output; *p; p++) {
+                if (*p == '/') *p = '\\';
+            }
+            snprintf(command, sizeof(command), ".\\%s", fixed_output);
+#endif
+            shl_info("Auto Run the Executable %s\n", command);
+            system(command);
+        }
+
+        return res;
     }
 
-    static char *shl_trim(char *s) {
-        char *end;
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
-        while (isspace((unsigned char)*s)) s++;
-#elif defined(_WIN32) || defined(_WIN64)
-        // TODO
-#endif
-        while (isspace((unsigned char)*s)) s++;
-        if (*s == 0) return s;
-        end = s + strlen(s) - 1;
-        while (end > s && isspace((unsigned char)*end)) end--;
-        end[1] = '\0';
-        return s;
-    }
+/*     static char *shl_trim(char *s) { */
+/*         char *end; */
+/* #if defined(__APPLE__) && defined(__MACH__) || defined(__linux__) */
+/*         while (isspace((unsigned char)*s)) s++; */
+/* #elif defined(_WIN32) || defined(_WIN64) */
+/*         // TODO */
+/* #endif */
+/*         while (isspace((unsigned char)*s)) s++; */
+/*         if (*s == 0) return s; */
+/*         end = s + strlen(s) - 1; */
+/*         while (end > s && isspace((unsigned char)*end)) end--; */
+/*         end[1] = '\0'; */
+/*         return s; */
+/*     } */
 
     bool shl_command(SHL_SystemConfig* config) {
         if (!config || !config->cmd || !config->cmd_flags) {
@@ -725,7 +756,10 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
 // Strip prefix macros (optional shorter names)
 #ifdef SHL_STRIP_PREFIX
 
-    // +++ HELPER +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ HELPER ++++++++++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define ASSERT SHL_ASSERT
     #define UNUSED SHL_UNUSED
     #define TODO SHL_TODO
@@ -733,7 +767,10 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
     #define ARRAY_LEN SHL_ARRAY_LEN
     #define ARRAY_GET SHL_ARRAY_GET
 
-    // +++ LOGGER +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ LOGGER ++++++++++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define init_logger shl_init_logger
     #define debug shl_debug
     #define info shl_info
@@ -750,24 +787,34 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
     #define LOG_CRITICAL SHL_LOG_CRITICAL
     #define LogConfig_t SHL_LogConfig_t
 
-    // +++ CLI PARSER +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ CLI PARSER ++++++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define init_argparser shl_init_argparser
     #define add_argument   shl_add_argument
     #define get_argument   shl_get_argument
+    #define next_argument  shl_next_argument
     #define arg_t          shl_arg_t
 
-    // +++ NO BUILD +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ NO BUILD ++++++++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define BuildConfig         SHL_BuildConfig
     #define BuildTask           SHL_BuildTask
     #define SystemConfig        SHL_SystemConfig
     #define auto_rebuild        shl_auto_rebuild
     #define build_project       shl_build_project
     #define command             shl_command
-    // #define build_project_async shl_build_project_async
     #define wait_for_all_builds shl_wait_for_all_builds
     #define dispatch_build      shl_dispatch_build
+    // #define build_project_async shl_build_project_async
 
-    // +++ DYNAMIC ARRAY +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ DYNAMIC ARRAY +++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define grow         shl_grow
     #define shrink       shl_shrink
     #define push         shl_push
@@ -780,7 +827,10 @@ bool shl_dispatch_build(SHL_BuildConfig* config);
     #define swap         shl_swap
     #define list shl_list
 
-    // +++ HELPER +++
+    // +++++++++++++++++++++++++++++++++
+    // +++ HELPER ++++++++++++++++++++++
+    // +++++++++++++++++++++++++++++++++
+
     #define ASSERT              SHL_ASSERT
     #define UNUSED              SHL_UNUSED
     #define TODO                SHL_TODO

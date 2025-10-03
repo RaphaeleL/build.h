@@ -3,7 +3,7 @@
 #define SHL_USE_LOGGER
 #include "./build.h"
 
-#define async_auto_run false 
+#define async_auto_run false
 
 int main() {
     init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
@@ -12,9 +12,8 @@ int main() {
     const char *examples[][2] = {
         { "example/000_shl_logger.c",          "out/000_logger" },
         { "example/001_shl_cli_arg_parser.c",  "out/001_argparser" },
-        { "example/002_shl_no_build.c",        "out/002_no_build" },
-        { "example/003_shl_dynamic_array.c",   "out/003_dyn_array" },
-        { "example/004_shl_helper.c",          "out/004_helper" },
+        { "example/002_shl_dynamic_array.c",   "out/002_dyn_array" },
+        { "example/003_shl_helper.c",          "out/003_helper" },
         { "example/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "example/902_shl_demo_pointer.c",    "out/902_demo_pointer" }
     };
