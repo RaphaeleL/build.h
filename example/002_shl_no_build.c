@@ -19,8 +19,8 @@
 #include "../build.h"
 
 int main() {
-    SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
-    SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };
+    SystemConfig sysp_1 = { .cmd = "rm", .cmd_flags = "-rf out" };
+    SystemConfig sysp_2 = { .cmd = "mkdir", .cmd_flags = "out" };
 
     BuildConfig config = {
         .source = "example/901_shl_demo_calculator.c",
@@ -30,8 +30,8 @@ int main() {
         .linker_flags = "-lm"
     };
 
-    if (!run(&sysp_1)) return 1;
-    if (!run(&sysp_2)) return 1;
+    if (!command(&sysp_1)) return 1;
+    if (!command(&sysp_2)) return 1;
     if (!build_project(&config)) return 1;
 
     return 0;

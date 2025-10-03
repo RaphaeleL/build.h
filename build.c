@@ -7,9 +7,6 @@ int main() {
     init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
     auto_rebuild();
 
-    // SystemConfig sysp_1 = { .command = "rm", .command_flags = "-rf out" };
-    // SystemConfig sysp_2 = { .command = "mkdir", .command_flags = "out" };
-
     const char *examples[][2] = {
         { "example/000_shl_logger.c",          "out/000_logger" },
         { "example/001_shl_cli_arg_parser.c",  "out/001_argparser" },
@@ -23,16 +20,10 @@ int main() {
     size_t n_examples = sizeof(examples) / sizeof(examples[0]);
     BuildConfig builds[sizeof(examples) / sizeof(examples[0])];
 
-    // if (!run(&sysp_1)) return 1;
-    // if (!run(&sysp_2)) return 1;
-
     for (size_t i = 0; i < n_examples; i++) {
         builds[i] = (BuildConfig){
             .source   = examples[i][0],
-            .output   = examples[i][1],
-            .compiler = "gcc",
-            .autorun  = false,
-            .async    = false
+            .output   = examples[i][1]
         };
         if (!dispatch_build(&builds[i])) return 1;
     }

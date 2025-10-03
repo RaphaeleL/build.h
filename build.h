@@ -114,16 +114,15 @@ shl_arg_t *shl_get_argument(const char *long_name);
 typedef struct {
     const char* source;
     const char* output;
-    const char* compiler;
-    const char* compiler_flags;
-    const char* linker_flags;
-    bool async;
-    bool autorun;
+    const char* compiler;            // Optional
+    const char* compiler_flags;      // Optional
+    const char* linker_flags;        // Optional
+    bool autorun;                    // Optional
 } SHL_BuildConfig;
 
 typedef struct {
-    const char* command;
-    const char* command_flags;
+    const char* cmd;
+    const char* cmd_flags;
 } SHL_SystemConfig;
 
 typedef struct {
@@ -131,12 +130,12 @@ typedef struct {
     bool success;
 } SHL_BuildTask;
 
-bool shl_build_project(const SHL_BuildConfig* config);
-bool shl_run(const SHL_SystemConfig* config);
+bool shl_build_project(SHL_BuildConfig* config);
+bool shl_command(SHL_SystemConfig* config);
 void shl_auto_rebuild();
-bool shl_build_project_async(const SHL_BuildConfig* config);
+// bool shl_build_project_async(const SHL_BuildConfig* config);
 void shl_wait_for_all_builds(void);
-bool shl_dispatch_build(const SHL_BuildConfig* config);
+bool shl_dispatch_build(SHL_BuildConfig* config);
 
 // +++ DYNAMIC ARRAY +++
 
@@ -448,34 +447,35 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         SHL_BuildTask* task = (SHL_BuildTask*)arg;
         task->success = shl_build_project(&task->config);
 
-        if (task->success && task->config.autorun) {
-            shl_info("Auto-running %s\n", task->config.output);
-            char cmd[1024];
-            snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
-            int result = system(cmd);
-            if (result != 0) {
-                shl_error("Program %s exited with code %d\n", task->config.output, result);
-            }
-        }
+        // if (task->success && task->config.autorun) {
+        //     shl_info("Auto-running %s\n", task->config.output);
+        //     char cmd[1024];
+        //     snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
+        //     int result = system(cmd);
+        //     if (result != 0) {
+        //         shl_error("Program %s exited with code %d\n", task->config.output, result);
+        //     }
+        // }
+
         return NULL;
     }
 
-    bool shl_build_project_async(const SHL_BuildConfig* config) {
-        if (task_count >= MAX_TASKS) {
-            shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
-            return false;
-        }
+    // bool shl_build_project_async(const SHL_BuildConfig* config) {
+    //     if (task_count >= MAX_TASKS) {
+    //         shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
+    //         return false;
+    //     }
 
-        task_data[task_count].config = *config;
-        task_data[task_count].success = false;
-        if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
-            shl_error("Failed to create build thread.\n");
-            return false;
-        }
+    //     task_data[task_count].config = *config;
+    //     task_data[task_count].success = false;
+    //     if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
+    //         shl_error("Failed to create build thread.\n");
+    //         return false;
+    //     }
 
-        task_count++;
-        return true;
-    }
+    //     task_count++;
+    //     return true;
+    // }
 
     void shl_wait_for_all_builds(void) {
         for (int i = 0; i < task_count; i++) {
@@ -494,31 +494,32 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         SHL_BuildTask* task = (SHL_BuildTask*)arg;
         task->success = shl_build_project(&task->config);
 
-        if (task->success && task->config.autorun) {
-            shl_info("Auto-running %s\n", task->config.output);
-            system(task->config.output);
-        }
+        // if (task->success && task->config.autorun) {
+        //     shl_info("Auto-running %s\n", task->config.output);
+        //     system(task->config.output);
+        // }
+
         return 0;
     }
 
-    bool shl_build_project_async(const SHL_BuildConfig* config) {
-        if (task_count >= MAX_TASKS) {
-            shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
-            return false;
-        }
+    // bool shl_build_project_async(const SHL_BuildConfig* config) {
+    //     if (task_count >= MAX_TASKS) {
+    //         shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
+    //         return false;
+    //     }
 
-        task_data[task_count].config = *config;
-        task_data[task_count].success = false;
+    //     task_data[task_count].config = *config;
+    //     task_data[task_count].success = false;
 
-        task_threads[task_count] = CreateThread(NULL, 0, shl_build_thread_win, &task_data[task_count], 0, NULL);
-        if (!task_threads[task_count]) {
-            shl_error("Failed to create build thread.\n");
-            return false;
-        }
+    //     task_threads[task_count] = CreateThread(NULL, 0, shl_build_thread_win, &task_data[task_count], 0, NULL);
+    //     if (!task_threads[task_count]) {
+    //         shl_error("Failed to create build thread.\n");
+    //         return false;
+    //     }
 
-        task_count++;
-        return true;
-    }
+    //     task_count++;
+    //     return true;
+    // }
 
     void shl_wait_for_all_builds(void) {
         for (int i = 0; i < task_count; i++) {
@@ -605,21 +606,44 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         }
     }
 
-    bool shl_dispatch_build(const SHL_BuildConfig* config) {
+    bool shl_dispatch_build(SHL_BuildConfig* config) {
         if (!config || !config->output) {
             shl_error("Invalid build config\n");
             return false;
         }
 
+        // Compiler, Compiler Flags, Linker Flags are Optional, we need to auto detect it!
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
+        config->compiler = "cc";
+#elif defined(_WIN32) || defined(_WIN64)
+        config->compiler = "gcc";
+#endif
+
         shl_ensure_dir_for_file(config->output);
 
-        if (config->async) {
-            shl_debug("Building in parallel!\n");
-            return shl_build_project_async(config);
-        } else {
-            shl_debug("Building in sequential!\n");
-            return shl_build_project(config);
+        if (config->autorun) {
+        const char *out = config->output;
+        char command[256];
+#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
+        snprintf(command, sizeof(command), "./%s", out);
+#elif defined(_WIN32) || defined(_WIN64)
+        static char fixed_output[256];
+        snprintf(fixed_output, sizeof(fixed_output), "%s", config->output);
+        for (char *p = fixed_output; *p; p++) {
+            if (*p == '/') *p = '\\';
         }
+        snprintf(command, sizeof(command), ".\\%s", fixed_output);
+#endif
+        system(command);
+        }
+
+        // if (config->async) {
+        //     shl_debug("Building in parallel!\n");
+        //     return shl_build_project_async(config);
+        // } else {
+        //     shl_debug("Building in sequential!\n");
+        return shl_build_project(config);
+        // }
     }
 
     static char *shl_trim(char *s) {
@@ -637,16 +661,18 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
         return s;
     }
 
-    bool shl_run(const SHL_SystemConfig* config) {
-        if (!config || !config->command || !config->command_flags) {
+    bool shl_command(SHL_SystemConfig* config) {
+        if (!config || !config->cmd || !config->cmd_flags) {
             shl_error("Invalid system configuration.\n");
             return false;
         }
 
+
+
         char command[1024];
         snprintf(command, sizeof(command), "%s %s",
-            config->command,
-            config->command_flags ? config->command_flags : ""
+            config->cmd,
+            config->cmd_flags ? config->cmd_flags : ""
         );
 
         shl_info("Executing system command: %s\n", command);
@@ -661,12 +687,11 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
 
     }
 
-    bool shl_build_project(const SHL_BuildConfig* config) {
-        if (!config || !config->source || !config->output || !config->compiler) {
+    bool shl_build_project(SHL_BuildConfig* config) {
+        if (!config || !config->source || !config->output) {
             shl_error("Invalid build configuration.\n");
             return false;
         }
-
         char command[1024];
         snprintf(command, sizeof(command), "%s %s %s -o %s %s",
 #if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
@@ -737,8 +762,8 @@ bool shl_dispatch_build(const SHL_BuildConfig* config);
     #define SystemConfig        SHL_SystemConfig
     #define auto_rebuild        shl_auto_rebuild
     #define build_project       shl_build_project
-    #define run                 shl_run
-    #define build_project_async shl_build_project_async
+    #define command             shl_command
+    // #define build_project_async shl_build_project_async
     #define wait_for_all_builds shl_wait_for_all_builds
     #define dispatch_build      shl_dispatch_build
 
