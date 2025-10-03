@@ -37,7 +37,7 @@ Checkout the `examples/` directory with many different example usages. The Code 
 #include "./build.h"
 
 int main() {
-    auto_rebuild();
+    auto_rebuild("build.c");
 
     BuildConfig build = default_build_config();
     build.source = "src/main.c";
