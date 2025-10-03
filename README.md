@@ -19,7 +19,7 @@ If you now include `#include "./build.h"` itself, you should be ready to start! 
 2. compile the target (here `main.c`)
 3. autorun is on true, thereby: run the target.
 
-Checkout the `examples\` directory with many different example usages. The Code below is just showing the No Build Tooling!
+Checkout the `examples/` directory with many different example usages. The Code below is just showing the No Build Tooling!
 
 ```c
 // File: build.c
