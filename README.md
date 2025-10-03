@@ -4,7 +4,7 @@ A single-header **quality-of-life (QoL) utility library for C**. It provides log
 
 ## Getting Started
 
-Just drop `build.h` into your project. 
+Just drop `build.h` into your project.
 
 ```bash
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
@@ -29,8 +29,6 @@ If you now include `#include "./build.h"` itself, you should be ready to start! 
 Checkout the `examples/` directory with many different example usages. The Code below is just showing the No Build Tooling!
 
 ```c
-// File: build.c
-
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #define SHL_USE_LOGGER
@@ -41,17 +39,54 @@ Checkout the `examples/` directory with many different example usages. The Code 
 int main() {
     auto_rebuild();
 
-    BuildConfig build = (BuildConfig){
-      .source   = "src/main.c",
-      .output   = "out/main",
-      .autorun  = true
-    };
+    BuildConfig build = default_build_config();
+    build.source = "src/main.c";
+    build.output = "out/main";
 
     if (!dispatch_build(&build)) return 1;
     info("We are finished! yeeey.");
 
     return 0;
 }
+```
+
+### How to create a valid BuildConfig
+
+A `BuildConfig` is a struct which holds all the information needed to build your target. Let's assume we want to re-create follwoing command:
+
+```bash
+gcc -Wall -O2 -std=c11 -DDEBUG=1 -Iinclude main.c util.c -o prog -L/usr/local/lib -lm -pthread
+```
+
+This can be done like this:
+
+```c
+SHL_BuildConfig cfg = {
+    .source = "main.c"
+    .output = "prog",
+    .compiler = "gcc",
+    .compiler_flags = "-Wall -O2 -std=c11",
+    .linker_flags = "-pthread",
+    .include_dirs = "include",
+    .libraries = "m",
+    .library_dirs = "/usr/local/lib",
+    .defines = "DEBUG=1",
+    .autorun = true
+};
+```
+
+Alternatively you firstly create an empty default `BuildConfig` and then add all the options you need:
+
+```c
+SHL_BuildConfig cfg = default_build_config();
+cfg.sources = "main.c util.c";
+cfg.output = "prog";
+cfg.compiler_flags = "-Wall -O2 -std=c11";
+cfg.linker_flags = "-pthread";
+cfg.include_dirs = "include";
+cfg.libraries = "m";
+cfg.library_dirs = "/usr/local/lib";
+cfg.defines = "DEBUG=1";
 ```
 
 ##  Roadmap

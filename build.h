@@ -65,14 +65,8 @@
         SHL_LOG_NONE
     } shl_log_level_t;
 
-    typedef struct {
-        shl_log_level_t level;
-        bool color;
-        bool time;
-    } SHL_LogConfig_t;
-
     // Initialize logger with minimum level
-    void shl_init_logger(SHL_LogConfig_t config);
+    void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
     // Use SHL logger if available
     #ifndef SHL_USE_LOGGER
@@ -123,12 +117,16 @@
     #define MAX_TASKS 32
 
     typedef struct {
-        const char* source;
-        const char* output;
-        const char* compiler;            // Optional
-        const char* compiler_flags;      // Optional
-        const char* linker_flags;        // Optional
-        bool autorun;                    // Optional
+        char *source;
+        char *output;
+        char *compiler;       // cc, gcc, clang...
+        char *compiler_flags; // array: -Wall, -O2, -std=c11 ...
+        char *linker_flags;   // array: -lm, -pthread, ...
+        char *include_dirs;   // array: -Iinclude, -Isrc/include ...
+        char *libraries;      // array: -lm, -lssl, -lz ...
+        char *library_dirs;   // array: -L/usr/local/lib ...
+        char *defines;        // array: -DDEBUG, -DVERSION="1.0"
+        bool autorun;         // nach Build automatisch ausführen
     } SHL_BuildConfig;
 
     typedef struct {
@@ -141,9 +139,11 @@
         bool success;
     } SHL_BuildTask;
 
+    static inline char* shl_default_compiler_flags(void);
+    static inline SHL_BuildConfig shl_default_build_config(void);
     bool shl_build_project(SHL_BuildConfig* config);
     bool shl_system(SHL_SystemConfig* config);
-    void shl_auto_rebuild();
+    void shl_auto_rebuild(char *src);
     bool shl_dispatch_build(SHL_BuildConfig* config);
     void shl_wait_for_all_builds(void);
     bool shl_build_project_async(const SHL_BuildConfig* config);
@@ -295,10 +295,10 @@
         static bool shl_logger_color = true;
         static bool shl_logger_time = false;
 
-        void shl_init_logger(SHL_LogConfig_t config) {
-            shl_logger_min_level = config.level;
-            shl_logger_color = config.color;
-            shl_logger_time = config.time;
+        void shl_init_logger(shl_log_level_t level, bool color, bool time) {
+            shl_logger_min_level = level;
+            shl_logger_color = color;
+            shl_logger_time = time;
         }
 
         static const char *shl_level_to_str(shl_log_level_t level) {
@@ -454,6 +454,46 @@
               mkdir(dir, 0755);
 #endif
             }
+        }
+
+        static inline char* shl_default_compiler_flags(void) {
+#if defined(_WIN32) || defined(_WIN64)
+            return "";
+#elif defined(__APPLE__) && defined(__MACH__)
+            return "-Wall -Wextra";
+#elif defined(__linux__)
+            return "-Wall -Wextra";
+#else
+            return "";
+#endif
+        }
+
+        static inline SHL_BuildConfig shl_default_build_config(void) {
+            // Compiler and output defaults
+#if defined(_WIN32) || defined(_WIN64)
+            char *default_output = "a.exe";
+            char *default_compiler = "gcc";
+            char *default_compiler_flags = "";
+#elif defined(__APPLE__) || defined(__MACH__)
+            char *default_output = "a.out";
+            char *default_compiler = "cc";
+            char *default_compiler_flags = "";
+#elif defined(__linux__)
+            char *default_output = "a.out";
+            char *default_compiler = "cc";
+            char *default_compiler_flags = "";
+#endif
+
+            return (SHL_BuildConfig){.source = "",
+                                   .output = default_output,
+                                   .compiler = default_compiler,
+                                   .compiler_flags = default_compiler_flags,
+                                   .linker_flags = "",
+                                   .include_dirs = "",
+                                   .libraries = "",
+                                   .library_dirs = "",
+                                   .defines = "",
+                                   .autorun = false};
     }
 
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
@@ -552,14 +592,13 @@
         #error Unsupported platform
 #endif
 
-        void shl_auto_rebuild(void) {
+        void shl_auto_rebuild(char *src) {
             struct stat src_attr, out_attr;
 
-            const char *src = "build.c";
 #if defined(_WIN32) || defined(_WIN64)
-            const char *out = "build_new.exe";
+            char *out = "build_new.exe";
 #else
-            const char *out = "build";
+            char *out = "build";
 #endif
 
             if (stat(src, &src_attr) != 0) {
@@ -575,20 +614,18 @@
             }
 
             if (need_rebuild) {
-                shl_hint("Rebuilding: %s -> %s\n", src, out);
+                shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-                SHL_BuildConfig own_build = {
-                    .source = "build.c",
-                    .output = out,
-                    .compiler = "gcc"
-                };
+                SHL_BuildConfig own_build = shl_default_build_config();
+                own_build.source = src;
+                own_build.output = out;
                 if (!shl_build_project(&own_build)) {
                     shl_error("Rebuild failed.\n");
                     exit(1);
                 }
 
                 // Restart the process with the new executable
-                shl_info("Restarting with updated build executable...\n");
+                shl_debug("Restarting with updated build executable...\n");
 
                 execv("./build", NULL);
                 shl_error("Failed to restart build process.\n");
@@ -597,17 +634,15 @@
                 // TODO: Not working on Windows
 
                 const char *tmp_out = "build_new.exe";
-                SHL_BuildConfig own_build = {
-                    .source = "build.c",
-                    .output = tmp_out,
-                    .compiler = "gcc"
-                };
+                SHL_BuildConfig own_build = shl_default_build_config();
+                own_build.source = src;
+                own_build.output = out;
                 if (!shl_build_project(&own_build)) {
                     shl_error("Rebuild failed.\n");
                     exit(1);
                 }
 
-                shl_info("Restarting with updated build executable...\n");
+                shl_debug("Restarting with updated build executable...\n");
 
                 STARTUPINFO si = { sizeof(si) };
                 PROCESS_INFORMATION pi;
@@ -622,22 +657,15 @@
 #endif
 
             } else {
-                shl_info("Up to date: %s\n", out);
+                shl_debug("Up to date: %s\n", out);
             }
         }
 
         bool shl_dispatch_build(SHL_BuildConfig* config) {
-            if (!config || !config->output) {
-                shl_error("Invalid build config\n");
+            if (!config || !config->source || !config->output) {
+                shl_error("Invalid build configuration %s, %s\n", config->source, config->output);
                 return false;
             }
-
-            // Compiler, Compiler Flags, Linker Flags are Optional, we need to auto detect it!
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
-            config->compiler = "cc";
-#elif defined(_WIN32) || defined(_WIN64)
-            config->compiler = "gcc";
-#endif
 
             shl_ensure_dir_for_file(config->output);
 
@@ -683,7 +711,7 @@
                 config->cmd_flags ? config->cmd_flags : ""
             );
 
-            shl_info("Executing system command: %s\n", command);
+            shl_info("%s\n", command);
             int result = system(command);
             if (result != 0) {
                 shl_error("Build failed with exit code %d.\n", result);
@@ -697,7 +725,7 @@
 
         bool shl_build_project(SHL_BuildConfig* config) {
             if (!config || !config->source || !config->output) {
-                shl_error("Invalid build configuration.\n");
+                shl_error("Invalid build configuration found during project build..\n");
                 return false;
             }
 
@@ -720,7 +748,7 @@
 #endif
             );
 
-            shl_info("Executing build command: %s\n", command);
+            shl_info("%s\n", command);
             int result = system(command);
             if (result != 0) {
                 shl_error("Build failed with exit code %d.\n", result);
@@ -762,7 +790,6 @@
         #define LOG_WARN SHL_LOG_WARN
         #define LOG_ERROR SHL_LOG_ERROR
         #define LOG_CRITICAL SHL_LOG_CRITICAL
-        #define LogConfig_t SHL_LogConfig_t
     #endif // SHL_USE_LOGGER
 
     #ifdef SHL_USE_CLI_PARSER
@@ -773,15 +800,17 @@
     #endif // SHL_USE_CLI_PARSER
 
     #ifdef SHL_USE_NO_BUILD
-        #define BuildConfig         SHL_BuildConfig
-        #define BuildTask           SHL_BuildTask
-        #define SystemConfig        SHL_SystemConfig
-        #define auto_rebuild        shl_auto_rebuild
-        #define build_project       shl_build_project
-        #define system              shl_system
-        #define build_project_async shl_build_project_async
-        #define wait_for_all_builds shl_wait_for_all_builds
-        #define dispatch_build      shl_dispatch_build
+        #define BuildConfig              SHL_BuildConfig
+        #define BuildTask                SHL_BuildTask
+        #define SystemConfig             SHL_SystemConfig
+        #define auto_rebuild             shl_auto_rebuild
+        #define build_project            shl_build_project
+        #define default_compiler_flags   shl_default_compiler_flags
+        #define default_build_config     shl_default_build_config
+        #define system                   shl_system
+        #define build_project_async      shl_build_project_async
+        #define wait_for_all_builds      shl_wait_for_all_builds
+        #define dispatch_build           shl_dispatch_build
     #endif // SHL_USE_NO_BUILD
 
     #ifdef SHL_USE_DYN_ARRAY

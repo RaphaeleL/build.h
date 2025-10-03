@@ -15,7 +15,7 @@ void print_da(Vector *vector) {
 }
 
 int main(void) {
-    init_logger((LogConfig_t){.level = LOG_DEBUG, .color = false});
+    init_logger(LOG_DEBUG, false, false);
 
     Vector vector = {0};
 

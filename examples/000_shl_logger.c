@@ -19,7 +19,7 @@
 #include "../build.h"
 
 int main() {
-    init_logger((LogConfig_t){.level = LOG_DEBUG, .color = true, .time = true});
+    init_logger(LOG_DEBUG, true, true);
 
     debug("This is a debug message\n");
     info("Starting program with pid=%d\n", 1234);

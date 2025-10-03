@@ -117,7 +117,7 @@ void example_g() {
 }
 
 int main() {
-    init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
+    init_logger(LOG_INFO, false, false);
 
     example_a(); // stack
     example_b(); // stack allocation
