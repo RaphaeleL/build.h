@@ -4,7 +4,7 @@ A single-header **quality-of-life (QoL) utility library for C**. It provides log
 
 ## Getting Started
 
-Checkout the `examples\` Directory with many different example usages. Just drop `build.h` into your project. There are several `define` options, those control the behaviour of `build.h`
+Just drop `build.h` into your project. There are several `define` options, those control the behaviour of `build.h`
 
 - `SHL_USE_SHL_IMPLEMENTATION` - enable the default implementation
 - `SHL_USE_LOGGER` - enable the logger
@@ -17,9 +17,9 @@ If you now include `#include "./build.h"` itself, you should be ready to start! 
 
 1. check if build.c has changed, if so: recompile `build.c` and rerun itself
 2. compile the target (here `main.c`)
-3: autorun is on true, thereby: run the target.
+3. autorun is on true, thereby: run the target.
 
-See the Code below:
+Checkout the `examples\` directory with many different example usages. The Code below is just showing the No Build Tooling!
 
 ```c
 // File: build.c
