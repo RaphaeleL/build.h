@@ -3,8 +3,6 @@
 #define SHL_USE_LOGGER
 #include "./build.h"
 
-#define async_auto_run false
-
 int main() {
     init_logger((LogConfig_t){.level = LOG_INFO, .color = false});
     auto_rebuild();

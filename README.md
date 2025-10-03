@@ -2,95 +2,44 @@
 
 A single-header **quality-of-life (QoL) utility library for C**. It provides logging, CLI argument parsing, dynamic arrays, and lightweight build-system helpers in a portable way (Linux, macOS, Windows).
 
-## Features
-
-### Logger
-
-  - Configurable log levels (`DEBUG`, `INFO`, `WARN`, `ERROR`, etc.)
-  - Optional colored output
-  - Optional timestamps
-  - Can integrate with your own logging system or fall back to `printf`.
-
-### CLI Argument Parser
-
-  - Register arguments with long/short forms.
-  - Supports default values.
-  - Auto-generates a `--help` message.
-  - Works cross-platform with `argc, argv`.
-
-### Build Utilities
-
-  - Define build tasks (`SHL_BuildConfig`).
-  - Dispatch builds with auto-detected compiler.
-  - Optional auto-run of generated executables.
-  - Async/multi-threaded builds (planned).
-  - Auto-rebuild support (works on Linux/macOS, partial on Windows).
-
-### Dynamic Arrays
-
-  - Lightweight macro-based "vector-like" container.
-  - `push`, `drop`, `resize`, `shrink`, `release`, etc.
-  - Minimal overhead, C89-compatible.
-  - Type-safe via `shl_list(T)` macro.
-
-### Helper Macros
-
-  - `SHL_ASSERT`, `SHL_UNUSED`, `SHL_ARRAY_LEN`, `SHL_TODO`, `SHL_UNREACHABLE`.
-  - Strip-prefix mode (`#define SHL_STRIP_PREFIX`) for shorter names like `debug()`, `push()`, etc.
-
 ## Getting Started
 
-### Include
+Checkout the `examples\` Directory with many different example usages. Just drop `build.h` into your project. There are several define options, with `#define SHL_IMPLEMENTATION` you enable the default implementation in the `build.h` file. The `#define SHL_STRIP_PREFIX` is removing every `shl_` prefix. And last, the `build.h` is internally using its own logger, if you don't want that, and rather use the plain `printf()` just enable / disable `#define SHL_USE_LOGGER`. If you now include `#include "./build.h"` you should be ready to start!
 
 ```c
+// File: build.c
+
+// Enable the Implementation in build.h
 #define SHL_IMPLEMENTATION
-#include "build.h"
-```
 
-### Example: Logger
+// Strip all shl_ Prefixes
+#define SHL_STRIP_PREFIX
 
-```c
-SHL_LogConfig_t cfg = { SHL_LOG_DEBUG, true, true };
-shl_init_logger(cfg);
+// Use the intern Logger
+#define SHL_USE_LOGGER
 
-shl_info("Hello from build.h!");
-shl_warn("This is a warning");
-```
+#include "./build.h"
 
-### Example: CLI Parser
+int main() {
+    // Auto. detect changes on this file, and auto rebuild during the execution of it
+    auto_rebuild();
 
-```c
-int main(int argc, char *argv[]) {
-    shl_add_argument("--name", "world", "Name to greet");
-    shl_init_argparser(argc, argv);
+    // Lets create a Build Config, src/main.c should be compiled to out/main the
+    // out/ folder is auto. created. with autorun with are auto. run the executable
+    // when we are running this script.
+    // thereby we are able to auto detect changes on build.c, compile main.c and run
+    // the executable, all with one command ./build
+    BuildConfig build = (BuildConfig){
+      .source   = "src/main.c",
+      .output   = "out/main",
+      .autorun  = true
+    };
 
-    shl_arg_t *arg = shl_get_argument("--name");
-    printf("Hello, %s!\n", shl_arg_as_string(arg));
+    // lets start the process, oh and it might fail.
+    if (!dispatch_build(&build)) return 1;
+
     return 0;
 }
-```
-
-### Example: Build Config
-
-```c
-SHL_BuildConfig cfg = {
-    .source = "main.c",
-    .output = "app",
-    .compiler = "gcc",
-    .compiler_flags = "-Wall -O2",
-    .autorun = true
-};
-shl_dispatch_build(&cfg);
-```
-
-### Example: Dynamic Array
-
-```c
-shl_list(int) nums = {0};
-shl_push(&nums, 42);
-shl_push(&nums, 100);
-printf("Last: %d\n", shl_back(&nums));
-shl_release(&nums);
 ```
 
 ##  Roadmap
@@ -112,18 +61,6 @@ shl_release(&nums);
 - [ ] Unit-test runner integration
 - [ ] Easier Parallelization
 - [ ] Better Error Handling
-
-## Installation
-
-Just drop `build.h` into your project.
-To define implementation once, add:
-
-```c
-#define SHL_IMPLEMENTATION
-#include "build.h"
-```
-
-All other translation units should just `#include "build.h"` without defining `SHL_IMPLEMENTATION`.
 
 ## License
 
