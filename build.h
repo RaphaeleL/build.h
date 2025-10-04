@@ -50,9 +50,7 @@
     #error Unsupported platform
 #endif
 
-// +++ LOGGER +++
-
-#ifdef SHL_USE_LOGGER
+// SHL_USE_LOGGER
 
     // Log levels
     typedef enum {
@@ -69,25 +67,25 @@
     void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
     // Use SHL logger if available
-    #ifndef SHL_USE_LOGGER
-        #define shl_debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-        #define shl_info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-        #define shl_hint(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-        #define shl_warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-        #define shl_error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-        #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-    #else
+    // #ifndef SHL_USE_LOGGER
+    //     #define shl_debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+    //     #define shl_info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    //     #define shl_hint(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    //     #define shl_warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
+    //     #define shl_error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
+    //     #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+    // #else
         #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
         #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
         #define shl_hint(fmt, ...)     shl_log(SHL_LOG_HINT, fmt, ##__VA_ARGS__)
         #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
         #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
         #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
-    #endif // SHL_USE_LOGGER
+    // SHL_USE_LOGGER
 
-#endif // SHL_USE_LOGGER
+// SHL_USE_LOGGER
 
-#ifdef SHL_USE_CLI_PARSER
+// SHL_USE_CLI_PARSER
 
     #define SHL_ARG_MAX 128
 
@@ -110,9 +108,9 @@
     void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg);
     shl_arg_t *shl_get_argument(const char *long_name);
 
-#endif // SHL_USE_CLI_PARSER
+// SHL_USE_CLI_PARSER
 
-#ifdef SHL_USE_NO_BUILD
+// SHL_USE_NO_BUILD
 
     #define MAX_TASKS 32
 
@@ -144,13 +142,33 @@
     bool shl_build_project(SHL_BuildConfig* config);
     bool shl_system(SHL_SystemConfig* config);
     void shl_auto_rebuild(char *src);
-    bool shl_dispatch_build(SHL_BuildConfig* config);
+    bool shl_dispatch_build(SHL_BuildConfig *config);
+    char *shl_get_filename_no_ext(const char *path);
     void shl_wait_for_all_builds(void);
     bool shl_build_project_async(const SHL_BuildConfig* config);
 
-#endif // SHL_USE_NO_BUILD
+// SHL_USE_NO_BUILD
 
-#ifdef SHL_USE_DYN_ARRAY
+// SHL_USE_FILE_OPS
+
+    typedef struct {
+        char **data;
+        size_t len;
+        size_t cap;
+    } SHL_String;
+
+    bool shl_mkdir(const char *path);
+    bool shl_copy_file(const char *src_path, const char *dst_path);
+    bool shl_copy_dir_rec(const char *src_path, const char *dst_path);
+    bool shl_read_dir(const char *parent, const char *children);
+    bool shl_read_file(const char *path, SHL_String* content);
+    bool shl_write_file(const char *path, const void *data, size_t size);
+    const char *shl_get_file_type(const char *path);
+    bool shl_delete_file(const char *path);
+
+// SHL_USE_FILE_OPS
+
+// SHL_USE_DYN_ARRAY
 
     #define SHL_INIT_CAP 8
 
@@ -161,13 +179,13 @@
                 size_t newcap = (vec)->cap ? (vec)->cap : SHL_INIT_CAP;                         \
                 while (newcap < (n)) newcap *= 2;                                               \
                 if ((vec)->cap == 0) {                                                          \
-                    debug("Dynamic array inits memory on %d.\n", newcap);                       \
+                    shl_log(SHL_LOG_DEBUG, "Dynamic array inits memory on %d.\n", newcap);                       \
                 } else {                                                                        \
-                    debug("Dynamic array needs more memory (%d -> %d)!\n", (vec)->cap, newcap); \
+                    shl_log(SHL_LOG_DEBUG, "Dynamic array needs more memory (%d -> %d)!\n", (vec)->cap, newcap); \
                 }                                                                               \
                 void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                \
                 if (!tmp) {                                                                     \
-                    error("Dynamic array out of memory (need %zu elements)\n", n);              \
+                    shl_log(SHL_LOG_ERROR, "Dynamic array out of memory (need %zu elements)\n", n);              \
                     abort();                                                                    \
                 }                                                                               \
                 (vec)->data = tmp;                                                              \
@@ -179,7 +197,7 @@
         do {                                                                                          \
             if ((vec)->len < (vec)->cap / 2 && (vec)->cap > SHL_INIT_CAP) {                           \
                 size_t newcap = (vec)->cap / 2;                                                       \
-                debug("Dynamic array can release some memory (%d -> %d)!\n", (vec)->cap, newcap); \
+                shl_log(SHL_LOG_DEBUG, "Dynamic array can release some memory (%d -> %d)!\n", (vec)->cap, newcap); \
                 void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                      \
                 if (tmp) {                                                                            \
                     (vec)->data = tmp;                                                                \
@@ -208,7 +226,7 @@
     #define shl_drop(vec)                             \
         do {                                          \
             if ((vec)->len == 0) {                    \
-                error("shl_drop() on empty array\n"); \
+                shl_log(SHL_LOG_ERROR, "shl_drop() on empty array\n"); \
                 abort();                              \
             }                                         \
             --(vec)->len;                             \
@@ -220,7 +238,7 @@
         do {                                                          \
             size_t __idx = (n);                                       \
             if (__idx >= (vec)->len) {                                \
-                error("shl_dropn(): index out of range\n");           \
+                shl_log(SHL_LOG_ERROR, "shl_dropn(): index out of range\n");           \
                 abort();                                              \
             }                                                         \
             memmove((vec)->data + __idx,                              \
@@ -247,14 +265,14 @@
 
     // Get last element (asserts non-empty)
     #define shl_back(vec) \
-        ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : (error("shl_back() on empty array\n"), abort(), (vec)->data[0]))
+        ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : (shl_log(SHL_LOG_ERROR, "shl_back() on empty array\n"), abort(), (vec)->data[0]))
 
     // Swap element i with last element (without removing)
     #define shl_swap(vec, i)                                   \
         do {                                                   \
             size_t __idx = (i);                                \
             if (__idx >= (vec)->len) {                         \
-                error("shl_swap(): out of range\n");           \
+                shl_log(SHL_LOG_ERROR, "shl_swap(): out of range\n");           \
                 abort();                                       \
             }                                                  \
             typeof((vec)->data[0]) __tmp = (vec)->data[__idx]; \
@@ -266,9 +284,9 @@
     #define shl_list(T) \
         struct { T *data; size_t len, cap; }
 
-#endif // SHL_USE_DYN_ARRAY
+// SHL_USE_DYN_ARRAY
 
-#ifdef SHL_USE_HELPER
+// SHL_USE_HELPER
     #define SHL_UNUSED(value) (void)(value)
     #define SHL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
     #define SHL_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
@@ -276,11 +294,11 @@
     #define SHL_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
     #define SHL_ARRAY_GET(array, index) \
         (SHL_ASSERT((size_t)(index) < SHL_ARRAY_LEN(array)), (array)[(size_t)(index)])
-#endif // SHL_USE_HELPER
+// SHL_USE_HELPER
 
 #ifdef SHL_IMPLEMENTATION
 
-    #ifdef SHL_USE_LOGGER
+    // SHL_USE_LOGGER
 
         // ANSI colors
         #define SHL_COLOR_RESET     "\x1b[0m"
@@ -351,9 +369,9 @@
             va_end(args);
         }
 
-    #endif // SHL_USE_LOGGER
+    // SHL_USE_LOGGER
 
-    #ifdef SHL_USE_CLI_PARSER
+    // SHL_USE_CLI_PARSER
 
         void shl_init_argparser(int argc, char *argv[]) {
             shl_add_argument("--help", NULL, "Show this help message"); // no value expected
@@ -403,7 +421,7 @@
 
         void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
             if (shl_parser.count >= SHL_ARG_MAX) {
-                shl_error("Maximum number of arguments reached\n");
+                shl_log(SHL_LOG_ERROR, "Maximum number of arguments reached\n");
                 return;
             }
             shl_arg_t *arg = &shl_parser.args[shl_parser.count++];
@@ -432,9 +450,9 @@
             return arg->value ? arg->value : "";
         }
 
-    #endif // SHL_USE_CLI_PARSER
+    // SHL_USE_CLI_PARSER
 
-    #ifdef SHL_USE_NO_BUILD
+    // SHL_USE_NO_BUILD
 
         static void shl_ensure_dir_for_file(const char* filepath) {
             char dir[1024];
@@ -448,11 +466,7 @@
 #endif
             if (slash) {
                 *slash = '\0';
-#if defined(_WIN32) || defined(_WIN64)
-              _mkdir(dir);
-#else
-              mkdir(dir, 0755);
-#endif
+                shl_mkdir(dir);
             }
         }
 
@@ -506,12 +520,12 @@
             task->success = shl_build_project(&task->config);
 
             if (task->success && task->config.autorun) {
-                shl_info("Auto-running %s\n", task->config.output);
+                shl_log(SHL_LOG_INFO, "Auto-running %s\n", task->config.output);
                 char cmd[1024];
                 snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
                 int result = system(cmd);
                 if (result != 0) {
-                    shl_error("Program %s exited with code %d\n", task->config.output, result);
+                    shl_log(SHL_LOG_ERROR, "Program %s exited with code %d\n", task->config.output, result);
                 }
             }
             return NULL;
@@ -519,14 +533,14 @@
 
         bool shl_build_project_async(const SHL_BuildConfig* config) {
             if (task_count >= MAX_TASKS) {
-                shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
+                shl_log(SHL_LOG_ERROR, "Too many async build tasks (max %d)\n", MAX_TASKS);
                 return false;
             }
 
             task_data[task_count].config = *config;
             task_data[task_count].success = false;
             if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
-                shl_error("Failed to create build thread.\n");
+                shl_log(SHL_LOG_ERROR, "Failed to create build thread.\n");
                 return false;
             }
 
@@ -538,7 +552,7 @@
             for (int i = 0; i < task_count; i++) {
                 pthread_join(task_threads[i], NULL);
                 if (!task_data[i].success) {
-                    shl_error("Build failed for %s\n", task_data[i].config.source);
+                    shl_log(SHL_LOG_ERROR, "Build failed for %s\n", task_data[i].config.source);
                 }
             }
             task_count = 0;
@@ -553,7 +567,7 @@
             task->success = shl_build_project(&task->config);
 
             if (task->success && task->config.autorun) {
-                shl_info("Auto-running %s\n", task->config.output);
+                shl_log(SHL_LOG_INFO, "Auto-running %s\n", task->config.output);
                 system(task->config.output);
             }
             return 0;
@@ -561,7 +575,7 @@
 
         bool shl_build_project_async(const SHL_BuildConfig* config) {
             if (task_count >= MAX_TASKS) {
-                shl_error("Too many async build tasks (max %d)\n", MAX_TASKS);
+                shl_log(SHL_LOG_ERROR, "Too many async build tasks (max %d)\n", MAX_TASKS);
                 return false;
             }
 
@@ -570,7 +584,7 @@
 
             task_threads[task_count] = CreateThread(NULL, 0, shl_build_thread_win, &task_data[task_count], 0, NULL);
             if (!task_threads[task_count]) {
-                shl_error("Failed to create build thread.\n");
+                shl_log(SHL_LOG_ERROR, "Failed to create build thread.\n");
                 return false;
             }
 
@@ -583,7 +597,7 @@
                 WaitForSingleObject(task_threads[i], INFINITE);
                 CloseHandle(task_threads[i]);
                 if (!task_data[i].success) {
-                    shl_error("Build failed for %s\n", task_data[i].config.source);
+                    shl_log(SHL_LOG_ERROR, "Build failed for %s\n", task_data[i].config.source);
                 }
             }
             task_count = 0;
@@ -592,13 +606,39 @@
         #error Unsupported platform
 #endif
 
+        char *shl_get_filename_no_ext(const char *path) {
+            // Find last '/' or '\\' for Windows paths
+            const char *slash = strrchr(path, '/');
+            const char *backslash = strrchr(path, '\\');
+            const char *base = path;
+
+            if (slash || backslash) {
+                if (slash && backslash)
+                base = (slash > backslash) ? slash + 1 : backslash + 1;
+                else if (slash)
+                base = slash + 1;
+                else
+                base = backslash + 1;
+            }
+
+            // Copy base name to buffer
+            char *copy = strdup(base);
+            if (!copy) return NULL;
+
+            // Remove extension if any
+            char *dot = strrchr(copy, '.');
+            if (dot) *dot = '\0';
+
+            return copy; // caller must free
+        }
+
         void shl_auto_rebuild(char *src) {
             struct stat src_attr, out_attr;
 
 #if defined(_WIN32) || defined(_WIN64)
             char *out = "build_new.exe";
 #else
-            char *out = "build";
+            char *out = shl_get_filename_no_ext(src);
 #endif
 
             if (stat(src, &src_attr) != 0) {
@@ -620,7 +660,7 @@
                 own_build.source = src;
                 own_build.output = out;
                 if (!shl_build_project(&own_build)) {
-                    shl_error("Rebuild failed.\n");
+                    shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                     exit(1);
                 }
 
@@ -628,7 +668,7 @@
                 shl_debug("Restarting with updated build executable...\n");
 
                 execv("./build", NULL);
-                shl_error("Failed to restart build process.\n");
+                shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
                 exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
                 // TODO: Not working on Windows
@@ -638,7 +678,7 @@
                 own_build.source = src;
                 own_build.output = out;
                 if (!shl_build_project(&own_build)) {
-                    shl_error("Rebuild failed.\n");
+                    shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                     exit(1);
                 }
 
@@ -647,7 +687,7 @@
                 STARTUPINFO si = { sizeof(si) };
                 PROCESS_INFORMATION pi;
                 if (!CreateProcess(tmp_out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                    shl_error("Failed to restart build process.\n");
+                    shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
                     exit(1);
                 }
 
@@ -663,7 +703,7 @@
 
         bool shl_dispatch_build(SHL_BuildConfig* config) {
             if (!config || !config->source || !config->output) {
-                shl_error("Invalid build configuration %s, %s\n", config->source, config->output);
+                shl_log(SHL_LOG_ERROR, "Invalid build configuration %s, %s\n", config->source, config->output);
                 return false;
             }
 
@@ -692,7 +732,7 @@
                 }
                 snprintf(command, sizeof(command), ".\\%s", fixed_output);
 #endif
-                shl_info("Auto Run the Executable %s\n", command);
+                shl_log(SHL_LOG_INFO, "Auto Run the Executable %s\n", command);
                 system(command);
             }
 
@@ -701,7 +741,7 @@
 
         bool shl_system(SHL_SystemConfig* config) {
             if (!config || !config->cmd || !config->cmd_flags) {
-                shl_error("Invalid system configuration.\n");
+                shl_log(SHL_LOG_ERROR, "Invalid system configuration.\n");
                 return false;
             }
 
@@ -711,10 +751,10 @@
                 config->cmd_flags ? config->cmd_flags : ""
             );
 
-            shl_info("%s\n", command);
+            shl_log(SHL_LOG_INFO, "%s\n", command);
             int result = system(command);
             if (result != 0) {
-                shl_error("Build failed with exit code %d.\n", result);
+                shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
                 return false;
             }
 
@@ -725,7 +765,7 @@
 
         bool shl_build_project(SHL_BuildConfig* config) {
             if (!config || !config->source || !config->output) {
-                shl_error("Invalid build configuration found during project build..\n");
+                shl_log(SHL_LOG_ERROR, "Invalid build configuration found during project build..\n");
                 return false;
             }
 
@@ -748,34 +788,119 @@
 #endif
             );
 
-            shl_info("%s\n", command);
+            shl_log(SHL_LOG_INFO, "%s\n", command);
             int result = system(command);
             if (result != 0) {
-                shl_error("Build failed with exit code %d.\n", result);
+                shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
                 return false;
             }
 
-            shl_debug("Build succeeded, output: %s\n", config->output);
+            shl_log(SHL_LOG_DEBUG, "Build succeeded, output: %s\n", config->output);
             return true;
         }
 
-    #endif // SHL_USE_NO_BUILD
+    // SHL_USE_NO_BUILD
+
+    // SHL_USE_FILE_OPS
+
+        bool shl_mkdir(const char *path) {
+#ifdef _WIN32
+            int result = _mkdir(path);
+#else
+            int result = mkdir(path, 0755);
+#endif
+            SHL_UNUSED(result);
+            // TODO: Error Handling of mkdir
+            shl_log(SHL_LOG_DEBUG, "created directory `%s/`\n", path);
+            return true;
+        }
+
+        bool shl_copy_file(const char *src_path, const char *dst_path) {
+            SHL_UNUSED(src_path);
+            SHL_UNUSED(dst_path);
+            SHL_TODO("Not implemented yet");
+            return false;
+        }
+
+        bool shl_copy_dir_rec(const char *src_path, const char *dst_path) {
+            SHL_UNUSED(src_path);
+            SHL_UNUSED(dst_path);
+            SHL_TODO("Not implemented yet");
+            return false;
+        }
+
+        bool shl_read_file(const char *path, SHL_String *content) {
+            if (!path || !content) return false;
+
+            FILE *fp = fopen(path, "r");
+            if (!fp) return false;
+
+            char *line = NULL;
+            size_t n = 0;
+
+            while (getline(&line, &n, fp) != -1) {
+                size_t len = strlen(line);
+
+                if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+
+                char *copy = strdup(line);
+                if (!copy) {
+                    fclose(fp);
+                    free(line);
+                    return false;
+                }
+
+                shl_push(content, copy);
+            }
+
+            free(line);
+            fclose(fp);
+            return true;
+        }
+
+        bool shl_read_dir(const char *parent, const char *children) {
+            SHL_UNUSED(parent);
+            SHL_UNUSED(children);
+            SHL_TODO("Not implemented yet");
+            return false;
+        }
+
+        bool shl_write_file(const char *path, const void *data, size_t size) {
+            SHL_UNUSED(path);
+            SHL_UNUSED(data);
+            SHL_UNUSED(size);
+            SHL_TODO("Not implemented yet");
+            return false;
+        }
+
+        const char *shl_get_file_type(const char *path) {
+            SHL_UNUSED(path);
+            SHL_TODO("Not implemented yet");
+            return path;
+        }
+
+        bool shl_delete_file(const char *path) {
+            SHL_UNUSED(path);
+            SHL_TODO("Not implemented yet");
+            return false;
+        }
+
+    // SHL_USE_FILE_OPS
 
 #endif // SHL_IMPLEMENTATION
 
-// Strip prefix macros (optional shorter names)
 #ifdef SHL_STRIP_PREFIX
 
-    #ifdef SHL_USE_HELPER
+    // SHL_USE_HELPER
         #define ASSERT SHL_ASSERT
         #define UNUSED SHL_UNUSED
         #define TODO SHL_TODO
         #define UNREACHABLE SHL_UNREACHABLE
         #define ARRAY_LEN SHL_ARRAY_LEN
         #define ARRAY_GET SHL_ARRAY_GET
-    #endif // SHL_USE_HELPER
+    // SHL_USE_HELPER
 
-    #ifdef SHL_USE_LOGGER
+    // SHL_USE_LOGGER
         #define init_logger shl_init_logger
         #define debug shl_debug
         #define info shl_info
@@ -790,20 +915,21 @@
         #define LOG_WARN SHL_LOG_WARN
         #define LOG_ERROR SHL_LOG_ERROR
         #define LOG_CRITICAL SHL_LOG_CRITICAL
-    #endif // SHL_USE_LOGGER
+    // SHL_USE_LOGGER
 
-    #ifdef SHL_USE_CLI_PARSER
+    // SHL_USE_CLI_PARSER
         #define init_argparser shl_init_argparser
         #define add_argument   shl_add_argument
         #define get_argument   shl_get_argument
         #define arg_t          shl_arg_t
-    #endif // SHL_USE_CLI_PARSER
+    // SHL_USE_CLI_PARSER
 
-    #ifdef SHL_USE_NO_BUILD
+    // SHL_USE_NO_BUILD
         #define BuildConfig              SHL_BuildConfig
         #define BuildTask                SHL_BuildTask
         #define SystemConfig             SHL_SystemConfig
         #define auto_rebuild             shl_auto_rebuild
+        #define get_filename_no_ext      shl_get_filename_no_ext
         #define build_project            shl_build_project
         #define default_compiler_flags   shl_default_compiler_flags
         #define default_build_config     shl_default_build_config
@@ -811,9 +937,9 @@
         #define build_project_async      shl_build_project_async
         #define wait_for_all_builds      shl_wait_for_all_builds
         #define dispatch_build           shl_dispatch_build
-    #endif // SHL_USE_NO_BUILD
+    // SHL_USE_NO_BUILD
 
-    #ifdef SHL_USE_DYN_ARRAY
+    // SHL_USE_DYN_ARRAY
         #define grow         shl_grow
         #define shrink       shl_shrink
         #define push         shl_push
@@ -825,16 +951,28 @@
         #define back         shl_back
         #define swap         shl_swap
         #define list         shl_list
-    #endif // SHL_USE_DYN_ARRAY
+    // SHL_USE_DYN_ARRAY
 
-    #ifdef SHL_USE_HELPER
+    // SHL_USE_HELPER
         #define ASSERT              SHL_ASSERT
         #define UNUSED              SHL_UNUSED
         #define TODO                SHL_TODO
         #define UNREACHABLE         SHL_UNREACHABLE
         #define ARRAY_LEN           SHL_ARRAY_LEN
         #define ARRAY_GET           SHL_ARRAY_GET
-    #endif // SHL_USE_HELPER
+    // SHL_USE_HELPER
+
+    // SHL_USE_FILE_OPS
+        #define String        SHL_String
+        #define mkdir_if      shl_mkdir
+        #define copy_file     shl_copy_file
+        #define copy_dir_rec  shl_copy_dir_rec
+        #define read_dir      shl_read_dir
+        #define read_file     shl_read_file
+        #define write_file    shl_write_file
+        #define get_file_type shl_get_file_type
+        #define delete_file   shl_delete_file
+    // SHL_USE_FILE_OPS
 
 #endif // SHL_STRIP_PREFIX
 

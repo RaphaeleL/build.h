@@ -1,8 +1,5 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#define SHL_USE_LOGGER
-#define SHL_USE_NO_BUILD
-#define SHL_USE_HELPER
 #include "./build.h"
 
 int main() {
@@ -14,8 +11,10 @@ int main() {
         { "examples/001_shl_cli_arg_parser.c",  "out/001_argparser" },
         { "examples/002_shl_dynamic_array.c",   "out/002_dyn_array" },
         { "examples/003_shl_helper.c",          "out/003_helper" },
+        { "examples/004_shl_file_utils.c",      "out/004_file" },
         { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
-        { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" }
+        { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" },
+        { "examples/903_shl_lexer.c",           "out/903_lexer" }
     };
 
     BuildConfig builds[ARRAY_LEN(examples)];

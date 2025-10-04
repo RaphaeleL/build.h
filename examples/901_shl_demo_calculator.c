@@ -1,27 +1,8 @@
-/*
- * ===========================================================================
- * calculator.c
- *
- * Overengineered calculator to demonstrate:
- *  - Use of pointers within structs
- *  - Function pointers in structs
- *  - CLI argument parsing with SHL CLI Argument Parser
- *  - Logging with SHL Logger
- *
- * Created: 29 Sep 2025
- * Author : Raphaele Salvatore Licciardo
- *
- * Copyright (c) 2025 Raphaele Salvatore Licciardo
- * ===========================================================================
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#define SHL_USE_LOGGER
-#define SHL_USE_CLI_PARSER
 #include "../build.h"
 
 typedef struct {

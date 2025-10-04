@@ -1,7 +1,5 @@
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#define SHL_USE_LOGGER
-#define SHL_USE_DYN_ARRAY
 #include "../build.h"
 
 typedef shl_list(int) Vector;

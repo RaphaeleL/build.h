@@ -1,22 +1,8 @@
-/*
- * ===========================================================================
- * pointer.c
- *
- * Demonstration of pointers in C
- *
- * Created: 29 Sep 2025
- * Author : Raphaele Salvatore Licciardo
- *
- * Copyright (c) 2025 Raphaele Salvatore Licciardo
- * ===========================================================================
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#define SHL_USE_LOGGER
 #include "../build.h"
 
 typedef struct {

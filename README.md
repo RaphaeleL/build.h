@@ -10,14 +10,6 @@ Just drop `build.h` into your project.
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
 ```
 
-There are several `define` options, which control the behaviour of `build.h`:
-
-- `SHL_USE_LOGGER` - enable the logger
-- `SHL_USE_CLI_PARSER` - enable the cli argument parsing
-- `SHL_USE_NO_BUILD` - enable the no build tool
-- `SHL_USE_HELPER` - enable some custom helper dev tools
-- `SHL_USE_DYN_ARRAY` - enable dynamic arrays
-
 Since it's just an header file, you need to define `SHL_IMPLEMENTATION` in **one** of your source files before including `build.h`, to enable the implementation inside of the header.
 
 If you now include `#include "./build.h"` itself, you should be ready to start! Below is an example. this examples assumes there is a file `main.c` which is our target. When we are compiling this file (assume its `build.c`) with `gcc -o build build.c` and execute if afterwards with `./build`, it is doing multiple things as once.
@@ -98,6 +90,7 @@ Since each Tool is independent and you can just enable the ones you need. The ro
 - [x] Dynamic Arrays
 - [x] Helper Macros
 - [x] CLI Argument Parser
+- [ ] File Operations 
 - [ ] Hashmap
 - [ ] String
 - [ ] Queue and stack macros

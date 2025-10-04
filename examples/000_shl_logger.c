@@ -15,7 +15,6 @@
 
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
-#define SHL_USE_LOGGER
 #include "../build.h"
 
 int main() {
