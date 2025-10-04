@@ -243,6 +243,34 @@ bool match_single_operator(char *line, size_t pos, size_t *length, Token *t) {
     return false;
 }
 
+// ---------------- Lexer Peek / Next ----------------
+
+typedef struct {
+    Lexer *lexer;
+    size_t pos; // current position in the token array
+} LexerCursor;
+
+// Initialize a cursor at the start of the lexer
+LexerCursor lexer_cursor(Lexer *lexer) {
+    LexerCursor c = { .lexer = lexer, .pos = 0 };
+    return c;
+}
+
+// Peek n tokens ahead without advancing
+// n = 0 returns current token, n = 1 returns next token, etc.
+// Returns NULL if out of bounds
+Token *lexer_peek(LexerCursor *c, size_t n) {
+    size_t index = c->pos + n;
+    if (index >= c->lexer->count) return NULL;
+    return &c->lexer->tokens[index];
+}
+
+// Advance the cursor and return the next token
+Token *lexer_next(LexerCursor *c) {
+    if (c->pos >= c->lexer->count) return NULL;
+    return &c->lexer->tokens[c->pos++];
+}
+
 // ---------------- Lexer Core ----------------
 
 bool lex(Lexer *lexer, String *file) {
@@ -268,10 +296,10 @@ bool lex(Lexer *lexer, String *file) {
             while (line[j] == ' ' || line[j] == '\t' || line[j] == '\n' || line[j] == '\r') {
                 j++;
             }
-            
+
             // If we've reached the end of line after skipping spaces, break
             if (line[j] == '\0') break;
-            
+
             Token t = {0};
             t.string = &line[j];
             t.string_len = 0;
@@ -304,7 +332,7 @@ bool lex(Lexer *lexer, String *file) {
                     // Function definition: type keyword + identifier + (
                     // Function call: identifier + (
                     bool is_function_definition = false;
-                    
+
                     // Look backwards through previous tokens to see if there's a type keyword
                     for (int k = lexer->count - 1; k >= 0; k--) {
                         Token prev_token = lexer->tokens[k];
@@ -312,7 +340,7 @@ bool lex(Lexer *lexer, String *file) {
                             // Check if it's a type keyword
                             const char *keyword_str = prev_token.string;
                             size_t keyword_len = prev_token.string_len;
-                            
+
                             // Common C type keywords
                             if ((keyword_len == 3 && strncmp(keyword_str, "int", 3) == 0) ||
                                 (keyword_len == 4 && strncmp(keyword_str, "char", 4) == 0) ||
@@ -329,7 +357,7 @@ bool lex(Lexer *lexer, String *file) {
                             break;
                         }
                     }
-                    
+
                     t.type = is_function_definition ? TOKEN_FUNCTION_DEFINITION : TOKEN_FUNCTION_CALL;
                 }
             }
