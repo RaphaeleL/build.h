@@ -3,8 +3,7 @@
 #include "./build.h"
 
 int main() {
-    init_logger(LOG_INFO, false, false);
-    auto_rebuild("build.c");
+    auto_rebuild_plus("build.c", "build.h");
 
     char *examples[][2] = {
         { "examples/000_shl_logger.c",          "out/000_logger" },
@@ -12,19 +11,18 @@ int main() {
         { "examples/002_shl_dynamic_array.c",   "out/002_dyn_array" },
         { "examples/003_shl_helper.c",          "out/003_helper" },
         { "examples/004_shl_file_utils.c",      "out/004_file" },
+        { "examples/005_shl_file_ops.c",        "out/005_file_ops" },
+        { "examples/006_shl_hashmap.c",         "out/006_hashmap" },
         { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" },
-        { "examples/903_shl_lexer.c",           "out/903_lexer" }
+        { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" }
     };
 
     BuildConfig builds[ARRAY_LEN(examples)];
 
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
-        builds[i] = default_build_config();
-        builds[i].source = examples[i][0];
-        builds[i].output = examples[i][1];
-        builds[i].compiler_flags = default_compiler_flags();
-        if (!dispatch_build(&builds[i])) return 1;
+        builds[i] = default_build_config(examples[i][0], examples[i][1]);
+        if (!run(&builds[i])) return 1;
     }
 
     return 0;

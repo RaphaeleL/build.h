@@ -13,8 +13,6 @@ void print_da(Vector *vector) {
 }
 
 int main(void) {
-    init_logger(LOG_DEBUG, false, false);
-
     Vector vector = {0};
 
     for (int i = 0; i < 5; i++) {

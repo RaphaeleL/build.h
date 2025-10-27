@@ -377,8 +377,6 @@ bool lex(Lexer *lexer, String *file) {
 // ---------------- Main ----------------
 
 int main() {
-    init_logger(LOG_DEBUG, false, !false);
-
     String file = {0};
     Lexer lexer = {0};
 

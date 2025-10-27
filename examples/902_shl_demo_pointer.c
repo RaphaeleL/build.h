@@ -103,8 +103,6 @@ void example_g() {
 }
 
 int main() {
-    init_logger(LOG_INFO, false, false);
-
     example_a(); // stack
     example_b(); // stack allocation
     example_c(); // heap allocation

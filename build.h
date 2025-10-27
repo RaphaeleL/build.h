@@ -20,10 +20,6 @@
     extern "C" {
 #endif // __cplusplus
 
-// TODO: log to system log? (like journalctl)
-// TODO: BuildConfig should have a auto_rebuild
-// TODO: command_flags and compiler_flags should be an array
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,9 +39,11 @@
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
     #include <pthread.h>
     #include <unistd.h>
+    #include <dirent.h>
 #elif defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
     #include <io.h>
+    #include <direct.h>
 #else
     #error Unsupported platform
 #endif
@@ -56,6 +54,7 @@
     typedef enum {
         SHL_LOG_DEBUG = 0,   // like a extended log
         SHL_LOG_INFO,        //
+        SHL_LOG_CMD,         // command execution (no color, debug-style)
         SHL_LOG_HINT,        // a special hint, not something wrong
         SHL_LOG_WARN,        // something before error
         SHL_LOG_ERROR,       // well, the ship is sinking
@@ -66,22 +65,13 @@
     // Initialize logger with minimum level
     void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
-    // Use SHL logger if available
-    // #ifndef SHL_USE_LOGGER
-    //     #define shl_debug(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    //     #define shl_info(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    //     #define shl_hint(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    //     #define shl_warn(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
-    //     #define shl_error(fmt, ...)    printf(fmt "\n", ##__VA_ARGS__)
-    //     #define shl_critical(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
-    // #else
-        #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
-        #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
-        #define shl_hint(fmt, ...)     shl_log(SHL_LOG_HINT, fmt, ##__VA_ARGS__)
-        #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
-        #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
-        #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
-    // SHL_USE_LOGGER
+    #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
+    #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
+    #define shl_cmd(fmt, ...)      shl_log(SHL_LOG_CMD, fmt, ##__VA_ARGS__)
+    #define shl_hint(fmt, ...)     shl_log(SHL_LOG_HINT, fmt, ##__VA_ARGS__)
+    #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
+    #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
+    #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 
 // SHL_USE_LOGGER
 
@@ -124,12 +114,11 @@
         char *libraries;      // array: -lm, -lssl, -lz ...
         char *library_dirs;   // array: -L/usr/local/lib ...
         char *defines;        // array: -DDEBUG, -DVERSION="1.0"
-        bool autorun;         // nach Build automatisch ausführen
     } SHL_BuildConfig;
 
     typedef struct {
-        const char* cmd;
-        const char* cmd_flags;
+        const char* command;
+        const char* flags;
     } SHL_SystemConfig;
 
     typedef struct {
@@ -138,14 +127,17 @@
     } SHL_BuildTask;
 
     static inline char* shl_default_compiler_flags(void);
-    static inline SHL_BuildConfig shl_default_build_config(void);
+    static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output);
     bool shl_build_project(SHL_BuildConfig* config);
     bool shl_system(SHL_SystemConfig* config);
-    void shl_auto_rebuild(char *src);
-    bool shl_dispatch_build(SHL_BuildConfig *config);
+    void shl_auto_rebuild(const char *src);
+    void shl_auto_rebuild_plus_impl(const char *src, ...);
+    bool shl_run(SHL_BuildConfig *config);
+
+    // Macro to automatically append NULL to variadic args
+    #define shl_auto_rebuild_plus(src, ...) shl_auto_rebuild_plus_impl(src, __VA_ARGS__, NULL)
     char *shl_get_filename_no_ext(const char *path);
     void shl_wait_for_all_builds(void);
-    bool shl_build_project_async(const SHL_BuildConfig* config);
 
 // SHL_USE_NO_BUILD
 
@@ -158,6 +150,7 @@
     } SHL_String;
 
     bool shl_mkdir(const char *path);
+    bool shl_mkdir_if_not_exists(const char *path);
     bool shl_copy_file(const char *src_path, const char *dst_path);
     bool shl_copy_dir_rec(const char *src_path, const char *dst_path);
     bool shl_read_dir(const char *parent, const char *children);
@@ -165,6 +158,7 @@
     bool shl_write_file(const char *path, const void *data, size_t size);
     const char *shl_get_file_type(const char *path);
     bool shl_delete_file(const char *path);
+    void shl_release_string(SHL_String* content);
 
 // SHL_USE_FILE_OPS
 
@@ -286,6 +280,40 @@
 
 // SHL_USE_DYN_ARRAY
 
+// SHL_USE_HASHMAP
+
+    typedef enum {
+        SHL_HM_EMPTY = 0,
+        SHL_HM_USED,
+        SHL_HM_DELETED
+    } shl_hm_entry_state_t;
+
+    typedef struct {
+        void *key;
+        void *value;
+        size_t key_size;
+        size_t value_size;
+        shl_hm_entry_state_t state;
+    } SHL_HashMapEntry;
+
+    typedef struct {
+        SHL_HashMapEntry *buckets;
+        size_t capacity;
+        size_t size;
+    } SHL_HashMap;
+
+    // HashMap operations
+    SHL_HashMap* shl_hm_create();
+    void shl_hm_put(SHL_HashMap* hm, void* key, void* value);
+    void* shl_hm_get(SHL_HashMap* hm, void* key);
+    bool shl_hm_contains(SHL_HashMap* hm, void* key);
+    bool shl_hm_remove(SHL_HashMap* hm, void* key);
+    void shl_hm_clear(SHL_HashMap* hm);
+    void shl_hm_release(SHL_HashMap* hm);
+    size_t shl_hm_size(SHL_HashMap* hm);
+    bool shl_hm_empty(SHL_HashMap* hm);
+// SHL_USE_HASHMAP
+
 // SHL_USE_HELPER
     #define SHL_UNUSED(value) (void)(value)
     #define SHL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
@@ -300,9 +328,9 @@
 
     // SHL_USE_LOGGER
 
-        // ANSI colors
         #define SHL_COLOR_RESET     "\x1b[0m"
         #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
+        #define SHL_COLOR_CMD       "\x1b[33m" // orange
         #define SHL_COLOR_INFO      "\x1b[32m" // green
         #define SHL_COLOR_HINT      "\x1b[34m" // blue
         #define SHL_COLOR_WARN      "\x1b[33m" // yellow
@@ -310,8 +338,8 @@
         #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
 
         static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
-        static bool shl_logger_color = true;
-        static bool shl_logger_time = false;
+        static bool shl_logger_color = false;
+        static bool shl_logger_time = !false;
 
         void shl_init_logger(shl_log_level_t level, bool color, bool time) {
             shl_logger_min_level = level;
@@ -323,6 +351,7 @@
             switch (level) {
             case SHL_LOG_DEBUG:    return "DEBUG";
             case SHL_LOG_INFO:     return "INFO";
+            case SHL_LOG_CMD:      return "CMD";
             case SHL_LOG_HINT:     return "HINT";
             case SHL_LOG_WARN:     return "WARN";
             case SHL_LOG_ERROR:    return "ERROR";
@@ -335,6 +364,7 @@
             switch (level) {
             case SHL_LOG_DEBUG:    return SHL_COLOR_DEBUG;
             case SHL_LOG_INFO:     return SHL_COLOR_INFO;
+            case SHL_LOG_CMD:      return SHL_COLOR_CMD;
             case SHL_LOG_HINT:     return SHL_COLOR_HINT;
             case SHL_LOG_WARN:     return SHL_COLOR_WARN;
             case SHL_LOG_ERROR:    return SHL_COLOR_ERROR;
@@ -466,7 +496,7 @@
 #endif
             if (slash) {
                 *slash = '\0';
-                shl_mkdir(dir);
+                shl_mkdir_if_not_exists(dir);
             }
         }
 
@@ -482,129 +512,45 @@
 #endif
         }
 
-        static inline SHL_BuildConfig shl_default_build_config(void) {
-            // Compiler and output defaults
+        static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output) {
 #if defined(_WIN32) || defined(_WIN64)
-            char *default_output = "a.exe";
+            if (!output) {
+                output = shl_get_filename_no_ext(source);
+            }
             char *default_compiler = "gcc";
             char *default_compiler_flags = "";
 #elif defined(__APPLE__) || defined(__MACH__)
-            char *default_output = "a.out";
+            if (!output) {
+                output = shl_get_filename_no_ext(source);
+            }
             char *default_compiler = "cc";
             char *default_compiler_flags = "";
 #elif defined(__linux__)
-            char *default_output = "a.out";
+            if (!output) {
+                output = shl_get_filename_no_ext(source);
+            }
             char *default_compiler = "cc";
             char *default_compiler_flags = "";
 #endif
-
-            return (SHL_BuildConfig){.source = "",
-                                   .output = default_output,
+            return (SHL_BuildConfig){.source = (char*)source,
+                                   .output = (char*)output,
                                    .compiler = default_compiler,
                                    .compiler_flags = default_compiler_flags,
                                    .linker_flags = "",
                                    .include_dirs = "",
                                    .libraries = "",
                                    .library_dirs = "",
-                                   .defines = "",
-                                   .autorun = false};
-    }
-
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-        static pthread_t task_threads[MAX_TASKS];
-        static SHL_BuildTask task_data[MAX_TASKS];
-        static int task_count = 0;
-
-        static void* shl_build_thread(void* arg) {
-            SHL_BuildTask* task = (SHL_BuildTask*)arg;
-            task->success = shl_build_project(&task->config);
-
-            if (task->success && task->config.autorun) {
-                shl_log(SHL_LOG_INFO, "Auto-running %s\n", task->config.output);
-                char cmd[1024];
-                snprintf(cmd, sizeof(cmd), "./%s", task->config.output);
-                int result = system(cmd);
-                if (result != 0) {
-                    shl_log(SHL_LOG_ERROR, "Program %s exited with code %d\n", task->config.output, result);
-                }
-            }
-            return NULL;
+                                   .defines = ""};
         }
 
-        bool shl_build_project_async(const SHL_BuildConfig* config) {
-            if (task_count >= MAX_TASKS) {
-                shl_log(SHL_LOG_ERROR, "Too many async build tasks (max %d)\n", MAX_TASKS);
-                return false;
-            }
+        static bool shl_is_path1_modified_after_path2(const char *path1, const char *path2) {
+            struct stat stat1, stat2;
 
-            task_data[task_count].config = *config;
-            task_data[task_count].success = false;
-            if (pthread_create(&task_threads[task_count], NULL, shl_build_thread, &task_data[task_count]) != 0) {
-                shl_log(SHL_LOG_ERROR, "Failed to create build thread.\n");
-                return false;
-            }
+            if (stat(path1, &stat1) != 0) return false;
+            if (stat(path2, &stat2) != 0) return true;
 
-            task_count++;
-            return true;
+            return difftime(stat1.st_mtime, stat2.st_mtime) > 0;
         }
-
-        void shl_wait_for_all_builds(void) {
-            for (int i = 0; i < task_count; i++) {
-                pthread_join(task_threads[i], NULL);
-                if (!task_data[i].success) {
-                    shl_log(SHL_LOG_ERROR, "Build failed for %s\n", task_data[i].config.source);
-                }
-            }
-            task_count = 0;
-        }
-#elif defined(_WIN32) || defined(_WIN64)
-        static HANDLE task_threads[MAX_TASKS];
-        static SHL_BuildTask task_data[MAX_TASKS];
-        static int task_count = 0;
-
-        static DWORD WINAPI shl_build_thread_win(LPVOID arg) {
-            SHL_BuildTask* task = (SHL_BuildTask*)arg;
-            task->success = shl_build_project(&task->config);
-
-            if (task->success && task->config.autorun) {
-                shl_log(SHL_LOG_INFO, "Auto-running %s\n", task->config.output);
-                system(task->config.output);
-            }
-            return 0;
-        }
-
-        bool shl_build_project_async(const SHL_BuildConfig* config) {
-            if (task_count >= MAX_TASKS) {
-                shl_log(SHL_LOG_ERROR, "Too many async build tasks (max %d)\n", MAX_TASKS);
-                return false;
-            }
-
-            task_data[task_count].config = *config;
-            task_data[task_count].success = false;
-
-            task_threads[task_count] = CreateThread(NULL, 0, shl_build_thread_win, &task_data[task_count], 0, NULL);
-            if (!task_threads[task_count]) {
-                shl_log(SHL_LOG_ERROR, "Failed to create build thread.\n");
-                return false;
-            }
-
-            task_count++;
-            return true;
-        }
-
-        void shl_wait_for_all_builds(void) {
-            for (int i = 0; i < task_count; i++) {
-                WaitForSingleObject(task_threads[i], INFINITE);
-                CloseHandle(task_threads[i]);
-                if (!task_data[i].success) {
-                    shl_log(SHL_LOG_ERROR, "Build failed for %s\n", task_data[i].config.source);
-                }
-            }
-            task_count = 0;
-        }
-#else
-        #error Unsupported platform
-#endif
 
         char *shl_get_filename_no_ext(const char *path) {
             // Find last '/' or '\\' for Windows paths
@@ -632,17 +578,23 @@
             return copy; // caller must free
         }
 
-        void shl_auto_rebuild(char *src) {
+        void shl_auto_rebuild(const char *src) {
+            if (!src) return;
+
             struct stat src_attr, out_attr;
 
 #if defined(_WIN32) || defined(_WIN64)
             char *out = "build_new.exe";
 #else
             char *out = shl_get_filename_no_ext(src);
+            if (!out) return;
 #endif
 
             if (stat(src, &src_attr) != 0) {
                 perror("stat source");
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
                 return;
             }
 
@@ -656,52 +608,139 @@
             if (need_rebuild) {
                 shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-                SHL_BuildConfig own_build = shl_default_build_config();
-                own_build.source = src;
-                own_build.output = out;
+                SHL_BuildConfig own_build = shl_default_build_config(src, out);
                 if (!shl_build_project(&own_build)) {
                     shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
+#if !defined(_WIN32) && !defined(_WIN64)
+                    free(out);
+#endif
                     exit(1);
                 }
 
-                // Restart the process with the new executable
                 shl_debug("Restarting with updated build executable...\n");
-
-                execv("./build", NULL);
+                char *restart_argv[] = {out, NULL};
+                execv(out, restart_argv);
                 shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
                 exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-                // TODO: Not working on Windows
-
-                const char *tmp_out = "build_new.exe";
-                SHL_BuildConfig own_build = shl_default_build_config();
-                own_build.source = src;
-                own_build.output = out;
+                SHL_BuildConfig own_build = shl_default_build_config(src, out);
                 if (!shl_build_project(&own_build)) {
                     shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                     exit(1);
                 }
 
                 shl_debug("Restarting with updated build executable...\n");
-
                 STARTUPINFO si = { sizeof(si) };
                 PROCESS_INFORMATION pi;
-                if (!CreateProcess(tmp_out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                if (!CreateProcess(out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
                     shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
                     exit(1);
                 }
-
                 ExitProcess(0);
 #else
                 #error Unsupported platform
 #endif
-
             } else {
                 shl_debug("Up to date: %s\n", out);
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
             }
         }
 
-        bool shl_dispatch_build(SHL_BuildConfig* config) {
+        // Auto-rebuild with additional dependency checking
+        void shl_auto_rebuild_plus_impl(const char *src, ...) {
+            if (!src) return;
+
+            struct stat src_attr, out_attr;
+
+#if defined(_WIN32) || defined(_WIN64)
+            const char *out = "build_new.exe";
+#else
+            char *out = shl_get_filename_no_ext(src);
+#endif
+
+            if (stat(src, &src_attr) != 0) {
+                perror("stat source");
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
+                return;
+            }
+
+            bool need_rebuild = false;
+            if (stat(out, &out_attr) != 0) {
+                need_rebuild = true;
+            } else if (difftime(src_attr.st_mtime, out_attr.st_mtime) > 0) {
+                need_rebuild = true;
+            }
+
+            // Check additional dependencies from variadic arguments
+            if (!need_rebuild) {
+                va_list args;
+                va_start(args, src);
+                const char *dep_file = va_arg(args, const char*);
+                while (dep_file != NULL) {
+                    if (shl_is_path1_modified_after_path2(dep_file, out)) {
+                        shl_log(SHL_LOG_DEBUG, "Dependency %s is newer than binary, rebuild needed\n", dep_file);
+                        need_rebuild = true;
+                        // Don't break - continue checking all dependencies for logging
+                    }
+                    dep_file = va_arg(args, const char*);
+                }
+                va_end(args);
+            }
+
+            if (need_rebuild) {
+                shl_debug("Rebuilding: %s -> %s\n", src, out);
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+                SHL_BuildConfig own_build = shl_default_build_config(src, out);
+                if (!shl_build_project(&own_build)) {
+                    shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
+#if !defined(_WIN32) && !defined(_WIN64)
+                    free(out);
+#endif
+                    exit(1);
+                }
+
+                shl_debug("Restarting with updated build executable...\n");
+                char *restart_argv[] = {out, NULL};
+                execv(out, restart_argv);
+                shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
+                exit(1);
+#elif defined(_WIN32) || defined(_WIN64)
+                SHL_BuildConfig own_build = shl_default_build_config(src, out);
+                if (!shl_build_project(&own_build)) {
+                    shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
+                    exit(1);
+                }
+
+                shl_debug("Restarting with updated build executable...\n");
+                STARTUPINFO si = { sizeof(si) };
+                PROCESS_INFORMATION pi;
+                if (!CreateProcess(out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                    shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
+                    exit(1);
+                }
+                ExitProcess(0);
+#else
+                #error Unsupported platform
+#endif
+            } else {
+                shl_debug("Up to date: %s\n", out);
+#if !defined(_WIN32) && !defined(_WIN64)
+                free(out);
+#endif
+            }
+        }
+
+        bool shl_run(SHL_BuildConfig* config) {
             if (!config || !config->source || !config->output) {
                 shl_log(SHL_LOG_ERROR, "Invalid build configuration %s, %s\n", config->source, config->output);
                 return false;
@@ -709,49 +748,29 @@
 
             shl_ensure_dir_for_file(config->output);
 
-            // if (config->async) {
-                //     shl_debug("Building in parallel!\n");
-                //     return shl_build_project_async(config);
-            // } else {
-                //     shl_debug("Building in sequential!\n");
-                //     return shl_build_project(config);
-            // }
-
-            bool res = shl_build_project(config);
-
-            if (res && config->autorun) {
-                const char *out = config->output;
-                char command[256];
-#if defined(__APPLE__) && defined(__MACH__) || defined(__linux__)
-                snprintf(command, sizeof(command), "./%s", out);
-#elif defined(_WIN32) || defined(_WIN64)
-                static char fixed_output[256];
-                snprintf(fixed_output, sizeof(fixed_output), "%s", config->output);
-                for (char *p = fixed_output; *p; p++) {
-                    if (*p == '/') *p = '\\';
-                }
-                snprintf(command, sizeof(command), ".\\%s", fixed_output);
-#endif
-                shl_log(SHL_LOG_INFO, "Auto Run the Executable %s\n", command);
-                system(command);
+            // Check if rebuild is needed
+            if (!shl_is_path1_modified_after_path2(config->source, config->output)) {
+                shl_log(SHL_LOG_DEBUG, "Up to date: %s\n", config->output);
+                return true; // Already up to date
             }
 
+            bool res = shl_build_project(config);
             return res;
         }
 
         bool shl_system(SHL_SystemConfig* config) {
-            if (!config || !config->cmd || !config->cmd_flags) {
+            if (!config || !config->command || !config->flags) {
                 shl_log(SHL_LOG_ERROR, "Invalid system configuration.\n");
                 return false;
             }
 
             char command[1024];
             snprintf(command, sizeof(command), "%s %s",
-                config->cmd,
-                config->cmd_flags ? config->cmd_flags : ""
+                config->command,
+                config->flags ? config->flags : ""
             );
 
-            shl_log(SHL_LOG_INFO, "%s\n", command);
+            shl_log(SHL_LOG_CMD, "%s\n", command);
             int result = system(command);
             if (result != 0) {
                 shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
@@ -760,7 +779,6 @@
 
             shl_debug("Build succeeded");
             return true;
-
         }
 
         bool shl_build_project(SHL_BuildConfig* config) {
@@ -788,20 +806,33 @@
 #endif
             );
 
-            shl_log(SHL_LOG_INFO, "%s\n", command);
+            shl_log(SHL_LOG_CMD, "%s\n", command);
             int result = system(command);
             if (result != 0) {
                 shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
                 return false;
             }
 
-            shl_log(SHL_LOG_DEBUG, "Build succeeded, output: %s\n", config->output);
             return true;
         }
 
     // SHL_USE_NO_BUILD
 
     // SHL_USE_FILE_OPS
+
+        bool shl_mkdir_if_not_exists(const char *path) {
+            struct stat st;
+#if defined(_WIN32) || defined(_WIN64)
+            if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES) {
+                return true;
+            }
+#else
+            if (stat(path, &st) == 0) {
+                return true;
+            }
+#endif
+            return shl_mkdir(path);
+        }
 
         bool shl_mkdir(const char *path) {
 #ifdef _WIN32
@@ -816,17 +847,125 @@
         }
 
         bool shl_copy_file(const char *src_path, const char *dst_path) {
-            SHL_UNUSED(src_path);
-            SHL_UNUSED(dst_path);
-            SHL_TODO("Not implemented yet");
-            return false;
+            if (!src_path || !dst_path) return false;
+
+            FILE *src = fopen(src_path, "rb");
+            if (!src) {
+                shl_log(SHL_LOG_ERROR, "Failed to open source file: %s\n", src_path);
+                return false;
+            }
+
+            FILE *dst = fopen(dst_path, "wb");
+            if (!dst) {
+                shl_log(SHL_LOG_ERROR, "Failed to open destination file: %s\n", dst_path);
+                fclose(src);
+                return false;
+            }
+
+            char buffer[4096];
+            size_t bytes_read;
+            while ((bytes_read = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+                if (fwrite(buffer, 1, bytes_read, dst) != bytes_read) {
+                    shl_log(SHL_LOG_ERROR, "Failed to write to destination file\n");
+                    fclose(src);
+                    fclose(dst);
+                    return false;
+                }
+            }
+
+            fclose(src);
+            fclose(dst);
+            shl_log(SHL_LOG_DEBUG, "Copied %s to %s\n", src_path, dst_path);
+            return true;
         }
 
         bool shl_copy_dir_rec(const char *src_path, const char *dst_path) {
-            SHL_UNUSED(src_path);
-            SHL_UNUSED(dst_path);
-            SHL_TODO("Not implemented yet");
-            return false;
+            if (!src_path || !dst_path) return false;
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+            DIR *dir = opendir(src_path);
+            if (!dir) {
+                shl_log(SHL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
+                return false;
+            }
+
+            if (!shl_mkdir_if_not_exists(dst_path)) {
+                closedir(dir);
+                return false;
+            }
+
+            struct dirent *entry;
+            char src_file[1024];
+            char dst_file[1024];
+
+            while ((entry = readdir(dir)) != NULL) {
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                    continue;
+
+                snprintf(src_file, sizeof(src_file), "%s/%s", src_path, entry->d_name);
+                snprintf(dst_file, sizeof(dst_file), "%s/%s", dst_path, entry->d_name);
+
+                struct stat st;
+                if (stat(src_file, &st) == 0) {
+                    if (S_ISDIR(st.st_mode)) {
+                        if (!shl_copy_dir_rec(src_file, dst_file)) {
+                            closedir(dir);
+                            return false;
+                        }
+                    } else if (S_ISREG(st.st_mode)) {
+                        if (!shl_copy_file(src_file, dst_file)) {
+                            closedir(dir);
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            closedir(dir);
+            return true;
+#elif defined(_WIN32) || defined(_WIN64)
+            WIN32_FIND_DATA find_data;
+            char search_path[1024];
+            snprintf(search_path, sizeof(search_path), "%s\\*", src_path);
+
+            HANDLE handle = FindFirstFile(search_path, &find_data);
+            if (handle == INVALID_HANDLE_VALUE) {
+                shl_log(SHL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
+                return false;
+            }
+
+            if (!shl_mkdir_if_not_exists(dst_path)) {
+                FindClose(handle);
+                return false;
+            }
+
+            do {
+                if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+                    continue;
+
+                char src_file[1024];
+                char dst_file[1024];
+                snprintf(src_file, sizeof(src_file), "%s\\%s", src_path, find_data.cFileName);
+                snprintf(dst_file, sizeof(dst_file), "%s\\%s", dst_path, find_data.cFileName);
+
+                if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                    if (!shl_copy_dir_rec(src_file, dst_file)) {
+                        FindClose(handle);
+                        return false;
+                    }
+                } else {
+                    if (!shl_copy_file(src_file, dst_file)) {
+                        FindClose(handle);
+                        return false;
+                    }
+                }
+            } while (FindNextFile(handle, &find_data));
+
+            FindClose(handle);
+            return true;
+#else
+            #error Unsupported platform
+#endif
         }
 
         bool shl_read_file(const char *path, SHL_String *content) {
@@ -859,61 +998,392 @@
         }
 
         bool shl_read_dir(const char *parent, const char *children) {
-            SHL_UNUSED(parent);
-            SHL_UNUSED(children);
-            SHL_TODO("Not implemented yet");
-            return false;
+            if (!parent || !children) return false;
+            SHL_UNUSED(children); // Reserved for future filtering
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+            DIR *dir = opendir(parent);
+            if (!dir) {
+                shl_log(SHL_LOG_ERROR, "Failed to open directory: %s\n", parent);
+                return false;
+            }
+
+            struct dirent *entry;
+            shl_log(SHL_LOG_INFO, "Contents of %s:\n", parent);
+            while ((entry = readdir(dir)) != NULL) {
+                struct stat st;
+                char full_path[1024];
+                snprintf(full_path, sizeof(full_path), "%s/%s", parent, entry->d_name);
+
+                if (stat(full_path, &st) == 0) {
+                    if (S_ISDIR(st.st_mode)) {
+                        shl_log(SHL_LOG_INFO, "  [DIR]  %s\n", entry->d_name);
+                    } else if (S_ISREG(st.st_mode)) {
+                        shl_log(SHL_LOG_INFO, "  [FILE] %s (%zu bytes)\n", entry->d_name, (size_t)st.st_size);
+                    } else {
+                        shl_log(SHL_LOG_INFO, "  [????] %s\n", entry->d_name);
+                    }
+                }
+            }
+
+            closedir(dir);
+            return true;
+#elif defined(_WIN32) || defined(_WIN64)
+            WIN32_FIND_DATA find_data;
+            char search_path[1024];
+            snprintf(search_path, sizeof(search_path), "%s\\*", parent);
+
+            HANDLE handle = FindFirstFile(search_path, &find_data);
+            if (handle == INVALID_HANDLE_VALUE) {
+                shl_log(SHL_LOG_ERROR, "Failed to open directory: %s\n", parent);
+                return false;
+            }
+
+            shl_log(SHL_LOG_INFO, "Contents of %s:\n", parent);
+            do {
+                if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                    shl_log(SHL_LOG_INFO, "  [DIR]  %s\n", find_data.cFileName);
+                } else {
+                    shl_log(SHL_LOG_INFO, "  [FILE] %s (%lu bytes)\n",
+                            find_data.cFileName, find_data.nFileSizeLow);
+                }
+            } while (FindNextFile(handle, &find_data));
+
+            FindClose(handle);
+            return true;
+#else
+            #error Unsupported platform
+#endif
         }
 
         bool shl_write_file(const char *path, const void *data, size_t size) {
-            SHL_UNUSED(path);
-            SHL_UNUSED(data);
-            SHL_UNUSED(size);
-            SHL_TODO("Not implemented yet");
-            return false;
+            if (!path || !data) return false;
+
+            FILE *fp = fopen(path, "wb");
+            if (!fp) {
+                shl_log(SHL_LOG_ERROR, "Failed to open file for writing: %s\n", path);
+                return false;
+            }
+
+            size_t written = fwrite(data, 1, size, fp);
+            fclose(fp);
+
+            if (written != size) {
+                shl_log(SHL_LOG_ERROR, "Failed to write all data to file: %s\n", path);
+                return false;
+            }
+
+            shl_log(SHL_LOG_DEBUG, "Wrote %zu bytes to %s\n", written, path);
+            return true;
         }
 
         const char *shl_get_file_type(const char *path) {
-            SHL_UNUSED(path);
-            SHL_TODO("Not implemented yet");
-            return path;
+            if (!path) return "unknown";
+
+            const char *dot = strrchr(path, '.');
+            if (!dot || dot == path) return "no_ext";
+
+            return dot + 1; // Returns extension without the dot
         }
 
         bool shl_delete_file(const char *path) {
-            SHL_UNUSED(path);
-            SHL_TODO("Not implemented yet");
-            return false;
+            if (!path) return false;
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+            if (unlink(path) != 0) {
+                shl_log(SHL_LOG_ERROR, "Failed to delete file: %s\n", path);
+                return false;
+            }
+
+            shl_log(SHL_LOG_DEBUG, "Deleted file: %s\n", path);
+            return true;
+#elif defined(_WIN32) || defined(_WIN64)
+            if (DeleteFile(path) == 0) {
+                shl_log(SHL_LOG_ERROR, "Failed to delete file: %s\n", path);
+                return false;
+            }
+
+            shl_log(SHL_LOG_DEBUG, "Deleted file: %s\n", path);
+            return true;
+#else
+            #error Unsupported platform
+#endif
+        }
+
+        void shl_release_string(SHL_String* content) {
+            if (!content || !content->data) return;
+
+            for (size_t i = 0; i < content->len; i++) {
+                free(content->data[i]);
+            }
+            free(content->data);
+            content->data = NULL;
+            content->len = content->cap = 0;
         }
 
     // SHL_USE_FILE_OPS
+
+    // SHL_USE_HASHMAP
+
+        static size_t shl_hm_hash(void* key, size_t key_size, size_t capacity) {
+            size_t hash = 5381;
+            const unsigned char *p = (const unsigned char *)key;
+            for (size_t i = 0; i < key_size; i++) {
+                hash = ((hash << 5) + hash) + p[i];
+            }
+            return hash % capacity;
+        }
+
+        static bool shl_hm_keys_equal(void* key1, void* key2) {
+            size_t key_size = strlen(key1) + 1;
+            return memcmp(key1, key2, key_size) == 0;
+        }
+
+        SHL_HashMap* shl_hm_create() {
+            SHL_HashMap* hm = (SHL_HashMap*)calloc(1, sizeof(SHL_HashMap));
+            if (!hm) return NULL;
+
+            int initial_capacity = 4;
+            hm->buckets = (SHL_HashMapEntry*)calloc(initial_capacity, sizeof(SHL_HashMapEntry));
+            if (!hm->buckets) {
+                free(hm);
+                return NULL;
+            }
+
+            hm->capacity = initial_capacity;
+            hm->size = 0;
+            return hm;
+        }
+
+        static void shl_hm_resize(SHL_HashMap* hm) {
+            size_t old_capacity = hm->capacity;
+            SHL_HashMapEntry* old_buckets = hm->buckets;
+
+            hm->capacity = hm->capacity * 2;
+            hm->buckets = (SHL_HashMapEntry*)calloc(hm->capacity, sizeof(SHL_HashMapEntry));
+            if (!hm->buckets) {
+                hm->buckets = old_buckets;
+                hm->capacity = old_capacity;
+                shl_log(SHL_LOG_ERROR, "Failed to resize hashmap\n");
+                return;
+            }
+
+            size_t new_size = 0;
+            for (size_t i = 0; i < old_capacity; i++) {
+                if (old_buckets[i].state == SHL_HM_USED) {
+                    size_t hash = shl_hm_hash(old_buckets[i].key, old_buckets[i].key_size, hm->capacity);
+                    size_t index = hash;
+
+                    // Linear probing to find empty slot
+                    while (hm->buckets[index].state == SHL_HM_USED) {
+                        index = (index + 1) % hm->capacity;
+                        if (index == hash) {
+                            shl_log(SHL_LOG_ERROR, "Hashmap table is full during resize\n");
+                            break;
+                        }
+                    }
+
+                    if (hm->buckets[index].state != SHL_HM_USED) {
+                        hm->buckets[index].key = old_buckets[i].key;
+                        hm->buckets[index].value = old_buckets[i].value;
+                        hm->buckets[index].key_size = old_buckets[i].key_size;
+                        hm->buckets[index].value_size = old_buckets[i].value_size;
+                        hm->buckets[index].state = SHL_HM_USED;
+                        new_size++;
+                    }
+                }
+            }
+
+            free(old_buckets);
+            hm->size = new_size;
+            shl_log(SHL_LOG_DEBUG, "Hashmap resized to %zu buckets\n", hm->capacity);
+        }
+
+    void shl_hm_put(SHL_HashMap* hm, void* key, void* value) {
+            if (!hm || !key || !value) return;
+
+            // Keys are always strings (null-terminated)
+            size_t key_size = strlen(key) + 1;
+
+            // NOTE: Values are stored as pointers only, not copied
+            // This assumes caller manages value lifetime
+            size_t value_size = sizeof(void*);
+
+            // Resize if load factor > 0.75
+            if (hm->size * 4 > hm->capacity * 3) {
+                shl_hm_resize(hm);
+            }
+
+            size_t hash = shl_hm_hash(key, key_size, hm->capacity);
+            size_t index = hash;
+
+            // Linear probing
+            while (hm->buckets[index].state != SHL_HM_EMPTY) {
+                if (hm->buckets[index].state == SHL_HM_USED && shl_hm_keys_equal(hm->buckets[index].key, key)) {
+                    shl_log(SHL_LOG_DEBUG, "Updating entry for key: %s\n", (const char*)key);
+                    // Update existing value - just store the pointer
+                    free(hm->buckets[index].value);
+                    hm->buckets[index].value = malloc(value_size);
+                    if (hm->buckets[index].value) {
+                        memcpy(hm->buckets[index].value, &value, value_size);
+                        hm->buckets[index].value_size = value_size;
+                    }
+                    return;
+                }
+                index = (index + 1) % hm->capacity;
+                if (index == hash) {
+                    // Table is full
+                    shl_log(SHL_LOG_ERROR, "Hashmap table is full\n");
+                    return;
+                }
+            }
+
+            // Found empty or deleted slot
+            if (hm->buckets[index].state == SHL_HM_EMPTY || hm->buckets[index].state == SHL_HM_DELETED) {
+                shl_log(SHL_LOG_DEBUG, "Inserting new entry for key: %s\n", (const char*)key);
+
+                hm->buckets[index].key = malloc(key_size);
+                hm->buckets[index].value = malloc(value_size);
+
+                if (!hm->buckets[index].key || !hm->buckets[index].value) {
+                    if (hm->buckets[index].key) free(hm->buckets[index].key);
+                    if (hm->buckets[index].value) free(hm->buckets[index].value);
+                    shl_log(SHL_LOG_ERROR, "Failed to allocate memory for hashmap entry\n");
+                    return;
+                }
+
+                memcpy(hm->buckets[index].key, key, key_size);
+                // Store the pointer itself, not the value it points to
+                memcpy(hm->buckets[index].value, &value, value_size);
+                hm->buckets[index].key_size = key_size;
+                hm->buckets[index].value_size = value_size;
+                hm->buckets[index].state = SHL_HM_USED;
+                hm->size++;
+            }
+        }
+
+        void* shl_hm_get(SHL_HashMap* hm, void* key) {
+            if (!hm || !key) return NULL;
+
+            size_t key_size = strlen(key) + 1;
+            size_t hash = shl_hm_hash(key, key_size, hm->capacity);
+            size_t index = hash;
+
+            // Linear probing
+            while (hm->buckets[index].state != SHL_HM_EMPTY) {
+                if (hm->buckets[index].state == SHL_HM_USED && shl_hm_keys_equal(hm->buckets[index].key, key)) {
+                    // value is a pointer to the actual value pointer
+                    void** value_ptr = (void**)hm->buckets[index].value;
+                    return value_ptr ? *value_ptr : NULL;
+                }
+                index = (index + 1) % hm->capacity;
+                if (index == hash) break; // Searched the entire table
+            }
+
+            return NULL;
+        }
+
+        bool shl_hm_contains(SHL_HashMap* hm, void* key) {
+            return shl_hm_get(hm, key) != NULL ? true : false;
+        }
+
+        bool shl_hm_remove(SHL_HashMap* hm, void* key) {
+            if (!hm || !key) return false;
+
+            size_t key_size = strlen(key) + 1;
+            size_t hash = shl_hm_hash(key, key_size, hm->capacity);
+            size_t index = hash;
+
+            // Linear probing
+            while (hm->buckets[index].state != SHL_HM_EMPTY) {
+                if (hm->buckets[index].state == SHL_HM_USED && shl_hm_keys_equal(hm->buckets[index].key, key)) {
+                    // Mark as deleted
+                    free(hm->buckets[index].key);
+                    free(hm->buckets[index].value);
+                    hm->buckets[index].key = NULL;
+                    hm->buckets[index].value = NULL;
+                    hm->buckets[index].state = SHL_HM_DELETED;
+                    hm->size--;
+                    return true;
+                }
+                index = (index + 1) % hm->capacity;
+                if (index == hash) break;
+            }
+
+            return false;
+        }
+
+        void shl_hm_clear(SHL_HashMap* hm) {
+            if (!hm) return;
+
+            for (size_t i = 0; i < hm->capacity; i++) {
+                if (hm->buckets[i].state == SHL_HM_USED) {
+                    free(hm->buckets[i].key);
+                    free(hm->buckets[i].value);
+                    hm->buckets[i].key = NULL;
+                    hm->buckets[i].value = NULL;
+                    hm->buckets[i].state = SHL_HM_EMPTY;
+                }
+            }
+            hm->size = 0;
+        }
+
+        void shl_hm_release(SHL_HashMap* hm) {
+            if (!hm) return;
+            shl_hm_clear(hm);
+            free(hm->buckets);
+            free(hm);
+        }
+
+        size_t shl_hm_size(SHL_HashMap* hm) {
+            return hm ? hm->size : 0;
+        }
+
+        bool shl_hm_empty(SHL_HashMap* hm) {
+            return !hm || hm->size == 0;
+        }
+
+    // SHL_USE_HASHMAP
+        static bool shl_hm_is_printable_string(const char* str, size_t len) {
+            // Check if it's a null-terminated string
+            if (str[len-1] != '\0') return false;
+            for (size_t i = 0; i < len - 1; i++) {
+                if (str[i] < 32 || str[i] > 126) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
 #endif // SHL_IMPLEMENTATION
 
 #ifdef SHL_STRIP_PREFIX
 
     // SHL_USE_HELPER
-        #define ASSERT SHL_ASSERT
-        #define UNUSED SHL_UNUSED
-        #define TODO SHL_TODO
+        #define ASSERT      SHL_ASSERT
+        #define UNUSED      SHL_UNUSED
+        #define TODO        SHL_TODO
         #define UNREACHABLE SHL_UNREACHABLE
-        #define ARRAY_LEN SHL_ARRAY_LEN
-        #define ARRAY_GET SHL_ARRAY_GET
+        #define ARRAY_LEN   SHL_ARRAY_LEN
+        #define ARRAY_GET   SHL_ARRAY_GET
     // SHL_USE_HELPER
 
     // SHL_USE_LOGGER
-        #define init_logger shl_init_logger
-        #define debug shl_debug
-        #define info shl_info
-        #define hint shl_hint
-        #define warn shl_warn
-        #define error shl_error
-        #define critical shl_critical
-        #define LOG_NONE SHL_LOG_NONE
-        #define LOG_DEBUG SHL_LOG_DEBUG
-        #define LOG_INFO SHL_LOG_INFO
-        #define LOG_HINT SHL_LOG_HINT
-        #define LOG_WARN SHL_LOG_WARN
-        #define LOG_ERROR SHL_LOG_ERROR
+        #define init_logger  shl_init_logger
+        #define debug        shl_debug
+        #define info         shl_info
+        #define cmd          shl_cmd
+        #define hint         shl_hint
+        #define warn         shl_warn
+        #define error        shl_error
+        #define critical     shl_critical
+        #define LOG_NONE     SHL_LOG_NONE
+        #define LOG_DEBUG    SHL_LOG_DEBUG
+        #define LOG_INFO     SHL_LOG_INFO
+        #define LOG_CMD      SHL_LOG_CMD
+        #define LOG_HINT     SHL_LOG_HINT
+        #define LOG_WARN     SHL_LOG_WARN
+        #define LOG_ERROR    SHL_LOG_ERROR
         #define LOG_CRITICAL SHL_LOG_CRITICAL
     // SHL_USE_LOGGER
 
@@ -929,14 +1399,13 @@
         #define BuildTask                SHL_BuildTask
         #define SystemConfig             SHL_SystemConfig
         #define auto_rebuild             shl_auto_rebuild
+        #define auto_rebuild_plus        shl_auto_rebuild_plus
         #define get_filename_no_ext      shl_get_filename_no_ext
         #define build_project            shl_build_project
         #define default_compiler_flags   shl_default_compiler_flags
         #define default_build_config     shl_default_build_config
         #define system                   shl_system
-        #define build_project_async      shl_build_project_async
-        #define wait_for_all_builds      shl_wait_for_all_builds
-        #define dispatch_build           shl_dispatch_build
+        #define run                      shl_run
     // SHL_USE_NO_BUILD
 
     // SHL_USE_DYN_ARRAY
@@ -963,16 +1432,32 @@
     // SHL_USE_HELPER
 
     // SHL_USE_FILE_OPS
-        #define String        SHL_String
-        #define mkdir_if      shl_mkdir
-        #define copy_file     shl_copy_file
-        #define copy_dir_rec  shl_copy_dir_rec
-        #define read_dir      shl_read_dir
-        #define read_file     shl_read_file
-        #define write_file    shl_write_file
-        #define get_file_type shl_get_file_type
-        #define delete_file   shl_delete_file
+        #define String               SHL_String
+        #define mkdir                shl_mkdir
+        #define mkdir_if_not_exists  shl_mkdir_if_not_exists
+        #define copy_file            shl_copy_file
+        #define copy_dir_rec         shl_copy_dir_rec
+        #define read_dir             shl_read_dir
+        #define read_file            shl_read_file
+        #define write_file           shl_write_file
+        #define get_file_type        shl_get_file_type
+        #define delete_file          shl_delete_file
+        #define release_string       shl_release_string
     // SHL_USE_FILE_OPS
+
+    // SHL_USE_HASHMAP
+        #define HashMap         SHL_HashMap
+        #define HashMapEntry    SHL_HashMapEntry
+        #define hm_create       shl_hm_create
+        #define hm_put          shl_hm_put
+        #define hm_get          shl_hm_get
+        #define hm_contains     shl_hm_contains
+        #define hm_remove       shl_hm_remove
+        #define hm_clear        shl_hm_clear
+        #define hm_release      shl_hm_release
+        #define hm_size         shl_hm_size
+        #define hm_empty        shl_hm_empty
+    // SHL_USE_HASHMAP
 
 #endif // SHL_STRIP_PREFIX
 

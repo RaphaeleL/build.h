@@ -62,8 +62,6 @@ static void eval(int a, int b, char op) {
 }
 
 int main(int argc, char **argv) {
-    init_logger(LOG_DEBUG, false, false);
-
     add_argument("--a", "2", "The first number");
     add_argument("--b", "3", "The second number");
     add_argument("--operation", "+", "The operation");

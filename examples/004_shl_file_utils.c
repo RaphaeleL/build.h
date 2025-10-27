@@ -3,8 +3,6 @@
 #include "../build.h"
 
 int main() {
-    init_logger(LOG_DEBUG, true, false);
-
     String file = {0};
 
     if (shl_read_file("./README.md", &file)) {

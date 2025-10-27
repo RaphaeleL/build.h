@@ -18,8 +18,6 @@
 #include "../build.h"
 
 int main(int argc, char *argv[]) {
-    init_logger(LOG_DEBUG, false, false);
-
     add_argument("--foo", "bar", "The foo argument");
     add_argument("--number", "42", "The number argument");
 
