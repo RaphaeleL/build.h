@@ -1451,7 +1451,9 @@
             return !hm || hm->size == 0;
         }
 
-    // SHL_USE_UNITTEST
+        //////////////////////////////////////////////////
+        /// UNITTEST
+        //////////////////////////////////////////////////
 
         typedef struct {
             shl_test_t tests[1024];
@@ -1535,8 +1537,6 @@
 
             return shl_test_suite.failed > 0 ? 1 : 0;
         }
-
-    // SHL_USE_UNITTEST
 
 #endif // SHL_IMPLEMENTATION
 
