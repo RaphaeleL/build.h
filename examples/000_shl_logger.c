@@ -20,10 +20,11 @@
 int main() {
     debug("This is a debug message\n");
     info("Starting program with pid=%d\n", 1234);
+    cmd("cc -o foo foo.c\n");
     hint("Starting program with pid=%d\n", 1234);
     warn("Low memory detected\n");
-    error("Fatal error: %s\n", "out of memory");
-    critical("Fatal error: %s\n", "out of memory");
+    error("Fatal error: %s\n", "out of memory");    // will exit with failure
+    critical("Fatal error: %s\n", "out of memory"); // will abort (never reached)
 
     return 0;
 }

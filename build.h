@@ -1,14 +1,39 @@
-/*
- * ===========================================================================
- * build.h
+/* build.h - v0.0.1 - https://github.com/RaphaeleL/build.h
+ * ============================================================================
+ *  File: build.h
+ *  Description: Quality-of-life utilities and abstractions for C development.
  *
- * A collection of QoL functionalities for C.
+ *  This header provides a collection of macros, inline utilities, build-time
+ *  helpers and more, intended to simplify common C programming patterns, improve
+ *  code clarity, and enhance portability across compilers and platforms.
  *
- * Created: 30 Sep 2025
- * Author : Raphaele Salvatore Licciardo
+ *  ----------------------------------------------------------------------------
+ *  Created : 30 Sep 2025
+ *  Author  : Raphaele Salvatore Licciardo
+ *  License : MIT (see LICENSE for details)
+ *  Version : 0.0.1
+ *  ----------------------------------------------------------------------------
  *
- * Copyright (c) 2025 Raphaele Salvatore Licciardo
- * ===========================================================================
+ *  Copyright (c) 2025 Raphaele Salvatore Licciardo
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ * ============================================================================
  */
 
 #pragma once
@@ -25,7 +50,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <time.h>
 #include <time.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -48,7 +72,9 @@
     #error Unsupported platform
 #endif
 
-// SHL_USE_LOGGER
+//////////////////////////////////////////////////
+/// LOGGER
+//////////////////////////////////////////////////
 
     // Log levels
     typedef enum {
@@ -73,9 +99,9 @@
     #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
     #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
 
-// SHL_USE_LOGGER
-
-// SHL_USE_CLI_PARSER
+//////////////////////////////////////////////////
+/// CLI_PARSER
+//////////////////////////////////////////////////
 
     #define SHL_ARG_MAX 128
 
@@ -98,9 +124,9 @@
     void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg);
     shl_arg_t *shl_get_argument(const char *long_name);
 
-// SHL_USE_CLI_PARSER
-
-// SHL_USE_NO_BUILD
+//////////////////////////////////////////////////
+/// NO_BUILD
+//////////////////////////////////////////////////
 
     #define MAX_TASKS 32
 
@@ -139,9 +165,9 @@
     char *shl_get_filename_no_ext(const char *path);
     void shl_wait_for_all_builds(void);
 
-// SHL_USE_NO_BUILD
-
-// SHL_USE_FILE_OPS
+//////////////////////////////////////////////////
+/// FILE_OPS
+//////////////////////////////////////////////////
 
     typedef struct {
         char **data;
@@ -160,9 +186,9 @@
     bool shl_delete_file(const char *path);
     void shl_release_string(SHL_String* content);
 
-// SHL_USE_FILE_OPS
-
-// SHL_USE_DYN_ARRAY
+//////////////////////////////////////////////////
+/// DYN_ARRAY
+//////////////////////////////////////////////////
 
     #define SHL_INIT_CAP 8
 
@@ -278,9 +304,9 @@
     #define shl_list(T) \
         struct { T *data; size_t len, cap; }
 
-// SHL_USE_DYN_ARRAY
-
-// SHL_USE_HASHMAP
+//////////////////////////////////////////////////
+/// HASHMAP
+//////////////////////////////////////////////////
 
     typedef enum {
         SHL_HM_EMPTY = 0,
@@ -312,9 +338,11 @@
     void shl_hm_release(SHL_HashMap* hm);
     size_t shl_hm_size(SHL_HashMap* hm);
     bool shl_hm_empty(SHL_HashMap* hm);
-// SHL_USE_HASHMAP
 
-// SHL_USE_HELPER
+//////////////////////////////////////////////////
+/// HELPER
+//////////////////////////////////////////////////
+
     #define SHL_UNUSED(value) (void)(value)
     #define SHL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
     #define SHL_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
@@ -322,7 +350,10 @@
     #define SHL_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
     #define SHL_ARRAY_GET(array, index) \
         (SHL_ASSERT((size_t)(index) < SHL_ARRAY_LEN(array)), (array)[(size_t)(index)])
-// SHL_USE_HELPER
+
+//////////////////////////////////////////////////
+/// SHL_IMPLEMENATION
+//////////////////////////////////////////////////
 
 // SHL_USE_UNITTEST
     typedef struct {
@@ -367,16 +398,18 @@
 
 #ifdef SHL_IMPLEMENTATION
 
-    // SHL_USE_LOGGER
+        //////////////////////////////////////////////////
+        /// LOGGER
+        //////////////////////////////////////////////////
 
         #define SHL_COLOR_RESET     "\x1b[0m"
-        #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
-        #define SHL_COLOR_CMD       "\x1b[33m" // orange
-        #define SHL_COLOR_INFO      "\x1b[32m" // green
-        #define SHL_COLOR_HINT      "\x1b[34m" // blue
-        #define SHL_COLOR_WARN      "\x1b[33m" // yellow
         #define SHL_COLOR_ERROR     "\x1b[31m" // red
+        #define SHL_COLOR_INFO      "\x1b[32m" // green
+        #define SHL_COLOR_WARN      "\x1b[33m" // yellow
+        #define SHL_COLOR_HINT      "\x1b[34m" // blue
         #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
+        #define SHL_COLOR_CMD       "\x1b[36m" // yellow
+        #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
 
         static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
         static bool shl_logger_color = false;
@@ -424,25 +457,55 @@
                 level_color = shl_level_to_color(level);
             }
 
+            char time_buf[32] = {0};
             if (shl_logger_time) {
                 time_t t = time(NULL);
                 struct tm *lt = localtime(&t);
-                char buf[32];
-                strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", lt);
-                fprintf(stderr, "%s[%s]%s %s >>> ", level_color, level_str, SHL_COLOR_RESET, buf);
+                strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
+            }
+
+            if (shl_logger_time) {
+                fprintf(stderr, "%s[%s]%s %s >>> ", level_color, level_str, SHL_COLOR_RESET, time_buf);
             } else {
                 fprintf(stderr, "%s[%s]%s ", level_color, level_str, SHL_COLOR_RESET);
             }
 
-            va_list args;
-            va_start(args, fmt);
-            vfprintf(stderr, fmt, args);
-            va_end(args);
+            if (level == SHL_LOG_ERROR || level == SHL_LOG_CRITICAL) {
+                fprintf(stderr, "\t\n");
+                fprintf(stderr, "\t\n");
+                fprintf(stderr, "\t              |    |    |                 \n");
+                fprintf(stderr, "\t             )_)  )_)  )_)                %s: Leaving the Ship\n", level_str);
+                fprintf(stderr, "\t            )___))___))___)               > ");
+                va_list args;
+                va_start(args, fmt);
+                vfprintf(stderr, fmt, args);
+                va_end(args);
+                fprintf(stderr, "\t           )____)____)_____)              \n");
+                fprintf(stderr, "\t         _____|____|____|_____            \n");
+                fprintf(stderr, "\t---------\\                   /---------  \n");
+                fprintf(stderr, "\t  ^^^^^ ^^^^^^^^^^^^^^^^^^^^^             \n");
+                fprintf(stderr, "\t    ^^^^      ^^^^     ^^^    ^^          \n");
+                fprintf(stderr, "\t         ^^^^      ^^^                    \n");
+                fprintf(stderr, "\t\n");
+            } else {
+                va_list args;
+                va_start(args, fmt);
+                vfprintf(stderr, fmt, args);
+                va_end(args);
+            }
+
+            if (level == SHL_LOG_ERROR) {
+                fflush(NULL);
+                exit(EXIT_FAILURE);
+            } else if (level == SHL_LOG_CRITICAL) {
+                fflush(NULL);
+                abort();
+            }
         }
 
-    // SHL_USE_LOGGER
-
-    // SHL_USE_CLI_PARSER
+        //////////////////////////////////////////////////1
+        /// CLI_PARSER
+        //////////////////////////////////////////////////
 
         void shl_init_argparser(int argc, char *argv[]) {
             shl_add_argument("--help", NULL, "Show this help message"); // no value expected
@@ -525,9 +588,9 @@
             return arg->value ? arg->value : "";
         }
 
-    // SHL_USE_CLI_PARSER
-
-    // SHL_USE_NO_BUILD
+        //////////////////////////////////////////////////
+        /// NO_BUILD
+        //////////////////////////////////////////////////
 
         static void shl_ensure_dir_for_file(const char* filepath) {
             char dir[1024];
@@ -861,9 +924,9 @@
             return true;
         }
 
-    // SHL_USE_NO_BUILD
-
-    // SHL_USE_FILE_OPS
+        //////////////////////////////////////////////////
+        /// FILE_OPS
+        //////////////////////////////////////////////////
 
         bool shl_mkdir_if_not_exists(const char *path) {
             struct stat st;
@@ -1166,9 +1229,9 @@
             content->len = content->cap = 0;
         }
 
-    // SHL_USE_FILE_OPS
-
-    // SHL_USE_HASHMAP
+        //////////////////////////////////////////////////
+        /// HASHMAP
+        //////////////////////////////////////////////////
 
         static size_t shl_hm_hash(void* key, size_t key_size, size_t capacity) {
             size_t hash = 5381;
@@ -1477,18 +1540,21 @@
 
 #endif // SHL_IMPLEMENTATION
 
+//////////////////////////////////////////////////
+/// SHL_STRIP_PREFIX
+//////////////////////////////////////////////////
+
 #ifdef SHL_STRIP_PREFIX
 
-    // SHL_USE_HELPER
+        // SHL_USE_HELPER
         #define ASSERT      SHL_ASSERT
         #define UNUSED      SHL_UNUSED
         #define TODO        SHL_TODO
         #define UNREACHABLE SHL_UNREACHABLE
         #define ARRAY_LEN   SHL_ARRAY_LEN
         #define ARRAY_GET   SHL_ARRAY_GET
-    // SHL_USE_HELPER
 
-    // SHL_USE_LOGGER
+        // SHL_USE_LOGGER
         #define init_logger  shl_init_logger
         #define debug        shl_debug
         #define info         shl_info
@@ -1505,16 +1571,14 @@
         #define LOG_WARN     SHL_LOG_WARN
         #define LOG_ERROR    SHL_LOG_ERROR
         #define LOG_CRITICAL SHL_LOG_CRITICAL
-    // SHL_USE_LOGGER
 
-    // SHL_USE_CLI_PARSER
+        // SHL_USE_CLI_PARSER
         #define init_argparser shl_init_argparser
         #define add_argument   shl_add_argument
         #define get_argument   shl_get_argument
         #define arg_t          shl_arg_t
-    // SHL_USE_CLI_PARSER
 
-    // SHL_USE_NO_BUILD
+        // SHL_USE_NO_BUILD
         #define BuildConfig              SHL_BuildConfig
         #define BuildTask                SHL_BuildTask
         #define SystemConfig             SHL_SystemConfig
@@ -1526,9 +1590,8 @@
         #define default_build_config     shl_default_build_config
         #define system                   shl_system
         #define run                      shl_run
-    // SHL_USE_NO_BUILD
 
-    // SHL_USE_DYN_ARRAY
+        // SHL_USE_DYN_ARRAY
         #define grow         shl_grow
         #define shrink       shl_shrink
         #define push         shl_push
@@ -1540,18 +1603,16 @@
         #define back         shl_back
         #define swap         shl_swap
         #define list         shl_list
-    // SHL_USE_DYN_ARRAY
 
-    // SHL_USE_HELPER
+        // SHL_USE_HELPER
         #define ASSERT              SHL_ASSERT
         #define UNUSED              SHL_UNUSED
         #define TODO                SHL_TODO
         #define UNREACHABLE         SHL_UNREACHABLE
         #define ARRAY_LEN           SHL_ARRAY_LEN
         #define ARRAY_GET           SHL_ARRAY_GET
-    // SHL_USE_HELPER
 
-    // SHL_USE_FILE_OPS
+        // SHL_USE_FILE_OPS
         #define String               SHL_String
         #define mkdir                shl_mkdir
         #define mkdir_if_not_exists  shl_mkdir_if_not_exists
@@ -1563,9 +1624,8 @@
         #define get_file_type        shl_get_file_type
         #define delete_file          shl_delete_file
         #define release_string       shl_release_string
-    // SHL_USE_FILE_OPS
 
-    // SHL_USE_HASHMAP
+        // SHL_USE_HASHMAP
         #define HashMap         SHL_HashMap
         #define HashMapEntry    SHL_HashMapEntry
         #define hm_create       shl_hm_create
@@ -1577,7 +1637,6 @@
         #define hm_release      shl_hm_release
         #define hm_size         shl_hm_size
         #define hm_empty        shl_hm_empty
-    // SHL_USE_HASHMAP
 
     // SHL_USE_UNITTEST
         #define Test                shl_test_t
