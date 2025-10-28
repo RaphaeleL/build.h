@@ -324,6 +324,47 @@
         (SHL_ASSERT((size_t)(index) < SHL_ARRAY_LEN(array)), (array)[(size_t)(index)])
 // SHL_USE_HELPER
 
+// SHL_USE_UNITTEST
+    typedef struct {
+        void (*func)(void);
+        const char *name;
+        const char *file;
+        int line;
+    } shl_test_t;
+
+        void shl_test_register(const char *name, const char *file, int line, void (*test_func)(void));
+        void shl_test_fail(void);
+        int shl_test_run_all(void);
+        void shl_test_print_summary(void);
+
+        // Internal failure message storage
+        extern char shl_test_failure_msg[];
+
+    // Test macros
+    #define SHL_TEST_ASSERT(condition, message) \
+        do { \
+            if (!(condition)) { \
+                snprintf(shl_test_failure_msg, sizeof(shl_test_failure_msg), "%s:%d: %s", __FILE__, __LINE__, message); \
+                shl_test_fail(); \
+                return; \
+            } \
+        } while(0)
+
+    #define SHL_TEST_EQ(a, b, message) SHL_TEST_ASSERT((a) == (b), message)
+    #define SHL_TEST_NEQ(a, b, message) SHL_TEST_ASSERT((a) != (b), message)
+    #define SHL_TEST_STREQ(a, b, message) SHL_TEST_ASSERT(strcmp((a), (b)) == 0, message)
+    #define SHL_TEST_STRNEQ(a, b, message) SHL_TEST_ASSERT(strcmp((a), (b)) != 0, message)
+    #define SHL_TEST_TRUTHY(value, message) SHL_TEST_ASSERT(value, message)
+    #define SHL_TEST_FALSY(value, message) SHL_TEST_ASSERT(!(value), message)
+
+    #define SHL_TEST(name) \
+        static void shl_test_##name(void); \
+        __attribute__((constructor)) static void shl_test_register_##name(void) { \
+            shl_test_register(#name, __FILE__, __LINE__, shl_test_##name); \
+        } \
+        static void shl_test_##name(void)
+// SHL_USE_UNITTEST
+
 #ifdef SHL_IMPLEMENTATION
 
     // SHL_USE_LOGGER
@@ -414,18 +455,22 @@
                     if (strcmp(argv[i], arg->long_name) == 0) {
                         if (strcmp(arg->long_name, "--help") == 0) {
                             arg->value = "1"; // flag is set
-                        } else if (i + 1 < argc) {
+                        } else if (i + 1 < argc && argv[i + 1][0] != '-') {
                             arg->value = argv[i + 1];
                             i++;
+                        } else {
+                            arg->value = "1"; // flag is set (no value provided)
                         }
                     }
                     // Short option match
                     else if (argv[i][0] == '-' && argv[i][1] == arg->short_name) {
                         if (arg->short_name == 'h') {
                             arg->value = "1"; // flag is set
-                        } else if (i + 1 < argc) {
+                        } else if (i + 1 < argc && argv[i + 1][0] != '-') {
                             arg->value = argv[i + 1];
                             i++;
+                        } else {
+                            arg->value = "1"; // flag is set (no value provided)
                         }
                     }
                 }
@@ -438,10 +483,10 @@
                 for (int i = 0; i < shl_parser.count; i++) {
                     shl_arg_t *arg = &shl_parser.args[i];
                     printf("  %s, -%c: %s (default: %s)\n",
-                    arg->long_name,
-                    arg->short_name,
-                    arg->help_msg ? arg->help_msg : "",
-                    arg->default_val ? arg->default_val : "none");
+                        arg->long_name,
+                        arg->short_name,
+                        arg->help_msg ? arg->help_msg : "",
+                        arg->default_val ? arg->default_val : "none");
                 }
                 exit(0);
             }
@@ -724,7 +769,7 @@
                 shl_debug("Restarting with updated build executable...\n");
                 STARTUPINFO si = { sizeof(si) };
                 PROCESS_INFORMATION pi;
-                if (!CreateProcess(out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+                if (!CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
                     shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
                     exit(1);
                 }
@@ -759,8 +804,8 @@
         }
 
         bool shl_system(SHL_SystemConfig* config) {
-            if (!config || !config->command || !config->flags) {
-                shl_log(SHL_LOG_ERROR, "Invalid system configuration.\n");
+            if (!config || !config->command) {
+                shl_log(SHL_LOG_ERROR, "Invalid system configuration (%s)\n", config->command);
                 return false;
             }
 
@@ -1343,17 +1388,92 @@
             return !hm || hm->size == 0;
         }
 
-    // SHL_USE_HASHMAP
-        static bool shl_hm_is_printable_string(const char* str, size_t len) {
-            // Check if it's a null-terminated string
-            if (str[len-1] != '\0') return false;
-            for (size_t i = 0; i < len - 1; i++) {
-                if (str[i] < 32 || str[i] > 126) {
-                    return false;
+    // SHL_USE_UNITTEST
+
+        typedef struct {
+            shl_test_t tests[1024];
+            size_t count;
+            size_t passed;
+            size_t failed;
+        } shl_test_suite_t;
+
+        static shl_test_suite_t shl_test_suite = {0};
+        char shl_test_failure_msg[256] = {0};
+
+        void shl_test_register(const char *name, const char *file, int line, void (*test_func)(void)) {
+            if (shl_test_suite.count >= SHL_ARRAY_LEN(shl_test_suite.tests)) {
+                fprintf(stderr, "Too many tests registered!\n");
+                return;
+            }
+            shl_test_t *test = &shl_test_suite.tests[shl_test_suite.count++];
+            test->name = name;
+            test->file = file;
+            test->line = line;
+            test->func = test_func;
+        }
+
+        static bool shl_test_current_failed = false;
+
+        void shl_test_fail(void) {
+            shl_test_current_failed = true;
+        }
+
+        int shl_test_run_all(void) {
+            size_t test_count = shl_test_suite.count;
+            shl_test_suite.passed = 0;
+            shl_test_suite.failed = 0;
+
+            // Find the longest test name for alignment
+            size_t max_name_len = 0;
+            for (size_t i = 0; i < test_count; i++) {
+                size_t len = strlen(shl_test_suite.tests[i].name);
+                if (len > max_name_len) max_name_len = len;
+            }
+
+            const size_t target_width = 60;
+            const size_t prefix_len = 7; // "[TEST] " prefix
+
+            for (size_t i = 0; i < test_count; i++) {
+                shl_test_t *test = &shl_test_suite.tests[i];
+                shl_test_current_failed = false;
+                shl_test_failure_msg[0] = '\0'; // Reset failure message
+
+                // Calculate dots needed to reach alignment point
+                size_t name_len = strlen(test->name);
+                size_t total_prefix = prefix_len + name_len;
+                size_t space_needed = target_width - total_prefix;
+                // size_t dots_needed = total_prefix < target_width ? target_width - total_prefix : 10;
+                size_t dots_needed = space_needed;
+
+                printf("[TEST] %s ", test->name);
+
+                // Print dots for alignment
+                for (size_t j = 0; j < dots_needed; j++) {
+                    printf(".");
+                }
+
+                // Run the test
+                test->func();
+
+                // Print result on same line with colors
+                if (shl_test_current_failed) {
+                    printf("\033[31m [FAILED]\033[0m\n"); // Red
+                    if (shl_test_failure_msg[0] != '\0') {
+                        printf("  %s\n", shl_test_failure_msg);
+                    }
+                    shl_test_suite.failed++;
+                } else {
+                    printf("\033[32m [OK]\033[0m\n"); // Green
+                    shl_test_suite.passed++;
                 }
             }
-            return true;
+
+            printf("Total: %zu, Passed: %zu, Failed: %zu\n", shl_test_suite.count, shl_test_suite.passed, shl_test_suite.failed);
+
+            return shl_test_suite.failed > 0 ? 1 : 0;
         }
+
+    // SHL_USE_UNITTEST
 
 #endif // SHL_IMPLEMENTATION
 
@@ -1458,6 +1578,21 @@
         #define hm_size         shl_hm_size
         #define hm_empty        shl_hm_empty
     // SHL_USE_HASHMAP
+
+    // SHL_USE_UNITTEST
+        #define Test                shl_test_t
+        #define test_register       shl_test_register
+        #define test_run_all        shl_test_run_all
+        #define test_print_summary  shl_test_print_summary
+        #define TEST_ASSERT         SHL_TEST_ASSERT
+        #define TEST_EQ             SHL_TEST_EQ
+        #define TEST_NEQ            SHL_TEST_NEQ
+        #define TEST_STREQ          SHL_TEST_STREQ
+        #define TEST_STRNEQ         SHL_TEST_STRNEQ
+        #define TEST_TRUTHY         SHL_TEST_TRUTHY
+        #define TEST_FALSY          SHL_TEST_FALSY
+        #define TEST                SHL_TEST
+    // SHL_USE_UNITTEST
 
 #endif // SHL_STRIP_PREFIX
 
