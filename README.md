@@ -10,11 +10,13 @@ Just drop `build.h` into your project.
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
 ```
 
+## Usage
+
 Since it's just an header file, you need to define `SHL_IMPLEMENTATION` in **one** of your source files before including `build.h`, to enable the implementation inside of the header.
 
 If you now include `#include "./build.h"` itself, you should be ready to start! Now you can either
 
-1. Recreate a Build System with `build.h` which is Building Projects. 
+1. Recreate a Build System with `build.h` which is Building Projects.
 2. Use the utilities `build.h` provides to use certain utilities like logging, CLI argument parsing, dynamic arrays, etc.
 
 Below is an example. This examples assumes there is a file `main.c` which is our target. When we are compiling our Implementation of `build.h` (assume its `build.c`) with `gcc -o build build.c` and execute if afterwards with `./build`, it is doing multiple things as once.
@@ -29,12 +31,11 @@ Below is an example. This examples assumes there is a file `main.c` which is our
 #include "./build.h"
 
 int main(int argc, char **argv) {
-    init_logger(LOG_INFO, true, true);
     auto_rebuild("build.c");
 
     BuildConfig build = default_build_config("main.c", "main");
-
     if (!run(&build)) return 1;
+
     info("We are finished! yeeey.");
 
     return 0;
@@ -51,13 +52,13 @@ As mentioned above, you don't have to use `build.h` as a build tool. You can als
 int main() {
     auto_rebuild_plus("demo.c", "build.h");
 
-    info("Hello, World!");
+    info("We are finished! yeeey.");
 
     return 0;
 }
 ```
 
-### How to create a valid BuildConfig
+### How to Compile a C File?
 
 A `BuildConfig` is a struct which holds all the information needed to build your target. Let's assume we want to re-create follwoing command:
 
@@ -95,11 +96,48 @@ cfg.library_dirs = "/usr/local/lib";
 cfg.defines = "DEBUG=1";
 ```
 
-### How to create a valid SystemConfig
+### How to run a CLI Command?
 
-Beside a Build Configuration, there is also a System Configuration. This is used to specify a CLI Command, for example an `ls -al` Command. 
+Beside a Build Configuration, there is also a System Configuration. This is used to specify a CLI Command, for example an `ls -al` Command.
 
-##  Roadmap
+```c
+SystemConfig cfg = (SystemConfig) {.command = "ls", .flags = "-al"};
+system(&cfg);;
+```
+
+### How to use the QoL functionalities?
+
+Just import the Library and enable the implementation, now you are good to go!
+
+```c
+#define SHL_IMPLEMENTATION
+#define SHL_STRIP_PREFIX
+#include "./build.h"
+
+int main(int argc, char **argv) {
+    UNUSED(argc);
+    UNUSED(argv);
+
+    auto_rebuild_plus("demo.c", "build.h");
+
+    HashMap* hm = hm_create();
+    hm_put(hm, (void*)"name", (void*)"John Doe");
+    hm_put(hm, (void*)"age", (void*)30);
+
+    info("HashMap size: %zu\n", hm_size(hm));
+
+    info("HashMap size before removal: %zu\n", hm_size(hm));
+    hm_remove(hm, (void*)"age");
+    info("HashMap size after removal: %zu\n", hm_size(hm));
+
+    hm_clear(hm);
+    hm_release(hm);
+
+    return 0;
+}
+```
+
+## Roadmap
 
 The roadmap below shows what is already implemented and what is planned. They will all be included in the same single-header file. In the future this might be split into multiple files, but for now I want to keep it simple.
 
