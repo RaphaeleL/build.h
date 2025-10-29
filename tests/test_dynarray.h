@@ -2,7 +2,6 @@
 #define SHL_STRIP_PREFIX
 #include "../build.h"
 
-
 SHL_TEST(test_dynarray_create) {
     shl_list(int) vector = {0};
     SHL_TEST_EQ(vector.len, 0, "vector length");

@@ -1,164 +1,185 @@
-# build.h
+## build.h
 
-A single-header **quality-of-life (QoL) utility library for C**. It provides logging, CLI argument parsing, dynamic arrays, and lightweight build-system helpers in a portable way (Linux, macOS, Windows).
+Single-header utilities for C. Pragmatic. Portable. No nonsense.
 
-## Getting Started
+- **Logger** with levels, colors, timestamps.
+- **CLI arg parser** with simple long/short flags.
+- **Dynamic array macros** (`grow`, `push`, etc.).
+- **HashMap** for string keys to pointer values.
+- **File ops** (mkdir, copy files/dirs, read/write files, list dirs).
+- **No-build helpers**: rebuild self when sources change, run simple builds.
+- **Unit test harness** with minimal macros.
 
-Just drop `build.h` into your project.
+Supported: Linux, macOS, Windows.
+
+### Install
+
+Drop `build.h` into your project.
 
 ```bash
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
 ```
 
-## Usage
-
-Since it's just an header file, you need to define `SHL_IMPLEMENTATION` in **one** of your source files before including `build.h`, to enable the implementation inside of the header.
-
-If you now include `#include "./build.h"` itself, you should be ready to start! Now you can either
-
-1. Recreate a Build System with `build.h` which is Building Projects.
-2. Use the utilities `build.h` provides to use certain utilities like logging, CLI argument parsing, dynamic arrays, etc.
-
-Below is an example. This examples assumes there is a file `main.c` which is our target. When we are compiling our Implementation of `build.h` (assume its `build.c`) with `gcc -o build build.c` and execute if afterwards with `./build`, it is doing multiple things as once.
-
-1. check if build.c has changed, if so: recompile `build.c` and rerun itself
-2. compile the target (here `main.c`)
+In exactly one `.c` file, before including `build.h`, define `SHL_IMPLEMENTATION`. Optionally define `SHL_STRIP_PREFIX` to remove the `shl_` prefix from public names.
 
 ```c
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
+#include "./build.h"
+```
 
+### Quick start: tiny build script
+
+This `build.c` recompiles itself when it changes and builds `main.c` to `./main`.
+
+```c
+#define SHL_IMPLEMENTATION
+#define SHL_STRIP_PREFIX
 #include "./build.h"
 
-int main(int argc, char **argv) {
+int main(void) {
     auto_rebuild("build.c");
 
-    BuildConfig build = default_build_config("main.c", "main");
-    if (!run(&build)) return 1;
-
-    info("We are finished! yeeey.");
-
-    return 0;
-}
-```
-
-As mentioned above, you don't have to use `build.h` as a build tool. You can also just use the utilities it provides. Here is an example (assume its `demo.c`) of rebuilding `demo.c` and use the logger:
-
-```c
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
-#include "./build.h"
-
-int main() {
-    auto_rebuild_plus("demo.c", "build.h");
-
-    info("We are finished! yeeey.");
+    BuildConfig b = default_build_config("main.c", "main");
+    b.compiler_flags = "-Wall -Wextra"; // defaults are platform sensible; override if you want
+    if (!run(&b)) return 1;
 
     return 0;
 }
 ```
 
-### How to Compile a C File?
-
-A `BuildConfig` is a struct which holds all the information needed to build your target. Let's assume we want to re-create follwoing command:
+Compile and run:
 
 ```bash
-gcc -Wall -O2 -std=c11 -DDEBUG=1 -Iinclude main.c util.c -o prog -L/usr/local/lib -lm -pthread
+cc -o build build.c && ./build
 ```
 
-This can be done like this:
+### No-build helpers (what actually runs)
+
+- **`default_build_config(source, output)`**: returns a minimal `SHL_BuildConfig` with platform defaults.
+- **`run(&cfg)`**: builds only if `source` is newer than `output`.
+- **`build_project(&cfg)`**: always build (no timestamp check).
+- **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
+- **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
+- **`system(&SystemConfig)`**: run a simple CLI command with flags.
+
+Minimal config that maps to a command like `cc <flags> source -o output <linker_flags>`:
 
 ```c
 SHL_BuildConfig cfg = {
     .source = "main.c",
-    .output = "prog",
-    .compiler = "gcc",
-    .compiler_flags = "-Wall -O2 -std=c11",
-    .linker_flags = "-pthread",
-    .include_dirs = "include",
-    .libraries = "m",
-    .library_dirs = "/usr/local/lib",
-    .defines = "DEBUG=1"
+    .output = "main",
+    .compiler = "cc",                    // or "gcc", "clang"
+    .compiler_flags = "-Wall -Wextra",   // optional
+    .linker_flags = ""                   // optional
 };
+(void)build_project(&cfg);
 ```
 
-Alternatively you firstly create an empty default `BuildConfig` and then add all the options you need:
+Note: fields like `include_dirs`, `libraries`, `library_dirs`, `defines` exist in the struct but are not yet wired into the invoked command. Keep flags in `compiler_flags` or `linker_flags` for now.
+
+### Logger
 
 ```c
-SHL_BuildConfig cfg = default_build_config();
-cfg.sources = "main.c util.c";
-cfg.output = "prog";
-cfg.compiler_flags = "-Wall -O2 -std=c11";
-cfg.linker_flags = "-pthread";
-cfg.include_dirs = "include";
-cfg.libraries = "m";
-cfg.library_dirs = "/usr/local/lib";
-cfg.defines = "DEBUG=1";
+init_logger(LOG_DEBUG, /*color*/true, /*time*/true);
+debug("debug: %d\n", 1);
+info("info\n");
+warn("warning\n");
+error("fatal error message\n");  // exits
 ```
 
-### How to run a CLI Command?
+Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` (exit), `LOG_CRITICAL` (abort).
 
-Beside a Build Configuration, there is also a System Configuration. This is used to specify a CLI Command, for example an `ls -al` Command.
+### CLI argument parser
 
 ```c
-SystemConfig cfg = (SystemConfig) {.command = "ls", .flags = "-al"};
-system(&cfg);;
+init_argparser(argc, argv);
+add_argument("--threads", "4", "worker threads");
+add_argument("--help", NULL, "show help");
+arg_t *thr = get_argument("--threads");
+info("threads = %s\n", thr ? thr->value : "");
 ```
 
-### How to use the QoL functionalities?
+- Long flags: `--flag [value]`
+- Short flags: `-f [value]` (auto-mapped from the first letter after `--`)
+- `--help` prints usage and exits
 
-Just import the Library and enable the implementation, now you are good to go!
+### Dynamic array macros
 
 ```c
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
-#include "./build.h"
+list(int) a = {0};
+push(&a, 10);
+pushn(&a, (int[]){20,30}, 2);
+info("len=%zu cap=%zu back=%d\n", a.len, a.cap, back(&a));
+drop(&a);
+release(&a);
+```
 
-int main(int argc, char **argv) {
-    UNUSED(argc);
-    UNUSED(argv);
+Provided: `grow`, `shrink`, `push`, `pushn`, `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
 
-    auto_rebuild_plus("demo.c", "build.h");
+### HashMap (string keys → pointer values)
 
-    HashMap* hm = hm_create();
-    hm_put(hm, (void*)"name", (void*)"John Doe");
-    hm_put(hm, (void*)"age", (void*)30);
+```c
+HashMap *hm = hm_create();
+hm_put(hm, (void*)"name", (void*)"Ada");
+void *v = hm_get(hm, (void*)"name");
+info("name=%s\n", (char*)v);
+hm_remove(hm, (void*)"name");
+hm_release(hm);
+```
 
-    info("HashMap size: %zu\n", hm_size(hm));
+Notes:
+- Keys are treated as C strings; they are copied into the map.
+- Values are stored as the pointer you pass (the map allocates storage for the pointer, not the pointee). Manage pointee lifetime yourself.
 
-    info("HashMap size before removal: %zu\n", hm_size(hm));
-    hm_remove(hm, (void*)"age");
-    info("HashMap size after removal: %zu\n", hm_size(hm));
+### File operations
 
-    hm_clear(hm);
-    hm_release(hm);
+```c
+mkdir_if_not_exists("out");
+copy_file("a.txt", "out/a.txt");
+copy_dir_rec("assets", "out/assets");
+String lines = {0};
+read_file("Makefile", &lines);
+for (size_t i = 0; i < lines.len; i++) info("%s\n", lines.data[i]);
+release_string(&lines);
+```
 
-    return 0;
+Also: `read_dir(path, filter)`, `write_file(path, data, size)`, `get_file_type(path)`, `delete_file(path)`.
+
+### Unit testing
+
+```c
+TEST(sample) {
+    TEST_EQ(2+2, 4, "math");
+}
+
+int main(void) {
+    return test_run_all();
 }
 ```
 
-## Roadmap
+Macros: `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ`, `TEST_TRUTHY`, `TEST_FALSY`.
 
-The roadmap below shows what is already implemented and what is planned. They will all be included in the same single-header file. In the future this might be split into multiple files, but for now I want to keep it simple.
+### Prefix stripping
 
-- [x] Logger
-- [x] No Build
-- [x] Dynamic Arrays
-- [x] Helper Macros
-- [x] CLI Argument Parser
-- [x] File Operations
-- [x] Hashmap
-- [ ] String
-- [ ] Queue and stack macros
-- [ ] Ring buffer
-- [ ] linked list
-- [ ] Timing utilities (high-resolution timers, benchmarks)
-- [ ] Memory utilities (arena allocator / bump allocator).
-- [ ] Unit-test runner integration
-- [ ] Easier Parallelization
-- [ ] Better Error Handling
+Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`, `BuildConfig` instead of `SHL_BuildConfig`). See the bottom of `build.h` for the full mapping.
 
-## License
+### Platform notes
 
-Copyright (c) 2025 **Raphaele Salvatore Licciardo**
-All rights reserved.
+- Linux/macOS: uses `pthread`, `dirent`, `execv`, `stat`, `unlink` where needed.
+- Windows: uses WinAPI (`CreateProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`).
+
+### FAQ
+
+- Why a single header? Easier drop-in, no build system glue.
+- Can I use this only for logging/arrays/etc.? Yes. `auto_rebuild` and friends are optional.
+- Thread safety? The logger has process-global settings; other parts are not thread-safe.
+
+### Roadmap
+
+- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner.
+- Planned:  strings, queue/stack macros, ring buffer, linked list, high-res timers, arena/bump allocators, better error handling, easier parallel builds.
+
+### License
+
+MIT. See `LICENSE`.
