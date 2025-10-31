@@ -91,7 +91,7 @@ typedef enum {
     SHL_LOG_NONE
 } shl_log_level_t;
 
-// Initialize logger with minimum level
+// Initialize logger
 void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
 #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
@@ -155,18 +155,27 @@ typedef struct {
     bool success;
 } SHL_BuildTask;
 
-static inline char* shl_default_compiler_flags(void);
+// get the default compiler flags depending on the plattform
+static inline char *shl_default_compiler_flags(void);
+// get a default BuildConfig which just needs a source file and it's output
 static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output);
-bool shl_build_project(SHL_BuildConfig* config);
-bool shl_system(SHL_SystemConfig* config);
-void shl_auto_rebuild(const char *src);
-void shl_auto_rebuild_plus_impl(const char *src, ...);
+
+// Runs a BuildConfig based on the Timestamp
 bool shl_run(SHL_BuildConfig *config);
+// Always runs a BuildConfig
+bool shl_build_project(SHL_BuildConfig* config);
+// Always runs a SystemConfig (CLI Command)
+bool shl_system(SHL_SystemConfig* config);
+// Auto Rebuild a Source File depending on the Timestamp
+void shl_auto_rebuild(const char *src);
+// Auto Rebuild a Source File and it's deps depending on the Timestamp
+void shl_auto_rebuild_plus_impl(const char *src, ...);
 
 // Macro to automatically append NULL to variadic args
 #define shl_auto_rebuild_plus(src, ...) shl_auto_rebuild_plus_impl(src, __VA_ARGS__, NULL)
+// get the filename without it's extension, can be used to auto gen the output
+// of a source file. TODO: Should be in @FILE_OPS, not in @NO_BUILD
 char *shl_get_filename_no_ext(const char *path);
-void shl_wait_for_all_builds(void);
 
 //////////////////////////////////////////////////
 /// FILE_OPS /////////////////////////////////////
@@ -331,15 +340,23 @@ typedef struct {
     size_t size;
 } SHL_HashMap;
 
-// HashMap operations
-SHL_HashMap* shl_hm_create();
-void shl_hm_put(SHL_HashMap* hm, void* key, void* value);
-void* shl_hm_get(SHL_HashMap* hm, void* key);
-bool shl_hm_contains(SHL_HashMap* hm, void* key);
-bool shl_hm_remove(SHL_HashMap* hm, void* key);
+// Create an empty hashmap
+SHL_HashMap *shl_hm_create();
+// put a key/value pair into the hashmap
+void shl_hm_put(SHL_HashMap *hm, void *key, void *value);
+// get a value, based on the key
+void *shl_hm_get(SHL_HashMap *hm, void *key);
+// check if a hashmap contains a key
+bool shl_hm_contains(SHL_HashMap *hm, void *key);
+// remove a key/value pair, based on the key
+bool shl_hm_remove(SHL_HashMap *hm, void *key);
+// delete all the entries of an hashmap
 void shl_hm_clear(SHL_HashMap* hm);
+// free the hashmap memory
 void shl_hm_release(SHL_HashMap* hm);
+// get the size of a hashmap
 size_t shl_hm_size(SHL_HashMap* hm);
+// empty a hashmap
 bool shl_hm_empty(SHL_HashMap* hm);
 
 //////////////////////////////////////////////////
