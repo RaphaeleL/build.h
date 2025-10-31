@@ -123,9 +123,15 @@ typedef struct {
 
 extern shl_argparser_t shl_parser;
 
+// initialize the cli argument parser
 void shl_init_argparser(int argc, char *argv[]);
+// create an cli argument
 void shl_add_argument(const char *long_name, const char *default_val, const char *help_msg);
+// check if an argument is set and return the struct with the data
 shl_arg_t *shl_get_argument(const char *long_name);
+
+// pops an element from the beginning of a sized array (tsoding/nob.h)
+#define shl_shift(size, elements) (SHL_ASSERT((size) > 0), (size)--, *(elements)++)
 
 //////////////////////////////////////////////////
 /// NO_BUILD /////////////////////////////////////
