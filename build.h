@@ -1,43 +1,95 @@
 /* build.h - v0.0.1 - https://github.com/RaphaeleL/build.h
- * ============================================================================
- *  File: build.h
- *  Description: Quality-of-life utilities and abstractions for C development.
- *
- *  This header provides a collection of macros, inline utilities, build-time
- *  helpers and more, intended to simplify common C programming patterns,
- *  improve code clarity, and enhance portability across compilers and
- *  platforms.
- *
- *  The Idea could be considered as a mix between nothings/stb and tsoding/nob.h
- *
- *  ----------------------------------------------------------------------------
- *  Created : 30 Sep 2025
- *  Author  : Raphaele Salvatore Licciardo
- *  License : MIT (see LICENSE for details)
- *  Version : 0.0.1
- *  ----------------------------------------------------------------------------
- *
- *  Copyright (c) 2025 Raphaele Salvatore Licciardo
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to deal
- *  in the Software without restriction, including without limitation the rights
- *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *  copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in all
- *  copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *  SOFTWARE.
- * ============================================================================
- */
+   ============================================================================
+    File: build.h
+    Description: Quality-of-life utilities and abstractions for C development.
+
+    This header provides a collection of macros, inline utilities, build-time
+    helpers and more, intended to simplify common C programming patterns,
+    improve code clarity, and enhance portability across compilers and
+    platforms.
+
+    The Idea could be considered as a mix between nothings/stb and tsoding/nob.h
+
+    ----------------------------------------------------------------------------
+    Created : 30 Sep 2025
+    Changed : 31 Oct 2025
+    Author  : Raphaele Salvatore Licciardo
+    License : MIT (see LICENSE for details)
+    Version : 0.0.1
+    ----------------------------------------------------------------------------
+
+    Quick Example: Auto Rebuild the Build System
+
+      // build.c
+      #define SHL_IMPLEMENTATION
+      #define SHL_STRIP_PREFIX
+      #include "./build.h"
+
+      int main() {
+          auto_rebuild("build.c");
+
+          BuildConfig build = default_build_config("demo.c", "demo");
+          if (!run(&build)) return 1;
+          // -> run `cc -o demo build.c` on change of source file
+
+          BuildConfig calc = default_build_config("calc.c", NULL);
+          build.compiler_flags = "-Wall -Wextra";
+          if (!build_project(&calc)) return 1;
+          // -> run `cc -Wall -Wextra -o calc calc.c` always
+
+          return 0;
+      }
+
+    Further Example: Build System, Arg Parser, Helpers, Hashmap, Logger
+
+      // demo.c
+      #define SHL_IMPLEMENTATION
+      #define SHL_STRIP_PREFIX
+      #include "./build.h"
+
+      int main(int argc, char** argv) {
+          auto_rebuild_plus("demo.c", "build.h");
+
+          const char* progr = shift(argc, argv);
+          const char* param = shift(argc, argv);
+
+          UNUSED(progr);
+
+          if (strcmp(param, "hashmap")) {
+              info("Hashmap Demo selected\n");
+              HashMap* hm = hm_create();
+              hm_put(hm, (void*)"prename", (void*)"john");
+              hm_put(hm, (void*)"name", (void*)"doe");
+              hm_put(hm, (void*)"age", (void*)30);
+              hm_remove(hm, (void *)"prename");
+              hm_release(hm);
+          } else {
+              info("No Demo selected\n");
+          }
+          return 0;
+      }
+
+    ----------------------------------------------------------------------------
+    Copyright (c) 2025 Raphaele Salvatore Licciardo
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+   ============================================================================ */
 
 #pragma once
 
@@ -912,9 +964,14 @@ extern char shl_test_failure_msg[];
     }
 
     bool shl_build_project(SHL_BuildConfig* config) {
-        if (!config || !config->source || !config->output) {
+        if (!config || !config->source) {
             shl_log(SHL_LOG_ERROR, "Invalid build configuration found during project build..\n");
             return false;
+        }
+
+        if (!config->output) {
+            config->output = shl_get_filename_no_ext(config->source);
+            shl_log(SHL_LOG_DEBUG, "No output name provided, choosing %c as output.\n", config->output);
         }
 
         char command[1024];
@@ -1597,6 +1654,7 @@ extern char shl_test_failure_msg[];
     #define init_argparser          shl_init_argparser
     #define add_argument            shl_add_argument
     #define get_argument            shl_get_argument
+    #define shift                   shl_shift
     #define arg_t                   shl_arg_t
 
     // NO_BUILD
