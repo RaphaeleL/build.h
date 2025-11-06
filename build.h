@@ -146,6 +146,9 @@ typedef enum {
 // Initialize logger
 void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
+// Forward declaration for logging function
+void shl_log(shl_log_level_t level, const char *fmt, ...);
+
 #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
 #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
 #define shl_cmd(fmt, ...)      shl_log(SHL_LOG_CMD, fmt, ##__VA_ARGS__)
@@ -320,7 +323,7 @@ void shl_release_string(SHL_String* content);
             abort();                                               \
         }                                                          \
         --(vec)->len;                                              \
-        shrink(vec);                                               \
+        shl_shrink(vec);                                           \
     } while (0)
 
 // Remove element at index n (shift elements down)
@@ -335,7 +338,7 @@ void shl_release_string(SHL_String* content);
                 (vec)->data + __idx + 1,                                 \
                 ((vec)->len - __idx - 1) * sizeof(*(vec)->data));        \
         --(vec)->len;                                                    \
-        shrink(vec);                                                     \
+        shl_shrink(vec);                                                 \
     } while (0)
 
 // Resize array to exactly n elements (uninitialized if grown)
@@ -355,7 +358,8 @@ void shl_release_string(SHL_String* content);
 
 // Get last element (asserts non-empty)
 #define shl_back(vec) \
-    ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : (shl_log(SHL_LOG_ERROR, "shl_back() on empty array\n"), abort(), (vec)->data[0]))
+    ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : \
+     (fprintf(stderr, "[ERROR] shl_back() on empty array\n"), abort(), (vec)->data[0]))
 
 // Swap element i with last element (without removing)
 #define shl_swap(vec, i)                                          \
@@ -702,21 +706,12 @@ extern char shl_test_failure_msg[];
 
     static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output) {
 #if defined(_WIN32) || defined(_WIN64)
-        if (!output) {
-            output = shl_get_filename_no_ext(source);
-        }
         char *default_compiler = "gcc";
         char *default_compiler_flags = "";
 #elif defined(__APPLE__) || defined(__MACH__)
-        if (!output) {
-            output = shl_get_filename_no_ext(source);
-        }
         char *default_compiler = "cc";
         char *default_compiler_flags = "";
 #elif defined(__linux__)
-        if (!output) {
-            output = shl_get_filename_no_ext(source);
-        }
         char *default_compiler = "cc";
         char *default_compiler_flags = "";
 #endif
@@ -906,6 +901,8 @@ extern char shl_test_failure_msg[];
             shl_debug("Restarting with updated build executable...\n");
             STARTUPINFO si = { sizeof(si) };
             PROCESS_INFORMATION pi;
+            char cmdline[1024];
+            snprintf(cmdline, sizeof(cmdline), "\"%s\"", out);
             if (!CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
                 shl_log(SHL_LOG_ERROR, "Failed to restart build process.\n");
                 exit(1);
@@ -969,9 +966,11 @@ extern char shl_test_failure_msg[];
             return false;
         }
 
+        char *allocated_output = NULL;
         if (!config->output) {
-            config->output = shl_get_filename_no_ext(config->source);
-            shl_log(SHL_LOG_DEBUG, "No output name provided, choosing %c as output.\n", config->output);
+            allocated_output = shl_get_filename_no_ext(config->source);
+            config->output = allocated_output;
+            shl_log(SHL_LOG_DEBUG, "No output name provided, choosing %s as output.\n", config->output);
         }
 
         char command[1024];
@@ -995,6 +994,11 @@ extern char shl_test_failure_msg[];
 
         shl_log(SHL_LOG_CMD, "%s\n", command);
         int result = system(command);
+        
+        if (allocated_output) {
+            free(allocated_output);
+        }
+        
         if (result != 0) {
             shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
             return false;
@@ -1027,8 +1031,10 @@ extern char shl_test_failure_msg[];
 #else
         int result = mkdir(path, 0755);
 #endif
-        SHL_UNUSED(result);
-        // TODO: Error Handling of mkdir
+        if (result != 0) {
+            shl_log(SHL_LOG_ERROR, "Failed to create directory: %s\n", path);
+            return false;
+        }
         shl_log(SHL_LOG_DEBUG, "created directory `%s/`\n", path);
         return true;
     }
