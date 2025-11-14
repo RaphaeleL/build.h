@@ -109,6 +109,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -123,6 +124,10 @@
     #include <pthread.h>
     #include <unistd.h>
     #include <dirent.h>
+    #ifndef _POSIX_C_SOURCE
+        #define _POSIX_C_SOURCE 199309L
+    #endif
+    #include <time.h>
 #elif defined(_WIN32) || defined(_WIN64)
     #include <windows.h>
     #include <io.h>
@@ -471,6 +476,38 @@ extern char shl_test_failure_msg[];
         shl_test_register(#name, __FILE__, __LINE__, shl_test_##name); \
     } \
     static void shl_test_##name(void)
+
+//////////////////////////////////////////////////
+/// TIMER ////////////////////////////////////////
+//////////////////////////////////////////////////
+
+// High-resolution timer structure
+typedef struct {
+#if defined(_WIN32) || defined(_WIN64)
+    LARGE_INTEGER start;
+    LARGE_INTEGER frequency;
+#else
+    struct timespec start;
+#endif
+} SHL_Timer;
+
+// Start a timer
+void shl_timer_start(SHL_Timer *timer);
+
+// Get elapsed time in seconds (as double)
+double shl_timer_elapsed(SHL_Timer *timer);
+
+// Get elapsed time in milliseconds (as double)
+double shl_timer_elapsed_ms(SHL_Timer *timer);
+
+// Get elapsed time in microseconds (as double)
+double shl_timer_elapsed_us(SHL_Timer *timer);
+
+// Get elapsed time in nanoseconds (as uint64_t)
+uint64_t shl_timer_elapsed_ns(SHL_Timer *timer);
+
+// Reset timer (restart from now)
+void shl_timer_reset(SHL_Timer *timer);
 
 //////////////////////////////////////////////////
 /// SHL_IMPLEMENATION ////////////////////////////
@@ -1691,6 +1728,68 @@ extern char shl_test_failure_msg[];
         return shl_test_suite.failed > 0 ? 1 : 0;
     }
 
+    //////////////////////////////////////////////////
+    /// TIMER ////////////////////////////////////////
+    //////////////////////////////////////////////////
+
+    void shl_timer_start(SHL_Timer *timer) {
+        if (!timer) return;
+
+#if defined(_WIN32) || defined(_WIN64)
+        QueryPerformanceFrequency(&timer->frequency);
+        QueryPerformanceCounter(&timer->start);
+#else
+        clock_gettime(CLOCK_MONOTONIC, &timer->start);
+#endif
+    }
+
+    double shl_timer_elapsed(SHL_Timer *timer) {
+        if (!timer) return 0.0;
+
+#if defined(_WIN32) || defined(_WIN64)
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        return (double)(now.QuadPart - timer->start.QuadPart) / (double)timer->frequency.QuadPart;
+#else
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        double elapsed = (double)(now.tv_sec - timer->start.tv_sec) +
+                         (double)(now.tv_nsec - timer->start.tv_nsec) / 1e9;
+        return elapsed;
+#endif
+    }
+
+    double shl_timer_elapsed_ms(SHL_Timer *timer) {
+        return shl_timer_elapsed(timer) * 1000.0;
+    }
+
+    double shl_timer_elapsed_us(SHL_Timer *timer) {
+        return shl_timer_elapsed(timer) * 1000000.0;
+    }
+
+    uint64_t shl_timer_elapsed_ns(SHL_Timer *timer) {
+        if (!timer) return 0;
+
+#if defined(_WIN32) || defined(_WIN64)
+        LARGE_INTEGER now;
+        QueryPerformanceCounter(&now);
+        uint64_t elapsed_ticks = (uint64_t)(now.QuadPart - timer->start.QuadPart);
+        // Convert to nanoseconds: (ticks / frequency) * 1e9
+        return (uint64_t)((double)elapsed_ticks * 1e9 / (double)timer->frequency.QuadPart);
+#else
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        uint64_t elapsed_sec = (uint64_t)(now.tv_sec - timer->start.tv_sec);
+        int64_t elapsed_nsec = (int64_t)(now.tv_nsec - timer->start.tv_nsec);
+        return elapsed_sec * 1000000000ULL + (uint64_t)elapsed_nsec;
+#endif
+    }
+
+    void shl_timer_reset(SHL_Timer *timer) {
+        if (!timer) return;
+        shl_timer_start(timer);
+    }
+
 #endif // SHL_IMPLEMENTATION
 
 //////////////////////////////////////////////////
@@ -1802,6 +1901,15 @@ extern char shl_test_failure_msg[];
     #define TEST_TRUTHY             SHL_TEST_TRUTHY
     #define TEST_FALSY              SHL_TEST_FALSY
     #define TEST                    SHL_TEST
+
+    // TIMER
+    #define Timer                   SHL_Timer
+    #define timer_start             shl_timer_start
+    #define timer_elapsed           shl_timer_elapsed
+    #define timer_elapsed_ms        shl_timer_elapsed_ms
+    #define timer_elapsed_us        shl_timer_elapsed_us
+    #define timer_elapsed_ns        shl_timer_elapsed_ns
+    #define timer_reset             shl_timer_reset
 
 #endif // SHL_STRIP_PREFIX
 

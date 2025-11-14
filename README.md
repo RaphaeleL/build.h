@@ -7,6 +7,7 @@ Single-header utilities for C. Pragmatic. Portable. No nonsense.
 - **Dynamic array macros** (`grow`, `push`, etc.).
 - **HashMap** for string keys to pointer values.
 - **File ops** (mkdir, copy files/dirs, read/write files, list dirs).
+- **High-resolution timers** for precise benchmarking and timing.
 - **No-build helpers**: rebuild self when sources change, run simple builds.
 - **Unit test harness** with minimal macros.
 
@@ -156,6 +157,28 @@ release_string(&lines);
 
 Also: `read_dir(path, filter)`, `write_file(path, data, size)`, `get_file_type(path)`, `delete_file(path)`.
 
+### High-resolution timers
+
+```c
+Timer t = {0};
+timer_start(&t);
+
+// ... do work ...
+
+double elapsed_sec = timer_elapsed(&t);
+double elapsed_ms = timer_elapsed_ms(&t);
+double elapsed_us = timer_elapsed_us(&t);
+uint64_t elapsed_ns = timer_elapsed_ns(&t);
+
+timer_reset(&t);  // restart from now
+```
+
+Functions: `timer_start`, `timer_elapsed` (seconds), `timer_elapsed_ms`, `timer_elapsed_us`, `timer_elapsed_ns`, `timer_reset`.
+
+Uses platform-specific high-resolution clocks:
+- Windows: `QueryPerformanceCounter` / `QueryPerformanceFrequency`
+- Linux/macOS: `clock_gettime(CLOCK_MONOTONIC)`
+
 ### Unit testing
 
 ```c
@@ -176,8 +199,8 @@ Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`
 
 ### Platform notes
 
-- Linux/macOS: uses `pthread`, `dirent`, `execv`, `stat`, `unlink` where needed.
-- Windows: uses WinAPI (`CreateProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`).
+- Linux/macOS: uses `pthread`, `dirent`, `execv`, `stat`, `unlink`, `clock_gettime` where needed.
+- Windows: uses WinAPI (`CreateProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
 
 ### FAQ
 
@@ -187,8 +210,8 @@ Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`
 
 ### Roadmap
 
-- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner.
-- Planned:  strings, queue/stack macros, ring buffer, linked list, high-res timers, arena/bump allocators, better error handling, easier parallel builds.
+- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers.
+- Planned:  strings, queue/stack macros, ring buffer, linked list, arena/bump allocators, better error handling, easier parallel builds.
 
 ### License
 

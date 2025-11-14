@@ -15,6 +15,7 @@ int main() {
         { "examples/005_shl_file_ops.c",        "out/005_file_ops" },
         { "examples/006_shl_hashmap.c",         "out/006_hashmap" },
         { "examples/007_shl_unittest.c",        "out/007_unittest" },
+        { "examples/008_shl_timer.c",           "out/008_timer" },
         { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" },
         { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
