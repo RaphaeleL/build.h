@@ -60,7 +60,7 @@ cc -o build build.c && ./build
 
 - **`default_build_config(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
 - **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array).
-- **`build_project(&cmd)`**: always build (no timestamp check).
+- **`run_always(&cmd)`**: always build (no timestamp check).
 - **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
 - **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
 
@@ -72,7 +72,7 @@ push(&cfg, "-Wall", "-Wextra", "-Iinclude");  // variadic push: add multiple fla
 if (!run(&cfg)) {  // auto-releases on success or failure
     return 1;
 }
-// Note: use build_project(&cfg) if you need to keep the command after building
+// Note: use run_always(&cfg) if you need to keep the command after building
 ```
 
 Or build from scratch:
@@ -81,7 +81,7 @@ Or build from scratch:
 Cmd cmd = {0};
 push(&cmd, "cc", "-Wall", "-Wextra");  // variadic push for compiler and flags
 push(&cmd, "main.c", "-o", "main");
-build_project(&cmd);
+run_always(&cmd);
 release(&cmd);
 ```
 
