@@ -41,13 +41,10 @@ int main(void) {
     auto_rebuild("build.c");
 
     Cmd b = default_build_config("main.c", "main");
-    push(&b, "-Wall");  // add compiler flags using dynamic array macros
-    push(&b, "-Wextra");
-    if (!run(&b)) {
-        release(&b);
+    push(&b, "-Wall", "-Wextra");  // add compiler flags using variadic push
+    if (!run(&b)) {  // auto-releases on success or failure
         return 1;
     }
-    release(&b);
 
     return 0;
 }
@@ -71,22 +68,19 @@ cc -o build build.c && ./build
 
 ```c
 Cmd cfg = default_build_config("main.c", "main");
-push(&cfg, "-Wall");      // add compiler flags
-push(&cfg, "-Wextra");
-push(&cfg, "-Iinclude");  // add include directories
-build_project(&cfg);
-release(&cfg);            // free command memory
+push(&cfg, "-Wall", "-Wextra", "-Iinclude");  // variadic push: add multiple flags at once
+if (!run(&cfg)) {  // auto-releases on success or failure
+    return 1;
+}
+// Note: use build_project(&cfg) if you need to keep the command after building
 ```
 
 Or build from scratch:
 
 ```c
 Cmd cmd = {0};
-push(&cmd, "cc");
-push(&cmd, "-Wall");
-push(&cmd, "main.c");
-push(&cmd, "-o");
-push(&cmd, "main");
+push(&cmd, "cc", "-Wall", "-Wextra");  // variadic push for compiler and flags
+push(&cmd, "main.c", "-o", "main");
 build_project(&cmd);
 release(&cmd);
 ```
@@ -121,14 +115,15 @@ info("threads = %s\n", thr ? thr->value : "");
 
 ```c
 list(int) a = {0};
-push(&a, 10);
-pushn(&a, (int[]){20,30}, 2);
+push(&a, 10);              // single value
+push(&a, 20, 30);          // multiple values (variadic)
+push(&a, 40, 50, 60, 70);  // any number of values
 info("len=%zu cap=%zu back=%d\n", a.len, a.cap, back(&a));
 drop(&a);
 release(&a);
 ```
 
-Provided: `grow`, `shrink`, `push`, `pushn`, `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
+Provided: `grow`, `shrink`, `push` (variadic), `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
 
 **Note**: `SHL_Cmd` (used by build helpers) is a dynamic array of `const char*` - use these same macros to build commands dynamically.
 

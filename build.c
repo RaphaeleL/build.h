@@ -2,6 +2,9 @@
 #define SHL_STRIP_PREFIX
 #include "./build.h"
 
+
+Cmd cmd = {0};
+
 int main() {
     auto_rebuild_plus("build.c", "build.h");
 
@@ -20,12 +23,8 @@ int main() {
     };
 
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
-        Cmd build = default_build_config(examples[i][0], examples[i][1]);
-        if (!run(&build)) {
-            release(&build);
-            return 1;
-        }
-        release(&build);
+        Cmd cmd = default_build_config(examples[i][0], examples[i][1]);
+        if (!run(&cmd)) { return 1; }
     }
 
     return 0;

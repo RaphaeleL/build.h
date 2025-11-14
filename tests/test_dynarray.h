@@ -20,10 +20,9 @@ SHL_TEST(test_dynarray_push) {
     release(&vector);
 }
 
-SHL_TEST(test_dynarray_pushn) {
+SHL_TEST(test_dynarray_push_variadic) {
     shl_list(int) vector = {0};
-    int extra[] = {42, 43, 44};
-    pushn(&vector, extra, 3);
+    push(&vector, 42, 43, 44);
     SHL_TEST_EQ(vector.len, 3, "vector length");
     SHL_TEST_EQ(vector.cap, 8, "vector capacity");
     SHL_TEST_EQ(back(&vector), 44, "last element");

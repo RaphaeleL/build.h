@@ -29,21 +29,16 @@
           auto_rebuild("build.c");
 
           Cmd build = default_build_config("demo.c", "demo");
-          if (!run(&build)) {
-              release(&build);
+          if (!run(&build)) {  // auto-releases on success or failure
               return 1;
           }
-          release(&build);
           // -> run `cc -o demo demo.c` on change of source file
 
           Cmd calc = default_build_config("calc.c", NULL);
-          push(&calc, "-Wall");
-          push(&calc, "-Wextra");
-          if (!build_project(&calc)) {
-              release(&calc);
+          push(&calc, "-Wall", "-Wextra");
+          if (!shl_run_always(&calc)) {  // auto-releases on success or failure
               return 1;
           }
-          release(&calc);
           // -> run `cc -Wall -Wextra calc.c -o calc` always
 
           return 0;
@@ -222,7 +217,7 @@ SHL_Cmd shl_default_build_config(const char *source, const char *output);
 // Runs a BuildConfig based on the Timestamp
 bool shl_run(SHL_Cmd *config);
 // Always runs a BuildConfig
-bool shl_build_project(SHL_Cmd* config);
+bool shl_run_always(SHL_Cmd* config);
 // Auto Rebuild a Source File depending on the Timestamp
 void shl_auto_rebuild(const char *src);
 // Auto Rebuild a Source File and it's deps depending on the Timestamp
@@ -295,21 +290,26 @@ void shl_release_string(SHL_String* content);
         }                                                                                                      \
     } while (0)
 
-// Push a single item
-#define shl_push(vec, val)                 \
+// Push a single item (internal implementation)
+#define shl_push_impl(vec, val)            \
     do {                                   \
         shl_grow((vec), (vec)->len+1);     \
         (vec)->data[(vec)->len++] = (val); \
     } while (0)
 
-// Push multiple items at once
-#define shl_pushn(vec, src, count)                                             \
-    do {                                                                       \
-        size_t __cnt = (count);                                                \
-        shl_grow((vec), (vec)->len + __cnt);                                   \
-        memcpy((vec)->data + (vec)->len, (src), __cnt * sizeof(*(vec)->data)); \
-        (vec)->len += __cnt;                                                   \
+// Variadic push: push(&vec, val) or push(&vec, a, b, c, ...) - truly dynamic, no limits
+// Uses compound literal array trick - works with any number of arguments
+// Note: Uses typeof (GCC/Clang extension) for type inference
+#define shl_push(vec, ...) \
+    do { \
+        typeof(*vec) *__vec = (vec); \
+        typeof(__vec->data[0]) __temp[] = {__VA_ARGS__}; \
+        size_t __count = sizeof(__temp) / sizeof(__temp[0]); \
+        for (size_t __i = 0; __i < __count; __i++) { \
+            shl_push_impl(__vec, __temp[__i]); \
+        } \
     } while (0)
+
 
 // Remove the last element
 #define shl_drop(vec)                                              \
@@ -713,11 +713,11 @@ extern char shl_test_failure_msg[];
         shl_push(&cmd, "cc");
 #endif
         
-        char *flags = shl_default_compiler_flags();
-        if (flags && strlen(flags) > 0) {
-            // Push flags as a single string (system() will handle it correctly)
-            shl_push(&cmd, flags);
-        }
+        // Push compiler flags as separate arguments
+#if !defined(_WIN32) && !defined(_WIN64)
+        shl_push(&cmd, "-Wall");
+        shl_push(&cmd, "-Wextra");
+#endif
         
         shl_push(&cmd, source);
         shl_push(&cmd, "-o");
@@ -801,7 +801,7 @@ extern char shl_test_failure_msg[];
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
             SHL_Cmd own_build = shl_default_build_config(src, out);
-            if (!shl_build_project(&own_build)) {
+            if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
@@ -821,7 +821,7 @@ extern char shl_test_failure_msg[];
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
             SHL_Cmd own_build = shl_default_build_config(src, out);
-            if (!shl_build_project(&own_build)) {
+            if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                 exit(1);
@@ -891,7 +891,7 @@ extern char shl_test_failure_msg[];
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
             SHL_Cmd own_build = shl_default_build_config(src, out);
-            if (!shl_build_project(&own_build)) {
+            if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
@@ -911,7 +911,7 @@ extern char shl_test_failure_msg[];
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
             SHL_Cmd own_build = shl_default_build_config(src, out);
-            if (!shl_build_project(&own_build)) {
+            if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                 exit(1);
@@ -1037,6 +1037,7 @@ extern char shl_test_failure_msg[];
     bool shl_run(SHL_Cmd* config) {
         if (!config || !config->data || config->len == 0) {
             shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
+            if (config) shl_release(config);
             return false;
         }
 
@@ -1045,6 +1046,7 @@ extern char shl_test_failure_msg[];
         
         if (!source || !output) {
             shl_log(SHL_LOG_ERROR, "Could not extract source or output from command\n");
+            shl_release(config);
             return false;
         }
 
@@ -1053,20 +1055,25 @@ extern char shl_test_failure_msg[];
         // Check if rebuild is needed
         if (!shl_is_path1_modified_after_path2(source, output)) {
             shl_log(SHL_LOG_DEBUG, "Up to date: %s\n", output);
+            shl_release(config);
             return true; // Already up to date
         }
 
-        bool res = shl_build_project(config);
+        bool res = shl_run_always(config);
+        shl_release(config);
         return res;
     }
 
-    bool shl_build_project(SHL_Cmd* config) {
+    bool shl_run_always(SHL_Cmd* config) {
         if (!config || !config->data || config->len == 0) {
             shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
+            if (config) shl_release(config);
             return false;
         }
 
-        return shl_cmd_execute(config);
+        bool res = shl_cmd_execute(config);
+        shl_release(config);
+        return res;
     }
 
     //////////////////////////////////////////////////
@@ -1730,17 +1737,16 @@ extern char shl_test_failure_msg[];
     #define auto_rebuild            shl_auto_rebuild
     #define auto_rebuild_plus       shl_auto_rebuild_plus
     #define get_filename_no_ext     shl_get_filename_no_ext
-    #define build_project           shl_build_project
     #define default_compiler_flags  shl_default_compiler_flags
     #define default_build_config    shl_default_build_config
     #define run                     shl_run
+    #define run_always              shl_run_always 
     #define Cmd                     SHL_Cmd
 
     // DYN_ARRAY
     #define grow                    shl_grow
     #define shrink                  shl_shrink
     #define push                    shl_push
-    #define pushn                   shl_pushn
     #define drop                    shl_drop
     #define dropn                   shl_dropn
     #define resize                  shl_resize

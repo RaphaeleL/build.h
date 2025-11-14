@@ -30,12 +30,10 @@ int main(void) {
 
     print_da(&vector);
 
-    int extra[] = {42, 43, 44};
-    pushn(&vector, extra, 3);
+    push(&vector, 42, 43, 44);
     print_da(&vector);
 
-    int another_extra[] = {2, 3, 4, 5, 6, 7, 8};
-    pushn(&vector, another_extra, 7);
+    push(&vector, 2, 3, 4, 5, 6, 7, 8);
     print_da(&vector);
 
     drop(&vector);
