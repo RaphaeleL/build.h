@@ -1,9 +1,7 @@
+#include <stdlib.h>
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #include "./build.h"
-
-
-Cmd cmd = {0};
 
 int main() {
     auto_rebuild_plus("build.c", "build.h");
@@ -22,10 +20,11 @@ int main() {
         { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
     };
 
+    Cmd cmd = {0};
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
-        Cmd cmd = default_build_config(examples[i][0], examples[i][1]);
-        if (!run(&cmd)) { return 1; }
+        cmd = default_build_config(examples[i][0], examples[i][1]);
+        if (!run(&cmd)) return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
