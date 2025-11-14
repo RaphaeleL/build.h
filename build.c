@@ -19,11 +19,13 @@ int main() {
         { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
     };
 
-    BuildConfig builds[ARRAY_LEN(examples)];
-
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
-        builds[i] = default_build_config(examples[i][0], examples[i][1]);
-        if (!run(&builds[i])) return 1;
+        Cmd build = default_build_config(examples[i][0], examples[i][1]);
+        if (!run(&build)) {
+            release(&build);
+            return 1;
+        }
+        release(&build);
     }
 
     return 0;

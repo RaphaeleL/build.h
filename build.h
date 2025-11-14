@@ -28,14 +28,23 @@
       int main() {
           auto_rebuild("build.c");
 
-          BuildConfig build = default_build_config("demo.c", "demo");
-          if (!run(&build)) return 1;
-          // -> run `cc -o demo build.c` on change of source file
+          Cmd build = default_build_config("demo.c", "demo");
+          if (!run(&build)) {
+              release(&build);
+              return 1;
+          }
+          release(&build);
+          // -> run `cc -o demo demo.c` on change of source file
 
-          BuildConfig calc = default_build_config("calc.c", NULL);
-          build.compiler_flags = "-Wall -Wextra";
-          if (!build_project(&calc)) return 1;
-          // -> run `cc -Wall -Wextra -o calc calc.c` always
+          Cmd calc = default_build_config("calc.c", NULL);
+          push(&calc, "-Wall");
+          push(&calc, "-Wextra");
+          if (!build_project(&calc)) {
+              release(&calc);
+              return 1;
+          }
+          release(&calc);
+          // -> run `cc -Wall -Wextra calc.c -o calc` always
 
           return 0;
       }
@@ -195,38 +204,25 @@ shl_arg_t *shl_get_argument(const char *long_name);
 #define MAX_TASKS 32
 
 typedef struct {
-    char *source;
-    char *output;
-    char *compiler;       // cc, gcc, clang...
-    char *compiler_flags; // array: -Wall, -O2, -std=c11 ...
-    char *linker_flags;   // array: -lm, -pthread, ...
-    char *include_dirs;   // array: -Iinclude, -Isrc/include ...
-    char *libraries;      // array: -lm, -lssl, -lz ...
-    char *library_dirs;   // array: -L/usr/local/lib ...
-    char *defines;        // array: -DDEBUG, -DVERSION="1.0"
-} SHL_BuildConfig;
+    const char **data;
+    size_t len;
+    size_t cap;
+} SHL_Cmd;
 
 typedef struct {
-    const char* command;
-    const char* flags;
-} SHL_SystemConfig;
-
-typedef struct {
-    SHL_BuildConfig config;
+    SHL_Cmd config;
     bool success;
-} SHL_BuildTask;
+} SHL_CmdTask;
 
 // get the default compiler flags depending on the plattform
 static inline char *shl_default_compiler_flags(void);
-// get a default BuildConfig which just needs a source file and it's output
-static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output);
+// Build a default build command (cc source -o output)
+SHL_Cmd shl_default_build_config(const char *source, const char *output);
 
 // Runs a BuildConfig based on the Timestamp
-bool shl_run(SHL_BuildConfig *config);
+bool shl_run(SHL_Cmd *config);
 // Always runs a BuildConfig
-bool shl_build_project(SHL_BuildConfig* config);
-// Always runs a SystemConfig (CLI Command)
-bool shl_system(SHL_SystemConfig* config);
+bool shl_build_project(SHL_Cmd* config);
 // Auto Rebuild a Source File depending on the Timestamp
 void shl_auto_rebuild(const char *src);
 // Auto Rebuild a Source File and it's deps depending on the Timestamp
@@ -704,23 +700,39 @@ extern char shl_test_failure_msg[];
 #endif
     }
 
-    static inline SHL_BuildConfig shl_default_build_config(const char *source, const char *output) {
+    SHL_Cmd shl_default_build_config(const char *source, const char *output) {
+        SHL_Cmd cmd = {0};
+        
 #if defined(_WIN32) || defined(_WIN64)
-        char *default_compiler = "gcc";
-        char *default_compiler_flags = "";
-#elif defined(__APPLE__) || defined(__MACH__)
-        char *default_compiler = "cc";
-        char *default_compiler_flags = "";
+        shl_push(&cmd, "gcc");
+#elif defined(__APPLE__) && defined(__MACH__)
+        shl_push(&cmd, "cc");
 #elif defined(__linux__)
-        char *default_compiler = "cc";
-        char *default_compiler_flags = "";
+        shl_push(&cmd, "cc");
+#else
+        shl_push(&cmd, "cc");
 #endif
-        return (SHL_BuildConfig) {
-            .source = (char *)source, .output = (char *)output,
-            .compiler = default_compiler, .compiler_flags = default_compiler_flags,
-            .linker_flags = "", .include_dirs = "", .libraries = "",
-            .library_dirs = "", .defines = ""
-        };
+        
+        char *flags = shl_default_compiler_flags();
+        if (flags && strlen(flags) > 0) {
+            // Push flags as a single string (system() will handle it correctly)
+            shl_push(&cmd, flags);
+        }
+        
+        shl_push(&cmd, source);
+        shl_push(&cmd, "-o");
+        
+        if (output) {
+            shl_push(&cmd, output);
+        } else {
+            char *auto_output = shl_get_filename_no_ext(source);
+            if (auto_output) {
+                shl_push(&cmd, auto_output);
+                free(auto_output);
+            }
+        }
+        
+        return cmd;
     }
 
     static bool shl_is_path1_modified_after_path2(const char *path1, const char *path2) {
@@ -788,14 +800,16 @@ extern char shl_test_failure_msg[];
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-            SHL_BuildConfig own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_build_config(src, out);
             if (!shl_build_project(&own_build)) {
+                shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
                 free(out);
 #endif
                 exit(1);
             }
+            shl_release(&own_build);
 
             shl_debug("Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
@@ -806,11 +820,13 @@ extern char shl_test_failure_msg[];
 #endif
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-            SHL_BuildConfig own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_build_config(src, out);
             if (!shl_build_project(&own_build)) {
+                shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                 exit(1);
             }
+            shl_release(&own_build);
 
             shl_debug("Restarting with updated build executable...\n");
             STARTUPINFO si = { sizeof(si) };
@@ -874,14 +890,16 @@ extern char shl_test_failure_msg[];
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-            SHL_BuildConfig own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_build_config(src, out);
             if (!shl_build_project(&own_build)) {
+                shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
                 free(out);
 #endif
                 exit(1);
             }
+            shl_release(&own_build);
 
             shl_debug("Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
@@ -892,11 +910,13 @@ extern char shl_test_failure_msg[];
 #endif
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-            SHL_BuildConfig own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_build_config(src, out);
             if (!shl_build_project(&own_build)) {
+                shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
                 exit(1);
             }
+            shl_release(&own_build);
 
             shl_debug("Restarting with updated build executable...\n");
             STARTUPINFO si = { sizeof(si) };
@@ -919,17 +939,120 @@ extern char shl_test_failure_msg[];
         }
     }
 
-    bool shl_run(SHL_BuildConfig* config) {
-        if (!config || !config->source || !config->output) {
-            shl_log(SHL_LOG_ERROR, "Invalid build configuration %s, %s\n", config->source, config->output);
+    // Helper: Extract source and output from command array
+    // Assumes format: [compiler, flags..., source, "-o", output, ...]
+    static const char* shl_cmd_get_source(SHL_Cmd* cmd) {
+        if (!cmd || !cmd->data || cmd->len < 2) return NULL;
+        
+        // Find "-o" flag
+        for (size_t i = 0; i < cmd->len - 1; i++) {
+            if (cmd->data[i] && strcmp(cmd->data[i], "-o") == 0) {
+                // Source should be before "-o"
+                if (i > 0) {
+                    // Skip compiler and flags, find first .c/.cpp file
+                    for (size_t j = 1; j < i; j++) {
+                        if (cmd->data[j] && strstr(cmd->data[j], ".c") != NULL) {
+                            return cmd->data[j];
+                        }
+                    }
+                    // Fallback: return item before "-o"
+                    return cmd->data[i - 1];
+                }
+            }
+        }
+        
+        // Fallback: find first .c file
+        for (size_t i = 1; i < cmd->len; i++) {
+            if (cmd->data[i] && strstr(cmd->data[i], ".c") != NULL) {
+                return cmd->data[i];
+            }
+        }
+        
+        return NULL;
+    }
+
+    static const char* shl_cmd_get_output(SHL_Cmd* cmd) {
+        if (!cmd || !cmd->data || cmd->len < 2) return NULL;
+        
+        // Find "-o" flag
+        for (size_t i = 0; i < cmd->len - 1; i++) {
+            if (cmd->data[i] && strcmp(cmd->data[i], "-o") == 0) {
+                // Output is after "-o"
+                return cmd->data[i + 1];
+            }
+        }
+        
+        return NULL;
+    }
+
+    // Execute command array using system() - builds command string
+    static bool shl_cmd_execute(SHL_Cmd* cmd) {
+        if (!cmd || !cmd->data || cmd->len == 0) {
+            shl_log(SHL_LOG_ERROR, "Invalid command: empty or null\n");
             return false;
         }
 
-        shl_ensure_dir_for_file(config->output);
+        // Build command string
+        char command[4096] = {0};
+        size_t pos = 0;
+        
+        for (size_t i = 0; i < cmd->len; i++) {
+            if (!cmd->data[i]) continue; // Skip NULL items
+            if (pos > 0 && pos < sizeof(command) - 1) {
+                command[pos++] = ' ';
+            }
+            const char *item = cmd->data[i];
+            size_t item_len = strlen(item);
+            
+            // Check if item needs quoting (contains spaces)
+            bool needs_quote = strchr(item, ' ') != NULL;
+            
+            if (needs_quote && pos < sizeof(command) - 2) {
+                command[pos++] = '"';
+            }
+            
+            if (pos + item_len < sizeof(command) - 1) {
+                strncpy(command + pos, item, sizeof(command) - pos - 1);
+                pos += item_len;
+            }
+            
+            if (needs_quote && pos < sizeof(command) - 1) {
+                command[pos++] = '"';
+            }
+        }
+        
+        command[pos] = '\0';
+        
+        shl_log(SHL_LOG_CMD, "%s\n", command);
+        int result = system(command);
+        
+        if (result != 0) {
+            shl_log(SHL_LOG_ERROR, "Command failed with exit code %d.\n", result);
+            return false;
+        }
+        
+        return true;
+    }
+
+    bool shl_run(SHL_Cmd* config) {
+        if (!config || !config->data || config->len == 0) {
+            shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
+            return false;
+        }
+
+        const char *source = shl_cmd_get_source(config);
+        const char *output = shl_cmd_get_output(config);
+        
+        if (!source || !output) {
+            shl_log(SHL_LOG_ERROR, "Could not extract source or output from command\n");
+            return false;
+        }
+
+        shl_ensure_dir_for_file(output);
 
         // Check if rebuild is needed
-        if (!shl_is_path1_modified_after_path2(config->source, config->output)) {
-            shl_log(SHL_LOG_DEBUG, "Up to date: %s\n", config->output);
+        if (!shl_is_path1_modified_after_path2(source, output)) {
+            shl_log(SHL_LOG_DEBUG, "Up to date: %s\n", output);
             return true; // Already up to date
         }
 
@@ -937,74 +1060,13 @@ extern char shl_test_failure_msg[];
         return res;
     }
 
-    bool shl_system(SHL_SystemConfig* config) {
-        if (!config || !config->command) {
-            shl_log(SHL_LOG_ERROR, "Invalid system configuration (%s)\n", config->command);
+    bool shl_build_project(SHL_Cmd* config) {
+        if (!config || !config->data || config->len == 0) {
+            shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
             return false;
         }
 
-        char command[1024];
-        snprintf(command, sizeof(command), "%s %s",
-            config->command,
-            config->flags ? config->flags : ""
-        );
-
-        shl_log(SHL_LOG_CMD, "%s\n", command);
-        int result = system(command);
-        if (result != 0) {
-            shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
-            return false;
-        }
-
-        shl_debug("Build succeeded");
-        return true;
-    }
-
-    bool shl_build_project(SHL_BuildConfig* config) {
-        if (!config || !config->source) {
-            shl_log(SHL_LOG_ERROR, "Invalid build configuration found during project build..\n");
-            return false;
-        }
-
-        char *allocated_output = NULL;
-        if (!config->output) {
-            allocated_output = shl_get_filename_no_ext(config->source);
-            config->output = allocated_output;
-            shl_log(SHL_LOG_DEBUG, "No output name provided, choosing %s as output.\n", config->output);
-        }
-
-        char command[1024];
-        snprintf(command, sizeof(command), "%s %s %s -o %s %s",
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-            config->compiler,
-            config->compiler_flags ? config->compiler_flags : "",
-            config->source,
-            config->output,
-            config->linker_flags ? config->linker_flags : ""
-#elif defined(_WIN32) || defined(_WIN64)
-            config->compiler,
-            config->compiler_flags ? config->compiler_flags : "",
-            config->source,
-            config->output,
-            config->linker_flags ? config->linker_flags : ""
-#else
-            #error Unsupported platform
-#endif
-        );
-
-        shl_log(SHL_LOG_CMD, "%s\n", command);
-        int result = system(command);
-        
-        if (allocated_output) {
-            free(allocated_output);
-        }
-        
-        if (result != 0) {
-            shl_log(SHL_LOG_ERROR, "Build failed with exit code %d.\n", result);
-            return false;
-        }
-
-        return true;
+        return shl_cmd_execute(config);
     }
 
     //////////////////////////////////////////////////
@@ -1664,17 +1726,15 @@ extern char shl_test_failure_msg[];
     #define arg_t                   shl_arg_t
 
     // NO_BUILD
-    #define BuildConfig             SHL_BuildConfig
-    #define BuildTask               SHL_BuildTask
-    #define SystemConfig            SHL_SystemConfig
+    #define CmdTask                 SHL_CmdTask
     #define auto_rebuild            shl_auto_rebuild
     #define auto_rebuild_plus       shl_auto_rebuild_plus
     #define get_filename_no_ext     shl_get_filename_no_ext
     #define build_project           shl_build_project
     #define default_compiler_flags  shl_default_compiler_flags
     #define default_build_config    shl_default_build_config
-    #define system                  shl_system
     #define run                     shl_run
+    #define Cmd                     SHL_Cmd
 
     // DYN_ARRAY
     #define grow                    shl_grow

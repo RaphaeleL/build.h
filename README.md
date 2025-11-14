@@ -40,9 +40,14 @@ This `build.c` recompiles itself when it changes and builds `main.c` to `./main`
 int main(void) {
     auto_rebuild("build.c");
 
-    BuildConfig b = default_build_config("main.c", "main");
-    b.compiler_flags = "-Wall -Wextra"; // defaults are platform sensible; override if you want
-    if (!run(&b)) return 1;
+    Cmd b = default_build_config("main.c", "main");
+    push(&b, "-Wall");  // add compiler flags using dynamic array macros
+    push(&b, "-Wextra");
+    if (!run(&b)) {
+        release(&b);
+        return 1;
+    }
+    release(&b);
 
     return 0;
 }
@@ -56,27 +61,35 @@ cc -o build build.c && ./build
 
 ### No-build helpers (what actually runs)
 
-- **`default_build_config(source, output)`**: returns a minimal `SHL_BuildConfig` with platform defaults.
-- **`run(&cfg)`**: builds only if `source` is newer than `output`.
-- **`build_project(&cfg)`**: always build (no timestamp check).
+- **`default_build_config(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
+- **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array).
+- **`build_project(&cmd)`**: always build (no timestamp check).
 - **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
 - **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
-- **`system(&SystemConfig)`**: run a simple CLI command with flags.
 
-Minimal config that maps to a command like `cc <flags> source -o output <linker_flags>`:
+`SHL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
 ```c
-SHL_BuildConfig cfg = {
-    .source = "main.c",
-    .output = "main",
-    .compiler = "cc",                    // or "gcc", "clang"
-    .compiler_flags = "-Wall -Wextra",   // optional
-    .linker_flags = ""                   // optional
-};
-(void)build_project(&cfg);
+Cmd cfg = default_build_config("main.c", "main");
+push(&cfg, "-Wall");      // add compiler flags
+push(&cfg, "-Wextra");
+push(&cfg, "-Iinclude");  // add include directories
+build_project(&cfg);
+release(&cfg);            // free command memory
 ```
 
-Note: fields like `include_dirs`, `libraries`, `library_dirs`, `defines` exist in the struct but are not yet wired into the invoked command. Keep flags in `compiler_flags` or `linker_flags` for now.
+Or build from scratch:
+
+```c
+Cmd cmd = {0};
+push(&cmd, "cc");
+push(&cmd, "-Wall");
+push(&cmd, "main.c");
+push(&cmd, "-o");
+push(&cmd, "main");
+build_project(&cmd);
+release(&cmd);
+```
 
 ### Logger
 
@@ -116,6 +129,8 @@ release(&a);
 ```
 
 Provided: `grow`, `shrink`, `push`, `pushn`, `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
+
+**Note**: `SHL_Cmd` (used by build helpers) is a dynamic array of `const char*` - use these same macros to build commands dynamically.
 
 ### HashMap (string keys → pointer values)
 
@@ -162,7 +177,7 @@ Macros: `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ
 
 ### Prefix stripping
 
-Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`, `BuildConfig` instead of `SHL_BuildConfig`). See the bottom of `build.h` for the full mapping.
+Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`, `Cmd` instead of `SHL_Cmd`). See the bottom of `build.h` for the full mapping.
 
 ### Platform notes
 
