@@ -41,7 +41,7 @@ This `build.c` recompiles itself when it changes and builds `main.c` to `./main`
 int main(void) {
     auto_rebuild("build.c");
 
-    Cmd b = default_build_config("main.c", "main");
+    Cmd b = default_c_build("main.c", "main");
     push(&b, "-Wall", "-Wextra");  // add compiler flags using variadic push
     if (!run(&b)) {  // auto-releases on success or failure
         return 1;
@@ -59,7 +59,7 @@ cc -o build build.c && ./build
 
 ### No-build helpers (what actually runs)
 
-- **`default_build_config(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
+- **`default_c_build(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
 - **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array).
 - **`run_always(&cmd)`**: always build (no timestamp check).
 - **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
@@ -68,7 +68,7 @@ cc -o build build.c && ./build
 `SHL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
 ```c
-Cmd cfg = default_build_config("main.c", "main");
+Cmd cfg = default_c_build("main.c", "main");
 push(&cfg, "-Wall", "-Wextra", "-Iinclude");  // variadic push: add multiple flags at once
 if (!run(&cfg)) {  // auto-releases on success or failure
     return 1;

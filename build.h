@@ -28,13 +28,13 @@
       int main() {
           auto_rebuild("build.c");
 
-          Cmd build = default_build_config("demo.c", "demo");
+          Cmd build = default_c_build("demo.c", "demo");
           if (!run(&build)) {  // auto-releases on success or failure
               return 1;
           }
           // -> run `cc -o demo demo.c` on change of source file
 
-          Cmd calc = default_build_config("calc.c", NULL);
+          Cmd calc = default_c_build("calc.c", NULL);
           push(&calc, "-Wall", "-Wextra");
           if (!shl_run_always(&calc)) {  // auto-releases on success or failure
               return 1;
@@ -217,7 +217,7 @@ typedef struct {
 // get the default compiler flags depending on the plattform
 static inline char *shl_default_compiler_flags(void);
 // Build a default build command (cc source -o output)
-SHL_Cmd shl_default_build_config(const char *source, const char *output);
+SHL_Cmd shl_default_c_build(const char *source, const char *output);
 
 // Runs a BuildConfig based on the Timestamp
 bool shl_run(SHL_Cmd *config);
@@ -737,7 +737,7 @@ void shl_timer_reset(SHL_Timer *timer);
 #endif
     }
 
-    SHL_Cmd shl_default_build_config(const char *source, const char *output) {
+    SHL_Cmd shl_default_c_build(const char *source, const char *output) {
         SHL_Cmd cmd = {0};
         
 #if defined(_WIN32) || defined(_WIN64)
@@ -837,7 +837,7 @@ void shl_timer_reset(SHL_Timer *timer);
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-            SHL_Cmd own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
@@ -857,7 +857,7 @@ void shl_timer_reset(SHL_Timer *timer);
 #endif
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-            SHL_Cmd own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
@@ -927,7 +927,7 @@ void shl_timer_reset(SHL_Timer *timer);
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
-            SHL_Cmd own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
@@ -947,7 +947,7 @@ void shl_timer_reset(SHL_Timer *timer);
 #endif
             exit(1);
 #elif defined(_WIN32) || defined(_WIN64)
-            SHL_Cmd own_build = shl_default_build_config(src, out);
+            SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
                 shl_log(SHL_LOG_ERROR, "Rebuild failed.\n");
@@ -1837,7 +1837,7 @@ void shl_timer_reset(SHL_Timer *timer);
     #define auto_rebuild_plus       shl_auto_rebuild_plus
     #define get_filename_no_ext     shl_get_filename_no_ext
     #define default_compiler_flags  shl_default_compiler_flags
-    #define default_build_config    shl_default_build_config
+    #define default_c_build         shl_default_c_build
     #define run                     shl_run
     #define run_always              shl_run_always 
     #define Cmd                     SHL_Cmd

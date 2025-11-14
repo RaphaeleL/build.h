@@ -3,8 +3,13 @@
 #define SHL_STRIP_PREFIX
 #include "./build.h"
 
+Cmd cmd = {0};
+// Timer timer = {0};
+
 int main() {
     auto_rebuild_plus("build.c", "build.h");
+
+    // timer_start(&timer);
 
     char *examples[][2] = {
         { "examples/000_shl_logger.c",          "out/000_logger" },
@@ -21,11 +26,14 @@ int main() {
         { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
     };
 
-    Cmd cmd = {0};
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
-        cmd = default_build_config(examples[i][0], examples[i][1]);
+        cmd = default_c_build(examples[i][0], examples[i][1]);
         if (!run(&cmd)) return EXIT_FAILURE;
     }
+
+    // double elapsed_ms = timer_elapsed_ms(&timer);
+    // timer_reset(&timer);
+    // info("Finished in %.3f milliseconds.\n", elapsed_ms);
 
     return EXIT_SUCCESS;
 }

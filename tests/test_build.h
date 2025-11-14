@@ -20,8 +20,8 @@ SHL_TEST(test_cmd_create_and_push) {
     SHL_TEST_EQ(cmd.cap, 0, "capacity after release");
 }
 
-SHL_TEST(test_default_build_config) {
-    Cmd cmd = default_build_config("test.c", "test");
+SHL_TEST(test_default_c_build) {
+    Cmd cmd = default_c_build("test.c", "test");
     
     SHL_TEST_TRUTHY(cmd.len > 0, "command has items");
     SHL_TEST_TRUTHY(cmd.data != NULL, "command data is allocated");
@@ -50,8 +50,8 @@ SHL_TEST(test_default_build_config) {
     release(&cmd);
 }
 
-SHL_TEST(test_default_build_config_null_output) {
-    Cmd cmd = default_build_config("test.c", NULL);
+SHL_TEST(test_default_c_build_null_output) {
+    Cmd cmd = default_c_build("test.c", NULL);
     
     SHL_TEST_TRUTHY(cmd.len > 0, "command has items");
     
