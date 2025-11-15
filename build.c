@@ -24,6 +24,7 @@ int main() {
         { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" },
         { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
+        { "tests/unittests.c",                  "out/unittests" },
     };
 
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
