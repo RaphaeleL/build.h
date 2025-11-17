@@ -77,5 +77,5 @@ int main(void) {
     info("Releasing hashmap memory...\n");
     hm_release(hm);
 
-    return 0;
+    return EXIT_SUCCESS;
 }

@@ -44,10 +44,10 @@ int main(void) {
     Cmd b = default_c_build("main.c", "main");
     push(&b, "-Wall", "-Wextra");  // add compiler flags using variadic push
     if (!run(&b)) {  // auto-releases on success or failure
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 ```
 
@@ -71,7 +71,7 @@ cc -o build build.c && ./build
 Cmd cfg = default_c_build("main.c", "main");
 push(&cfg, "-Wall", "-Wextra", "-Iinclude");  // variadic push: add multiple flags at once
 if (!run(&cfg)) {  // auto-releases on success or failure
-    return 1;
+    return EXIT_FAILURE;
 }
 // Note: use run_always(&cfg) if you need to keep the command after building
 ```

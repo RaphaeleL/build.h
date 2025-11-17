@@ -111,5 +111,5 @@ int main() {
     example_f(); // struct with function pointer
     example_g(); // struct with function pointer, hidden function itself
 
-    return 0;
+    return EXIT_SUCCESS;
 }

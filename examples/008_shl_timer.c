@@ -65,5 +65,5 @@ int main() {
     info("Loop of 1,000,000 iterations took %.2f microseconds\n", elapsed_us);
     info("(Sum: %d, to prevent optimization)\n", sum);
     
-    return 0;
+    return EXIT_SUCCESS;
 }

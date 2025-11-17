@@ -76,5 +76,5 @@ int main(int argc, char **argv) {
         eval(atoi(a->value), atoi(b->value), o->value[0]);
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

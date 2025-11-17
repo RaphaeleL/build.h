@@ -21,5 +21,5 @@ int main(int argc, char** argv) {
     TODO("Not implemented yet.");
     UNREACHABLE("Not implemented yet.");
 
-    return 0;
+    return EXIT_SUCCESS;
 }

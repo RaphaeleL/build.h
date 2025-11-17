@@ -26,5 +26,5 @@ int main() {
     error("Fatal error: %s\n", "out of memory");    // will exit with failure
     critical("Fatal error: %s\n", "out of memory"); // will abort (never reached)
 
-    return 0;
+    return EXIT_SUCCESS;
 }

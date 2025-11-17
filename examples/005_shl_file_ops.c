@@ -91,6 +91,6 @@ int main() {
 
     shl_info("\n=== All Tests Completed ===\n");
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 

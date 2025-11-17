@@ -46,5 +46,5 @@ int main(void) {
 
     release(&vector);
 
-    return 0;
+    return EXIT_SUCCESS;
 }

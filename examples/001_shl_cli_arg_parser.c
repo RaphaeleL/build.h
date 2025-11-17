@@ -35,5 +35,5 @@ int main(int argc, char *argv[]) {
         info("Foo is %s\n", arg2->value);
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
