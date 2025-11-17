@@ -7,8 +7,7 @@ Cmd cmd = {0};
 // Timer timer = {0};
 
 int main() {
-    auto_rebuild_plus("build.c", "build.h");
-
+    auto_rebuild_plus(__FILE__, "build.h");
     // timer_start(&timer);
 
     char *examples[][2] = {

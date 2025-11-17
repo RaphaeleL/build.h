@@ -26,7 +26,7 @@
       #include "./build.h"
 
       int main() {
-          auto_rebuild("build.c");
+          auto_rebuild(__FILE__);
 
           Cmd build = default_c_build("demo.c", "demo");
           if (!run(&build)) {  // auto-releases on success or failure

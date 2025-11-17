@@ -39,7 +39,7 @@ This `build.c` recompiles itself when it changes and builds `main.c` to `./main`
 #include "./build.h"
 
 int main(void) {
-    auto_rebuild("build.c");
+    auto_rebuild(__FILE__);
 
     Cmd b = default_c_build("main.c", "main");
     push(&b, "-Wall", "-Wextra");  // add compiler flags using variadic push
