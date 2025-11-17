@@ -30,18 +30,18 @@
 
           Cmd build = default_c_build("demo.c", "demo");
           if (!run(&build)) {  // auto-releases on success or failure
-              return 1;
+              return EXIT_FAILURE;
           }
           // -> run `cc -o demo demo.c` on change of source file
 
           Cmd calc = default_c_build("calc.c", NULL);
           push(&calc, "-Wall", "-Wextra");
           if (!shl_run_always(&calc)) {  // auto-releases on success or failure
-              return 1;
+              return EXIT_FAILURE;
           }
           // -> run `cc -Wall -Wextra calc.c -o calc` always
 
-          return 0;
+          return EXIT_SUCCESS;
       }
 
     Further Example: Build System, Arg Parser, Helpers, Hashmap, Logger
@@ -70,7 +70,7 @@
           } else {
               info("No Demo selected\n");
           }
-          return 0;
+          return EXIT_SUCCESS;
       }
 
     ----------------------------------------------------------------------------
@@ -696,7 +696,7 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 
     int shl_arg_as_int(shl_arg_t *arg) {
-        if (!arg || !arg->value) return 0;
+        if (!arg || !arg->value) return EXIT_SUCCESS;
         return atoi(arg->value);
     }
 
@@ -1768,7 +1768,7 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 
     uint64_t shl_timer_elapsed_ns(SHL_Timer *timer) {
-        if (!timer) return 0;
+        if (!timer) return EXIT_SUCCESS;
 
 #if defined(_WIN32) || defined(_WIN64)
         LARGE_INTEGER now;
