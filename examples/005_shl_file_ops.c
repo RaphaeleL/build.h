@@ -89,6 +89,12 @@ int main() {
         shl_info("Confirmed file does not exist after deletion\n");
     }
 
+    // Test 9: Directory deletion
+    shl_info("\n--- Test 9: Directory Deletion ---\n");
+    if (shl_delete_dir("test_dir")) {
+        shl_info("Directory 'test_dir' deleted successfully\n");
+    }
+
     shl_info("\n=== All Tests Completed ===\n");
 
     return EXIT_SUCCESS;

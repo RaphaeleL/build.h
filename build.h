@@ -253,6 +253,7 @@ bool shl_read_file(const char *path, SHL_String* content);
 bool shl_write_file(const char *path, const void *data, size_t size);
 const char *shl_get_file_type(const char *path);
 bool shl_delete_file(const char *path);
+bool shl_delete_dir(const char *path);
 void shl_release_string(SHL_String* content);
 
 //////////////////////////////////////////////////
@@ -739,7 +740,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
     SHL_Cmd shl_default_c_build(const char *source, const char *output) {
         SHL_Cmd cmd = {0};
-        
+
 #if defined(_WIN32) || defined(_WIN64)
         shl_push(&cmd, "gcc");
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -749,16 +750,16 @@ void shl_timer_reset(SHL_Timer *timer);
 #else
         shl_push(&cmd, "cc");
 #endif
-        
+
         // Push compiler flags as separate arguments
 #if !defined(_WIN32) && !defined(_WIN64)
         shl_push(&cmd, "-Wall");
         shl_push(&cmd, "-Wextra");
 #endif
-        
+
         shl_push(&cmd, source);
         shl_push(&cmd, "-o");
-        
+
         if (output) {
             shl_push(&cmd, output);
         } else {
@@ -768,7 +769,7 @@ void shl_timer_reset(SHL_Timer *timer);
                 free(auto_output);
             }
         }
-        
+
         return cmd;
     }
 
@@ -980,7 +981,7 @@ void shl_timer_reset(SHL_Timer *timer);
     // Assumes format: [compiler, flags..., source, "-o", output, ...]
     static const char* shl_cmd_get_source(SHL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len < 2) return NULL;
-        
+
         // Find "-o" flag
         for (size_t i = 0; i < cmd->len - 1; i++) {
             if (cmd->data[i] && strcmp(cmd->data[i], "-o") == 0) {
@@ -997,20 +998,20 @@ void shl_timer_reset(SHL_Timer *timer);
                 }
             }
         }
-        
+
         // Fallback: find first .c file
         for (size_t i = 1; i < cmd->len; i++) {
             if (cmd->data[i] && strstr(cmd->data[i], ".c") != NULL) {
                 return cmd->data[i];
             }
         }
-        
+
         return NULL;
     }
 
     static const char* shl_cmd_get_output(SHL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len < 2) return NULL;
-        
+
         // Find "-o" flag
         for (size_t i = 0; i < cmd->len - 1; i++) {
             if (cmd->data[i] && strcmp(cmd->data[i], "-o") == 0) {
@@ -1018,7 +1019,7 @@ void shl_timer_reset(SHL_Timer *timer);
                 return cmd->data[i + 1];
             }
         }
-        
+
         return NULL;
     }
 
@@ -1032,7 +1033,7 @@ void shl_timer_reset(SHL_Timer *timer);
         // Build command string
         char command[4096] = {0};
         size_t pos = 0;
-        
+
         for (size_t i = 0; i < cmd->len; i++) {
             if (!cmd->data[i]) continue; // Skip NULL items
             if (pos > 0 && pos < sizeof(command) - 1) {
@@ -1040,34 +1041,34 @@ void shl_timer_reset(SHL_Timer *timer);
             }
             const char *item = cmd->data[i];
             size_t item_len = strlen(item);
-            
+
             // Check if item needs quoting (contains spaces)
             bool needs_quote = strchr(item, ' ') != NULL;
-            
+
             if (needs_quote && pos < sizeof(command) - 2) {
                 command[pos++] = '"';
             }
-            
+
             if (pos + item_len < sizeof(command) - 1) {
                 strncpy(command + pos, item, sizeof(command) - pos - 1);
                 pos += item_len;
             }
-            
+
             if (needs_quote && pos < sizeof(command) - 1) {
                 command[pos++] = '"';
             }
         }
-        
+
         command[pos] = '\0';
-        
+
         shl_log(SHL_LOG_CMD, "%s\n", command);
         int result = system(command);
-        
+
         if (result != 0) {
             shl_log(SHL_LOG_ERROR, "Command failed with exit code %d.\n", result);
             return false;
         }
-        
+
         return true;
     }
 
@@ -1080,7 +1081,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         const char *source = shl_cmd_get_source(config);
         const char *output = shl_cmd_get_output(config);
-        
+
         if (!source || !output) {
             shl_log(SHL_LOG_ERROR, "Could not extract source or output from command\n");
             shl_release(config);
@@ -1407,6 +1408,80 @@ void shl_timer_reset(SHL_Timer *timer);
 #else
         #error Unsupported platform
 #endif
+    }
+
+    bool shl_delete_dir(const char *path) {
+        if (!path) return false;
+        
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+        DIR *dir = opendir(path);
+        if (!dir) {
+            shl_log(SHL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
+            return false;
+        }
+
+        struct dirent *entry;
+        char full_path[1024];
+
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+
+            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+            struct stat st;
+            if (stat(full_path, &st) == 0) {
+                if (S_ISDIR(st.st_mode)) {
+                    shl_delete_dir(full_path);
+                } else if (S_ISREG(st.st_mode)) {
+                    shl_delete_file(full_path);
+                }
+            }
+        }
+
+        closedir(dir);
+        if (rmdir(path) != 0) {
+            shl_log(SHL_LOG_ERROR, "Failed to remove directory: %s\n", path);
+        } else {
+            shl_log(SHL_LOG_DEBUG, "Removed directory: %s\n", path);
+        }
+        return true;
+#elif defined(_WIN32) || defined(_WIN64)
+        WIN32_FIND_DATA find_data;
+        char search_path[1024];
+        snprintf(search_path, sizeof(search_path), "%s\\*", path);
+
+        HANDLE handle = FindFirstFile(search_path, &find_data);
+        if (handle == INVALID_HANDLE_VALUE) {
+            shl_log(SHL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
+            return false;
+        }
+
+        do {
+            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+                continue;
+
+            char full_path[1024];
+            snprintf(full_path, sizeof(full_path), "%s\\%s", path, find_data.cFileName);
+
+            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                shl_delete_dir(full_path);
+            } else {
+                shl_delete_file(full_path);
+            }
+        } while (FindNextFile(handle, &find_data));
+
+        FindClose(handle);
+        if (RemoveDirectory(path) == 0) {
+            shl_log(SHL_LOG_ERROR, "Failed to remove directory: %s\n", path);
+        } else {
+            shl_log(SHL_LOG_DEBUG, "Removed directory: %s\n", path);
+        }
+        return true;
+#else
+        #error Unsupported platform
+#endif
+
     }
 
     void shl_release_string(SHL_String* content) {
@@ -1839,7 +1914,7 @@ void shl_timer_reset(SHL_Timer *timer);
     #define default_compiler_flags  shl_default_compiler_flags
     #define default_c_build         shl_default_c_build
     #define run                     shl_run
-    #define run_always              shl_run_always 
+    #define run_always              shl_run_always
     #define Cmd                     SHL_Cmd
 
     // DYN_ARRAY
@@ -1873,6 +1948,7 @@ void shl_timer_reset(SHL_Timer *timer);
     #define write_file              shl_write_file
     #define get_file_type           shl_get_file_type
     #define delete_file             shl_delete_file
+    #define delete_dir              shl_delete_dir
     #define release_string          shl_release_string
 
     // HASHMAP
