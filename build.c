@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #define SHL_IMPLEMENTATION
 #define SHL_STRIP_PREFIX
 #include "./build.h"
