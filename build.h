@@ -155,6 +155,14 @@ typedef enum {
 // Initialize logger
 void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
+// Set log file path (NULL to disable file logging)
+// Format can contain format specifiers like %d, %s, etc.
+// Uses variadic arguments like printf
+void shl_init_logger_logfile(const char *format, ...);
+
+// Get current time as formatted string (for TIME macro)
+const char *shl_get_time(void);
+
 // Forward declaration for logging function
 void shl_log(shl_log_level_t level, const char *fmt, ...);
 
@@ -165,6 +173,9 @@ void shl_log(shl_log_level_t level, const char *fmt, ...);
 #define shl_warn(fmt, ...)     shl_log(SHL_LOG_WARN, fmt, ##__VA_ARGS__)
 #define shl_error(fmt, ...)    shl_log(SHL_LOG_ERROR, fmt, ##__VA_ARGS__)
 #define shl_critical(fmt, ...) shl_log(SHL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
+
+// TIME macro - returns current time as formatted string
+#define SHL_TIME shl_get_time()
 
 //////////////////////////////////////////////////
 /// CLI_PARSER ///////////////////////////////////
@@ -532,11 +543,87 @@ void shl_timer_reset(SHL_Timer *timer);
     static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
     static bool shl_logger_color = false;
     static bool shl_logger_time = !false;
+    static FILE *shl_log_file = NULL;
 
     void shl_init_logger(shl_log_level_t level, bool color, bool time) {
         shl_logger_min_level = level;
         shl_logger_color = color;
         shl_logger_time = time;
+    }
+
+    static char *shl_expand_path(const char *path) {
+        if (!path) return NULL;
+
+        // Check if path starts with ~
+        if (path[0] == '~' && (path[1] == '/' || path[1] == '\0')) {
+            const char *home = NULL;
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+            home = getenv("HOME");
+#elif defined(_WIN32) || defined(_WIN64)
+            home = getenv("USERPROFILE");
+            if (!home) home = getenv("HOMEPATH");
+#endif
+            if (!home) {
+                fprintf(stderr, "Failed to get home directory\n");
+                return strdup(path); // Return original path if home not found
+            }
+
+            // Allocate buffer: home + rest of path + null terminator
+            size_t home_len = strlen(home);
+            size_t path_len = strlen(path);
+            char *expanded = (char *)malloc(home_len + path_len + 1);
+            if (!expanded) return NULL;
+
+            strcpy(expanded, home);
+            if (path[1] == '/') {
+                strcat(expanded, path + 1); // Skip ~ and keep /
+            } else if (path[1] != '\0') {
+                strcat(expanded, path + 1); // Skip ~
+            }
+            // If path is just "~", expanded is already home directory
+            return expanded;
+        }
+
+        return strdup(path);
+    }
+
+    const char *shl_get_time(void) {
+        static char time_buf[64];
+        time_t t = time(NULL);
+        struct tm *lt = localtime(&t);
+        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d_%H-%M-%S", lt);
+        return time_buf;
+    }
+
+    void shl_init_logger_logfile(const char *format, ...) {
+        // Close existing log file if open
+        if (shl_log_file != NULL) {
+            fclose(shl_log_file);
+            shl_log_file = NULL;
+        }
+
+        // Open new log file if format is provided
+        if (format != NULL) {
+            char path[1024];
+            
+            va_list args;
+            va_start(args, format);
+            vsnprintf(path, sizeof(path), format, args);
+            va_end(args);
+            
+            char *expanded_path = shl_expand_path(path);
+            if (!expanded_path) {
+                fprintf(stderr, "Failed to expand path: %s\n", path);
+                return;
+            }
+
+            shl_log_file = fopen(expanded_path, "a"); // Append mode
+            if (shl_log_file == NULL) {
+                fprintf(stderr, "Failed to open log file: %s\n", expanded_path);
+            }
+            
+            free(expanded_path);
+        }
     }
 
     static const char *shl_level_to_str(shl_log_level_t level) {
@@ -580,13 +667,22 @@ void shl_timer_reset(SHL_Timer *timer);
             time_t t = time(NULL);
             struct tm *lt = localtime(&t);
             strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
-        }
-
-        if (shl_logger_time) {
             fprintf(stderr, "%s[%s]%s %s >>> ", level_color, level_str, SHL_COLOR_RESET, time_buf);
         } else {
             fprintf(stderr, "%s[%s]%s ", level_color, level_str, SHL_COLOR_RESET);
         }
+
+        // Write to log file (without color codes)
+        if (shl_log_file != NULL) {
+            if (shl_logger_time) {
+                fprintf(shl_log_file, "[%s] %s >>> ", level_str, time_buf);
+            } else {
+                fprintf(shl_log_file, "[%s] ", level_str);
+            }
+        }
+
+        va_list args;
+        va_start(args, fmt);
 
         if (level == SHL_LOG_ERROR || level == SHL_LOG_CRITICAL) {
             fprintf(stderr, "\t\n");
@@ -594,10 +690,9 @@ void shl_timer_reset(SHL_Timer *timer);
             fprintf(stderr, "\t              |    |    |                 \n");
             fprintf(stderr, "\t             )_)  )_)  )_)                %s: Leaving the Ship\n", level_str);
             fprintf(stderr, "\t            )___))___))___)               > ");
-            va_list args;
-            va_start(args, fmt);
+
             vfprintf(stderr, fmt, args);
-            va_end(args);
+
             fprintf(stderr, "\t           )____)____)_____)              \n");
             fprintf(stderr, "\t         _____|____|____|_____            \n");
             fprintf(stderr, "\t---------\\                   /---------  \n");
@@ -605,12 +700,30 @@ void shl_timer_reset(SHL_Timer *timer);
             fprintf(stderr, "\t    ^^^^      ^^^^     ^^^    ^^          \n");
             fprintf(stderr, "\t         ^^^^      ^^^                    \n");
             fprintf(stderr, "\t\n");
+
+            // Write error message to file (plain text, no ASCII art)
+            if (shl_log_file != NULL) {
+                va_list args_copy;
+                va_copy(args_copy, args);
+                vfprintf(shl_log_file, fmt, args_copy);
+                va_end(args_copy);
+                fprintf(shl_log_file, "\n");
+                fflush(shl_log_file);
+            }
         } else {
-            va_list args;
-            va_start(args, fmt);
             vfprintf(stderr, fmt, args);
-            va_end(args);
+
+            // Write message to file (plain text)
+            if (shl_log_file != NULL) {
+                va_list args_copy;
+                va_copy(args_copy, args);
+                vfprintf(shl_log_file, fmt, args_copy);
+                va_end(args_copy);
+                fflush(shl_log_file);
+            }
         }
+
+        va_end(args);
 
         if (level == SHL_LOG_ERROR) {
             fflush(NULL);
@@ -1412,7 +1525,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
     bool shl_delete_dir(const char *path) {
         if (!path) return false;
-        
+
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
         DIR *dir = opendir(path);
         if (!dir) {
@@ -1883,6 +1996,9 @@ void shl_timer_reset(SHL_Timer *timer);
 
     // LOGGER
     #define init_logger             shl_init_logger
+    #define init_logger_logfile     shl_init_logger_logfile
+    #define get_time                shl_get_time
+    #define TIME                    SHL_TIME
     #define debug                   shl_debug
     #define info                    shl_info
     #define cmd                     shl_cmd
