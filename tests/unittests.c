@@ -4,6 +4,7 @@
 
 #include "test_build.h"
 #include "test_cli.h"
+#include "test_cmd_exec.h"
 #include "test_dynarray.h"
 #include "test_file_ops.h"
 #include "test_hashmap.h"
