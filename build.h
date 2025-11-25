@@ -298,7 +298,10 @@ int shl_file_exists(const char *file_path);
 int shl_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count);
 int shl_needs_rebuild1(const char *output_path, const char *input_path);
 
-// Temporary allocator
+//////////////////////////////////////////////////
+/// TEMP_ALLOCATOR ///////////////////////////////
+//////////////////////////////////////////////////
+
 #ifndef SHL_TEMP_CAPACITY
     #define SHL_TEMP_CAPACITY (8*1024*1024)
 #endif
@@ -767,6 +770,7 @@ void shl_timer_reset(SHL_Timer *timer);
                 va_copy(args_copy, args);
                 vfprintf(shl_log_file, fmt, args_copy);
                 va_end(args_copy);
+                fprintf(shl_log_file, "\n");
                 fflush(shl_log_file);
             }
         }
@@ -1231,54 +1235,6 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 #endif
 
-    // Temporary allocator
-    static size_t shl_temp_size = 0;
-    static char shl_temp[SHL_TEMP_CAPACITY] = {0};
-
-    char *shl_temp_strdup(const char *cstr) {
-        size_t n = strlen(cstr);
-        char *result = shl_temp_alloc(n + 1);
-        SHL_ASSERT(result != NULL && "Increase SHL_TEMP_CAPACITY");
-        memcpy(result, cstr, n);
-        result[n] = '\0';
-        return result;
-    }
-
-    void *shl_temp_alloc(size_t size) {
-        if (shl_temp_size + size > SHL_TEMP_CAPACITY) return NULL;
-        void *result = &shl_temp[shl_temp_size];
-        shl_temp_size += size;
-        return result;
-    }
-
-    char *shl_temp_sprintf(const char *format, ...) {
-        va_list args;
-        va_start(args, format);
-        int n = vsnprintf(NULL, 0, format, args);
-        va_end(args);
-
-        SHL_ASSERT(n >= 0);
-        char *result = shl_temp_alloc(n + 1);
-        SHL_ASSERT(result != NULL && "Extend the size of the temporary allocator");
-        va_start(args, format);
-        vsnprintf(result, n + 1, format, args);
-        va_end(args);
-
-        return result;
-    }
-
-    void shl_temp_reset(void) {
-        shl_temp_size = 0;
-    }
-
-    size_t shl_temp_save(void) {
-        return shl_temp_size;
-    }
-
-    void shl_temp_rewind(size_t checkpoint) {
-        shl_temp_size = checkpoint;
-    }
-
     // Execute command array - now uses fork/exec or CreateProcess instead of system()
     static bool shl_cmd_execute(SHL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) {
@@ -1435,6 +1391,57 @@ void shl_timer_reset(SHL_Timer *timer);
         bool res = shl_cmd_execute(config);
         shl_release(config);
         return res;
+    }
+
+    //////////////////////////////////////////////////
+    /// TEMP_ALLOCATOR ///////////////////////////////
+    //////////////////////////////////////////////////
+
+    static size_t shl_temp_size = 0;
+    static char shl_temp[SHL_TEMP_CAPACITY] = {0};
+
+    char *shl_temp_strdup(const char *cstr) {
+        size_t n = strlen(cstr);
+        char *result = shl_temp_alloc(n + 1);
+        SHL_ASSERT(result != NULL && "Increase SHL_TEMP_CAPACITY");
+        memcpy(result, cstr, n);
+        result[n] = '\0';
+        return result;
+    }
+
+    void *shl_temp_alloc(size_t size) {
+        if (shl_temp_size + size > SHL_TEMP_CAPACITY) return NULL;
+        void *result = &shl_temp[shl_temp_size];
+        shl_temp_size += size;
+        return result;
+    }
+
+    char *shl_temp_sprintf(const char *format, ...) {
+        va_list args;
+        va_start(args, format);
+        int n = vsnprintf(NULL, 0, format, args);
+        va_end(args);
+
+        SHL_ASSERT(n >= 0);
+        char *result = shl_temp_alloc(n + 1);
+        SHL_ASSERT(result != NULL && "Extend the size of the temporary allocator");
+        va_start(args, format);
+        vsnprintf(result, n + 1, format, args);
+        va_end(args);
+
+        return result;
+    }
+
+    void shl_temp_reset(void) {
+        shl_temp_size = 0;
+    }
+
+    size_t shl_temp_save(void) {
+        return shl_temp_size;
+    }
+
+    void shl_temp_rewind(size_t checkpoint) {
+        shl_temp_size = checkpoint;
     }
 
     //////////////////////////////////////////////////
@@ -1832,15 +1839,15 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 
     bool shl_rename(const char *old_path, const char *new_path) {
-        shl_log(SHL_LOG_INFO, "renaming %s -> %s", old_path, new_path);
+        shl_log(SHL_LOG_INFO, "renaming %s -> %s\n", old_path, new_path);
 #ifdef WINDOWS
         if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
-            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s", old_path, new_path, shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s\n", old_path, new_path, shl_win32_error_message(GetLastError()));
             return false;
         }
 #else
         if (rename(old_path, new_path) < 0) {
-            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s", old_path, new_path, strerror(errno));
+            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s\n", old_path, new_path, strerror(errno));
             return false;
         }
 #endif
@@ -1851,13 +1858,13 @@ void shl_timer_reset(SHL_Timer *timer);
 #ifdef WINDOWS
         DWORD nBufferLength = GetCurrentDirectory(0, NULL);
         if (nBufferLength == 0) {
-            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s\n", shl_win32_error_message(GetLastError()));
             return NULL;
         }
 
         char *buffer = (char*) shl_temp_alloc(nBufferLength);
         if (GetCurrentDirectory(nBufferLength, buffer) == 0) {
-            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s\n", shl_win32_error_message(GetLastError()));
             return NULL;
         }
 
@@ -1865,7 +1872,7 @@ void shl_timer_reset(SHL_Timer *timer);
 #else
         char *buffer = (char*) shl_temp_alloc(PATH_MAX);
         if (getcwd(buffer, PATH_MAX) == NULL) {
-            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", strerror(errno));
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s\n", strerror(errno));
             return NULL;
         }
 
@@ -1876,13 +1883,13 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_set_current_dir(const char *path) {
 #ifdef WINDOWS
         if (!SetCurrentDirectory(path)) {
-            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s", path, shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s\n", path, shl_win32_error_message(GetLastError()));
             return false;
         }
         return true;
 #else
         if (chdir(path) < 0) {
-            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s", path, strerror(errno));
+            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s\n", path, strerror(errno));
             return false;
         }
         return true;
@@ -1897,7 +1904,7 @@ void shl_timer_reset(SHL_Timer *timer);
         struct stat statbuf;
         if (stat(file_path, &statbuf) < 0) {
             if (errno == ENOENT) return 0;
-            shl_log(SHL_LOG_ERROR, "Could not check if file %s exists: %s", file_path, strerror(errno));
+            shl_log(SHL_LOG_ERROR, "Could not check if file %s exists: %s\n", file_path, strerror(errno));
             return -1;
         }
         return 1;
@@ -1912,14 +1919,14 @@ void shl_timer_reset(SHL_Timer *timer);
         HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (output_path_fd == INVALID_HANDLE_VALUE) {
             if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
-            shl_log(SHL_LOG_ERROR, "Could not open file %s: %s", output_path, shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "Could not open file %s: %s\n", output_path, shl_win32_error_message(GetLastError()));
             return -1;
         }
         FILETIME output_path_time;
         bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
         CloseHandle(output_path_fd);
         if (!bSuccess) {
-            shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s", output_path, shl_win32_error_message(GetLastError()));
+            shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s\n", output_path, shl_win32_error_message(GetLastError()));
             return -1;
         }
 
@@ -1927,14 +1934,14 @@ void shl_timer_reset(SHL_Timer *timer);
             const char *input_path = input_paths[i];
             HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
             if (input_path_fd == INVALID_HANDLE_VALUE) {
-                shl_log(SHL_LOG_ERROR, "Could not open file %s: %s", input_path, shl_win32_error_message(GetLastError()));
+                shl_log(SHL_LOG_ERROR, "Could not open file %s: %s\n", input_path, shl_win32_error_message(GetLastError()));
                 return -1;
             }
             FILETIME input_path_time;
             bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
             CloseHandle(input_path_fd);
             if (!bSuccess) {
-                shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s", input_path, shl_win32_error_message(GetLastError()));
+                shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s\n", input_path, shl_win32_error_message(GetLastError()));
                 return -1;
             }
 
@@ -1947,7 +1954,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         if (stat(output_path, &statbuf) < 0) {
             if (errno == ENOENT) return 1;
-            shl_log(SHL_LOG_ERROR, "could not stat %s: %s", output_path, strerror(errno));
+            shl_log(SHL_LOG_ERROR, "could not stat %s: %s\n", output_path, strerror(errno));
             return -1;
         }
         int output_path_time = statbuf.st_mtime;
@@ -1955,7 +1962,7 @@ void shl_timer_reset(SHL_Timer *timer);
         for (size_t i = 0; i < input_paths_count; ++i) {
             const char *input_path = input_paths[i];
             if (stat(input_path, &statbuf) < 0) {
-                shl_log(SHL_LOG_ERROR, "could not stat %s: %s", input_path, strerror(errno));
+                shl_log(SHL_LOG_ERROR, "could not stat %s: %s\n", input_path, strerror(errno));
                 return -1;
             }
             int input_path_time = statbuf.st_mtime;
