@@ -3,11 +3,9 @@
 #include "./build.h"
 
 Cmd cmd = {0};
-// Timer timer = {0};
 
 int main() {
     auto_rebuild_plus(__FILE__, "build.h");
-    // timer_start(&timer);
 
     char *examples[][2] = {
         { "examples/000_shl_logger.c",          "out/000_logger" },
@@ -19,9 +17,10 @@ int main() {
         { "examples/006_shl_hashmap.c",         "out/006_hashmap" },
         { "examples/007_shl_unittest.c",        "out/007_unittest" },
         { "examples/008_shl_timer.c",           "out/008_timer" },
+        { "examples/010_shl_temp_alloc.c",       "out/010_temp_alloc" },
+        { "examples/011_shl_path_utils.c",      "out/011_path_utils" },
         { "examples/901_shl_demo_calculator.c", "out/901_demo_calculator" },
         { "examples/902_shl_demo_pointer.c",    "out/902_demo_pointer" },
-        { "examples/903_shl_demo_lexer.c",      "out/903_demo_lexer" },
         { "tests/unittests.c",                  "out/unittests" },
     };
 
@@ -29,10 +28,6 @@ int main() {
         cmd = default_c_build(examples[i][0], examples[i][1]);
         if (!run(&cmd)) return EXIT_FAILURE;
     }
-
-    // double elapsed_ms = timer_elapsed_ms(&timer);
-    // timer_reset(&timer);
-    // info("Finished in %.3f milliseconds.\n", elapsed_ms);
 
     return EXIT_SUCCESS;
 }
