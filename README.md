@@ -14,7 +14,7 @@ Single-header utilities for C. Pragmatic. Portable. No nonsense.
 - **Path utilities** for common path manipulations.
 - **Improved command execution** using fork/exec (POSIX) or CreateProcess (Windows).
 
-Supported: Linux, macOS, Windows.
+Supported: Linux, macOS, Windows. It's as fast as [GNU Make](https://www.gnu.org/software/make/).
 
 ### Install
 
