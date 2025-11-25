@@ -11,7 +11,7 @@
     The Idea could be considered as a mix between nothings/stb and tsoding/nob.h
 
     ----------------------------------------------------------------------------
-    Created : 30 Sep 2025
+    Created : 25 Nov 2025
     Changed : 14 Nov 2025
     Author  : Raphaele Salvatore Licciardo
     License : MIT (see LICENSE for details)
@@ -120,7 +120,18 @@
     #define SHL_ASSERT assert
 #endif /* SHL_ASSERT */
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+// Normalize OS detection
+#if defined(_WIN32) || defined(_WIN64)
+    #define WINDOWS 1
+#elif defined(__APPLE__) && defined(__MACH__)
+    #define MACOS 1
+#elif defined(__linux__)
+    #define LINUX 1
+#else
+    #define UNKNOWN 1
+#endif
+
+#if defined(MACOS) || defined(LINUX)
     #include <pthread.h>
     #include <unistd.h>
     #include <dirent.h>
@@ -128,7 +139,7 @@
         #define _POSIX_C_SOURCE 199309L
     #endif
     #include <time.h>
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
     #include <windows.h>
     #include <io.h>
     #include <direct.h>
@@ -152,20 +163,21 @@ typedef enum {
     SHL_LOG_NONE
 } shl_log_level_t;
 
-// Initialize logger
+// Initialize logger, with some basic values
 void shl_init_logger(shl_log_level_t level, bool color, bool time);
 
-// Set log file path (NULL to disable file logging)
-// Format can contain format specifiers like %d, %s, etc.
-// Uses variadic arguments like printf
+// If set, the logger will also log to the given file. the file itself can
+// be written in a c like manner to specify the format
 void shl_init_logger_logfile(const char *format, ...);
 
-// Get current time as formatted string (for TIME macro)
+// Get current time as formatted string
 const char *shl_get_time(void);
 
 // Forward declaration for logging function
 void shl_log(shl_log_level_t level, const char *fmt, ...);
 
+// Macros to easify the usage of log, instead of log(level, fmt) we are offering
+// are more intuitive way of logging level(fmt)
 #define shl_debug(fmt, ...)    shl_log(SHL_LOG_DEBUG, fmt, ##__VA_ARGS__)
 #define shl_info(fmt, ...)     shl_log(SHL_LOG_INFO, fmt, ##__VA_ARGS__)
 #define shl_cmd(fmt, ...)      shl_log(SHL_LOG_CMD, fmt, ##__VA_ARGS__)
@@ -238,6 +250,8 @@ bool shl_run_always(SHL_Cmd* config);
 void shl_auto_rebuild(const char *src);
 // Auto Rebuild a Source File and it's deps depending on the Timestamp
 void shl_auto_rebuild_plus_impl(const char *src, ...);
+// // Fetch any File through a URL and safe it into Name
+// int shl_curl_file(const char *url, const char *name);
 
 // Macro to automatically append NULL to variadic args
 #define shl_auto_rebuild_plus(src, ...) shl_auto_rebuild_plus_impl(src, __VA_ARGS__, NULL)
@@ -495,7 +509,7 @@ extern char shl_test_failure_msg[];
 
 // High-resolution timer structure
 typedef struct {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
     LARGE_INTEGER start;
     LARGE_INTEGER frequency;
 #else
@@ -557,9 +571,9 @@ void shl_timer_reset(SHL_Timer *timer);
         // Check if path starts with ~
         if (path[0] == '~' && (path[1] == '/' || path[1] == '\0')) {
             const char *home = NULL;
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if defined(MACOS) || defined(LINUX)
             home = getenv("HOME");
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
             home = getenv("USERPROFILE");
             if (!home) home = getenv("HOMEPATH");
 #endif
@@ -605,12 +619,12 @@ void shl_timer_reset(SHL_Timer *timer);
         // Open new log file if format is provided
         if (format != NULL) {
             char path[1024];
-            
+
             va_list args;
             va_start(args, format);
             vsnprintf(path, sizeof(path), format, args);
             va_end(args);
-            
+
             char *expanded_path = shl_expand_path(path);
             if (!expanded_path) {
                 fprintf(stderr, "Failed to expand path: %s\n", path);
@@ -621,7 +635,7 @@ void shl_timer_reset(SHL_Timer *timer);
             if (shl_log_file == NULL) {
                 fprintf(stderr, "Failed to open log file: %s\n", expanded_path);
             }
-            
+
             free(expanded_path);
         }
     }
@@ -830,7 +844,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         // Find the last slash/backslash
         char *slash = strrchr(dir, '/');
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         if (!slash) slash = strrchr(dir, '\\');
 #endif
         if (slash) {
@@ -840,7 +854,7 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 
     static inline char* shl_default_compiler_flags(void) {
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         return "";
 #elif defined(__APPLE__) && defined(__MACH__)
         return "-Wall -Wextra";
@@ -854,7 +868,7 @@ void shl_timer_reset(SHL_Timer *timer);
     SHL_Cmd shl_default_c_build(const char *source, const char *output) {
         SHL_Cmd cmd = {0};
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         shl_push(&cmd, "gcc");
 #elif defined(__APPLE__) && defined(__MACH__)
         shl_push(&cmd, "cc");
@@ -921,12 +935,21 @@ void shl_timer_reset(SHL_Timer *timer);
         return copy; // caller must free
     }
 
+    // int shl_curl_file(const char *url, const char *name) {
+    //     SHL_Cmd curl = {0};
+    //     shl_push(&curl, "curl", "-sSL");
+    //     shl_push(&curl, url);
+    //     shl_push(&curl, "-o", name);
+    //     if (!shl_run_always(&curl)) return EXIT_FAILURE;
+    //     return EXIT_SUCCESS;
+    // }
+
     void shl_auto_rebuild(const char *src) {
         if (!src) return;
 
         struct stat src_attr, out_attr;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         char *out = "build_new.exe";
 #else
         char *out = shl_get_filename_no_ext(src);
@@ -950,7 +973,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if (defined(MACOS) || defined(LINUX)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -970,7 +993,7 @@ void shl_timer_reset(SHL_Timer *timer);
             free(out);
 #endif
             exit(1);
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -1002,7 +1025,7 @@ void shl_timer_reset(SHL_Timer *timer);
     void shl_auto_rebuild_plus_impl(const char *src, ...) {
         if (!src) return;
         struct stat src_attr, out_attr;
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         const char *out = "build_new.exe";
 #else
         char *out = shl_get_filename_no_ext(src);
@@ -1040,7 +1063,15 @@ void shl_timer_reset(SHL_Timer *timer);
 
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+
+// #ifdef SHL_UPDATE_ITSELF
+//             const char* url = "https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h";
+//             if (!shl_curl_file(url, "foo.h")) {
+//                 shl_warn("Command 'curl' is not installed on this machine, to automatically refetch 'build.h' you need install it");
+//             }
+// #endif
+
+#if (defined(MACOS) || defined(LINUX)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -1060,7 +1091,7 @@ void shl_timer_reset(SHL_Timer *timer);
             free(out);
 #endif
             exit(1);
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -1233,7 +1264,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
     bool shl_mkdir_if_not_exists(const char *path) {
         struct stat st;
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES) {
             return true;
         }
@@ -1295,7 +1326,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_copy_dir_rec(const char *src_path, const char *dst_path) {
         if (!src_path || !dst_path) return false;
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if (defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(src_path);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
@@ -1336,7 +1367,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         closedir(dir);
         return true;
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
         char search_path[1024];
         snprintf(search_path, sizeof(search_path), "%s\\*", src_path);
@@ -1414,7 +1445,7 @@ void shl_timer_reset(SHL_Timer *timer);
         if (!parent || !children) return false;
         SHL_UNUSED(children); // Reserved for future filtering
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if (defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(parent);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open directory: %s\n", parent);
@@ -1441,7 +1472,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         closedir(dir);
         return true;
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
         char search_path[1024];
         snprintf(search_path, sizeof(search_path), "%s\\*", parent);
@@ -1502,7 +1533,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_delete_file(const char *path) {
         if (!path) return false;
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if (defined(MACOS) || defined(LINUX)
         if (unlink(path) != 0) {
             shl_log(SHL_LOG_ERROR, "Failed to delete file: %s\n", path);
             return false;
@@ -1510,7 +1541,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         shl_log(SHL_LOG_DEBUG, "Deleted file: %s\n", path);
         return true;
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
         if (DeleteFile(path) == 0) {
             shl_log(SHL_LOG_ERROR, "Failed to delete file: %s\n", path);
             return false;
@@ -1526,7 +1557,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_delete_dir(const char *path) {
         if (!path) return false;
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__linux__)
+#if (defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(path);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
@@ -1559,7 +1590,7 @@ void shl_timer_reset(SHL_Timer *timer);
             shl_log(SHL_LOG_DEBUG, "Removed directory: %s\n", path);
         }
         return true;
-#elif defined(_WIN32) || defined(_WIN64)
+#elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
         char search_path[1024];
         snprintf(search_path, sizeof(search_path), "%s\\*", path);
@@ -1923,7 +1954,7 @@ void shl_timer_reset(SHL_Timer *timer);
     void shl_timer_start(SHL_Timer *timer) {
         if (!timer) return;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         QueryPerformanceFrequency(&timer->frequency);
         QueryPerformanceCounter(&timer->start);
 #else
@@ -1934,7 +1965,7 @@ void shl_timer_reset(SHL_Timer *timer);
     double shl_timer_elapsed(SHL_Timer *timer) {
         if (!timer) return 0.0;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
         return (double)(now.QuadPart - timer->start.QuadPart) / (double)timer->frequency.QuadPart;
@@ -1958,7 +1989,7 @@ void shl_timer_reset(SHL_Timer *timer);
     uint64_t shl_timer_elapsed_ns(SHL_Timer *timer) {
         if (!timer) return EXIT_SUCCESS;
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(WINDOWS)
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
         uint64_t elapsed_ticks = (uint64_t)(now.QuadPart - timer->start.QuadPart);
@@ -2030,6 +2061,7 @@ void shl_timer_reset(SHL_Timer *timer);
     #define default_compiler_flags  shl_default_compiler_flags
     #define default_c_build         shl_default_c_build
     #define run                     shl_run
+    // #define curl_file               shl_curl_file
     #define run_always              shl_run_always
     #define Cmd                     SHL_Cmd
 
