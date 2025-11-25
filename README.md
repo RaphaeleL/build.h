@@ -10,6 +10,9 @@ Single-header utilities for C. Pragmatic. Portable. No nonsense.
 - **High-resolution timers** for precise benchmarking and timing.
 - **No-build helpers**: rebuild self when sources change, run simple builds.
 - **Unit test harness** with minimal macros.
+- **Temporary allocator** for short-lived allocations without manual cleanup.
+- **Path utilities** for common path manipulations.
+- **Improved command execution** using fork/exec (POSIX) or CreateProcess (Windows).
 
 Supported: Linux, macOS, Windows.
 
@@ -60,10 +63,12 @@ cc -o build build.c && ./build
 ### No-build helpers (what actually runs)
 
 - **`default_c_build(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
-- **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array).
-- **`run_always(&cmd)`**: always build (no timestamp check).
+- **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array). Uses fork/exec (POSIX) or CreateProcess (Windows).
+- **`run_always(&cmd)`**: always build (no timestamp check). Also uses proper process execution.
 - **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
 - **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
+- **`needs_rebuild(output_path, input_paths, count)`**: check if rebuild is needed by comparing timestamps. Returns `1` if rebuild needed, `0` if up-to-date, `-1` on error. Handles multiple input files.
+- **`needs_rebuild1(output_path, input_path)`**: convenience wrapper for single input file.
 
 `SHL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
@@ -157,6 +162,54 @@ release_string(&lines);
 
 Also: `read_dir(path, filter)`, `write_file(path, data, size)`, `get_file_type(path)`, `delete_file(path)`.
 
+### Path utilities
+
+```c
+const char *name = path_name("/path/to/file.txt");  // returns "file.txt"
+const char *cwd = get_current_dir_temp();           // get current directory (uses temp allocator)
+set_current_dir("subdir");                          // change directory
+rename("old.txt", "new.txt");                       // rename file/directory
+int exists = file_exists("file.txt");               // returns 1 if exists, 0 if not, -1 on error
+```
+
+**Why `get_current_dir_temp()`?** It uses the temporary allocator (see below), so you don't need to free the result. Perfect for short-lived path operations.
+
+### Temporary allocator
+
+A simple arena-style allocator for short-lived allocations. **Why use it?** No manual `free()` calls needed - perfect for temporary strings, formatted output, and path manipulations that only live for a function call or two.
+
+```c
+temp_reset(); // start fresh
+char *str1 = temp_strdup("hello");
+char *str2 = temp_sprintf("value: %d", 42);
+info("%s %s\n", str1, str2); // use them
+// No cleanup needed - temp_reset() frees everything
+
+// Checkpoint system for nested scopes
+size_t checkpoint = temp_save();
+char *temp = temp_strdup("will be freed");
+temp_rewind(checkpoint); // frees everything after checkpoint
+// 'temp' is now invalid, but earlier allocations remain
+```
+
+Functions:
+- **`temp_strdup(cstr)`**: duplicate a string
+- **`temp_alloc(size)`**: allocate raw memory
+- **`temp_sprintf(format, ...)`**: formatted string allocation
+- **`temp_reset()`**: free all temp memory
+- **`temp_save()`**: save checkpoint
+- **`temp_rewind(checkpoint)`**: free memory back to checkpoint
+
+**Use cases:**
+- Building temporary file paths: `temp_sprintf("%s/%s", dir, filename)`
+- Formatting error messages without worrying about cleanup
+- Path manipulations in functions that don't need to return allocated strings
+- Any short-lived string operations where manual memory management is annoying
+
+**Important:** The temporary allocator is an *arena allocator* - it doesn't actually "free" memory in the traditional sense. When you call `temp_reset()` or `temp_rewind()`, the memory is marked as reusable, but the data isn't erased. **Pointers become invalid after reset/rewind** - don't use them! The data might still appear to be there until overwritten, but accessing it is undefined behavior.
+
+The allocator uses a fixed-size buffer (8MB by default, configurable via `SHL_TEMP_CAPACITY`). If you need more, increase the capacity or use regular `malloc()`/`free()`.
+
 ### High-resolution timers
 
 ```c
@@ -199,7 +252,7 @@ Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`
 
 ### Platform notes
 
-- Linux/macOS: uses `pthread`, `dirent`, `execv`, `stat`, `unlink`, `clock_gettime` where needed.
+- Linux/macOS: uses `pthread`, `dirent`, `fork`/`execvp`, `stat`, `unlink`, `clock_gettime` where needed.
 - Windows: uses WinAPI (`CreateProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
 
 ### FAQ
@@ -210,8 +263,8 @@ Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`
 
 ### Roadmap
 
-- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers.
-- Planned:  strings, queue/stack macros, ring buffer, linked list, arena/bump allocators, better error handling, easier parallel builds.
+- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, Improved command execution (fork/exec), Windows error handling.
+- Planned:  strings, queue/stack macros, ring buffer, linked list, easier parallel builds.
 
 ### License
 
