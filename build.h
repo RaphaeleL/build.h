@@ -114,6 +114,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <errno.h>
+#include <limits.h>
 
 #ifndef SHL_ASSERT
     #include <assert.h>
@@ -135,14 +137,18 @@
     #include <pthread.h>
     #include <unistd.h>
     #include <dirent.h>
+    #include <sys/wait.h>
+    #include <fcntl.h>
     #ifndef _POSIX_C_SOURCE
         #define _POSIX_C_SOURCE 199309L
     #endif
     #include <time.h>
 #elif defined(WINDOWS)
+    #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
     #include <io.h>
     #include <direct.h>
+    #include <shellapi.h>
 #else
     #error Unsupported platform
 #endif
@@ -280,6 +286,34 @@ const char *shl_get_file_type(const char *path);
 bool shl_delete_file(const char *path);
 bool shl_delete_dir(const char *path);
 void shl_release_string(SHL_String* content);
+
+// Path utilities
+const char *shl_path_name(const char *path);
+bool shl_rename(const char *old_path, const char *new_path);
+const char *shl_get_current_dir_temp(void);
+bool shl_set_current_dir(const char *path);
+int shl_file_exists(const char *file_path);
+
+// Rebuild detection
+int shl_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count);
+int shl_needs_rebuild1(const char *output_path, const char *input_path);
+
+// Temporary allocator
+#ifndef SHL_TEMP_CAPACITY
+    #define SHL_TEMP_CAPACITY (8*1024*1024)
+#endif
+
+char *shl_temp_strdup(const char *cstr);
+void *shl_temp_alloc(size_t size);
+char *shl_temp_sprintf(const char *format, ...);
+void shl_temp_reset(void);
+size_t shl_temp_save(void);
+void shl_temp_rewind(size_t checkpoint);
+
+// Windows error handling
+#ifdef WINDOWS
+    char *shl_win32_error_message(DWORD err);
+#endif
 
 //////////////////////////////////////////////////
 /// DYN_ARRAY ////////////////////////////////////
@@ -973,7 +1007,7 @@ void shl_timer_reset(SHL_Timer *timer);
 
         if (need_rebuild) {
             shl_debug("Rebuilding: %s -> %s\n", src, out);
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -1071,7 +1105,7 @@ void shl_timer_reset(SHL_Timer *timer);
 //             }
 // #endif
 
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
             SHL_Cmd own_build = shl_default_c_build(src, out);
             if (!shl_run_always(&own_build)) {
                 shl_release(&own_build);
@@ -1167,53 +1201,198 @@ void shl_timer_reset(SHL_Timer *timer);
         return NULL;
     }
 
-    // Execute command array using system() - builds command string
+#ifdef WINDOWS
+    char *shl_win32_error_message(DWORD err) {
+        static char win32ErrMsg[4 * 1024] = {0};
+        DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
+                                          sizeof(win32ErrMsg), NULL);
+
+        if (errMsgSize == 0) {
+            if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
+                if (sprintf(win32ErrMsg, "Could not get error message for 0x%lX", err) > 0) {
+                    return (char *)&win32ErrMsg;
+                } else {
+                    return NULL;
+                }
+            } else {
+                if (sprintf(win32ErrMsg, "Invalid Windows Error code (0x%lX)", err) > 0) {
+                    return (char *)&win32ErrMsg;
+                } else {
+                    return NULL;
+                }
+            }
+        }
+
+        while (errMsgSize > 1 && isspace(win32ErrMsg[errMsgSize - 1])) {
+            win32ErrMsg[--errMsgSize] = '\0';
+        }
+
+        return win32ErrMsg;
+    }
+#endif
+
+    // Temporary allocator
+    static size_t shl_temp_size = 0;
+    static char shl_temp[SHL_TEMP_CAPACITY] = {0};
+
+    char *shl_temp_strdup(const char *cstr) {
+        size_t n = strlen(cstr);
+        char *result = shl_temp_alloc(n + 1);
+        SHL_ASSERT(result != NULL && "Increase SHL_TEMP_CAPACITY");
+        memcpy(result, cstr, n);
+        result[n] = '\0';
+        return result;
+    }
+
+    void *shl_temp_alloc(size_t size) {
+        if (shl_temp_size + size > SHL_TEMP_CAPACITY) return NULL;
+        void *result = &shl_temp[shl_temp_size];
+        shl_temp_size += size;
+        return result;
+    }
+
+    char *shl_temp_sprintf(const char *format, ...) {
+        va_list args;
+        va_start(args, format);
+        int n = vsnprintf(NULL, 0, format, args);
+        va_end(args);
+
+        SHL_ASSERT(n >= 0);
+        char *result = shl_temp_alloc(n + 1);
+        SHL_ASSERT(result != NULL && "Extend the size of the temporary allocator");
+        va_start(args, format);
+        vsnprintf(result, n + 1, format, args);
+        va_end(args);
+
+        return result;
+    }
+
+    void shl_temp_reset(void) {
+        shl_temp_size = 0;
+    }
+
+    size_t shl_temp_save(void) {
+        return shl_temp_size;
+    }
+
+    void shl_temp_rewind(size_t checkpoint) {
+        shl_temp_size = checkpoint;
+    }
+
+    // Execute command array - now uses fork/exec or CreateProcess instead of system()
     static bool shl_cmd_execute(SHL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) {
             shl_log(SHL_LOG_ERROR, "Invalid command: empty or null\n");
             return false;
         }
 
-        // Build command string
+        // Build command string for logging
         char command[4096] = {0};
         size_t pos = 0;
-
         for (size_t i = 0; i < cmd->len; i++) {
-            if (!cmd->data[i]) continue; // Skip NULL items
+            if (!cmd->data[i]) continue;
             if (pos > 0 && pos < sizeof(command) - 1) {
                 command[pos++] = ' ';
             }
             const char *item = cmd->data[i];
             size_t item_len = strlen(item);
-
-            // Check if item needs quoting (contains spaces)
-            bool needs_quote = strchr(item, ' ') != NULL;
-
-            if (needs_quote && pos < sizeof(command) - 2) {
-                command[pos++] = '"';
-            }
-
             if (pos + item_len < sizeof(command) - 1) {
                 strncpy(command + pos, item, sizeof(command) - pos - 1);
                 pos += item_len;
             }
+        }
+        command[pos] = '\0';
+        shl_log(SHL_LOG_CMD, "%s\n", command);
 
-            if (needs_quote && pos < sizeof(command) - 1) {
-                command[pos++] = '"';
+#ifdef WINDOWS
+        // Build command line for Windows CreateProcess
+        char cmdline[4096] = {0};
+        pos = 0;
+        for (size_t i = 0; i < cmd->len; ++i) {
+            if (i > 0 && pos < sizeof(cmdline) - 1) cmdline[pos++] = ' ';
+            const char *arg = cmd->data[i];
+            if (strchr(arg, ' ') || strchr(arg, '\t')) {
+                if (pos < sizeof(cmdline) - 1) cmdline[pos++] = '"';
+                size_t len = strlen(arg);
+                if (pos + len < sizeof(cmdline) - 1) {
+                    strncpy(cmdline + pos, arg, sizeof(cmdline) - pos - 1);
+                    pos += len;
+                }
+                if (pos < sizeof(cmdline) - 1) cmdline[pos++] = '"';
+            } else {
+                size_t len = strlen(arg);
+                if (pos + len < sizeof(cmdline) - 1) {
+                    strncpy(cmdline + pos, arg, sizeof(cmdline) - pos - 1);
+                    pos += len;
+                }
             }
         }
+        cmdline[pos] = '\0';
 
-        command[pos] = '\0';
+        STARTUPINFO si = { sizeof(si) };
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&pi, sizeof(pi));
 
-        shl_log(SHL_LOG_CMD, "%s\n", command);
-        int result = system(command);
+        BOOL success = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+        if (!success) {
+            shl_log(SHL_LOG_ERROR, "Could not create process: %s\n", shl_win32_error_message(GetLastError()));
+            return false;
+        }
 
-        if (result != 0) {
-            shl_log(SHL_LOG_ERROR, "Command failed with exit code %d.\n", result);
+        CloseHandle(pi.hThread);
+        DWORD exit_code;
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exit_code);
+        CloseHandle(pi.hProcess);
+
+        if (exit_code != 0) {
+            shl_log(SHL_LOG_ERROR, "Command failed with exit code %lu\n", exit_code);
             return false;
         }
 
         return true;
+#else
+        pid_t pid = fork();
+        if (pid < 0) {
+            shl_log(SHL_LOG_ERROR, "Could not fork process: %s\n", strerror(errno));
+            return false;
+        }
+
+        if (pid == 0) {
+            // Child process
+            SHL_Cmd cmd_null = {0};
+            for (size_t i = 0; i < cmd->len; i++) {
+                shl_push(&cmd_null, cmd->data[i]);
+            }
+            shl_push(&cmd_null, NULL);
+
+            if (execvp(cmd->data[0], (char * const*) cmd_null.data) < 0) {
+                shl_log(SHL_LOG_ERROR, "Could not exec process: %s\n", strerror(errno));
+                exit(1);
+            }
+            SHL_UNREACHABLE("shl_cmd_execute");
+        }
+
+        // Parent process - wait for child
+        int wstatus;
+        if (waitpid(pid, &wstatus, 0) < 0) {
+            shl_log(SHL_LOG_ERROR, "Could not wait for process: %s\n", strerror(errno));
+            return false;
+        }
+
+        if (WIFEXITED(wstatus)) {
+            int exit_code = WEXITSTATUS(wstatus);
+            if (exit_code != 0) {
+                shl_log(SHL_LOG_ERROR, "Command failed with exit code %d\n", exit_code);
+                return false;
+            }
+        } else if (WIFSIGNALED(wstatus)) {
+            shl_log(SHL_LOG_ERROR, "Command terminated by signal %d\n", WTERMSIG(wstatus));
+            return false;
+        }
+
+        return true;
+#endif
     }
 
     bool shl_run(SHL_Cmd* config) {
@@ -1326,7 +1505,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_copy_dir_rec(const char *src_path, const char *dst_path) {
         if (!src_path || !dst_path) return false;
 
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(src_path);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
@@ -1445,7 +1624,7 @@ void shl_timer_reset(SHL_Timer *timer);
         if (!parent || !children) return false;
         SHL_UNUSED(children); // Reserved for future filtering
 
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(parent);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open directory: %s\n", parent);
@@ -1533,7 +1712,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_delete_file(const char *path) {
         if (!path) return false;
 
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
         if (unlink(path) != 0) {
             shl_log(SHL_LOG_ERROR, "Failed to delete file: %s\n", path);
             return false;
@@ -1557,7 +1736,7 @@ void shl_timer_reset(SHL_Timer *timer);
     bool shl_delete_dir(const char *path) {
         if (!path) return false;
 
-#if (defined(MACOS) || defined(LINUX)
+#if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(path);
         if (!dir) {
             shl_log(SHL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
@@ -1637,6 +1816,158 @@ void shl_timer_reset(SHL_Timer *timer);
         free(content->data);
         content->data = NULL;
         content->len = content->cap = 0;
+    }
+
+    // Path utilities
+    const char *shl_path_name(const char *path) {
+#ifdef WINDOWS
+        const char *p1 = strrchr(path, '/');
+        const char *p2 = strrchr(path, '\\');
+        const char *p = (p1 > p2)? p1 : p2;
+        return p ? p + 1 : path;
+#else
+        const char *p = strrchr(path, '/');
+        return p ? p + 1 : path;
+#endif
+    }
+
+    bool shl_rename(const char *old_path, const char *new_path) {
+        shl_log(SHL_LOG_INFO, "renaming %s -> %s", old_path, new_path);
+#ifdef WINDOWS
+        if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
+            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s", old_path, new_path, shl_win32_error_message(GetLastError()));
+            return false;
+        }
+#else
+        if (rename(old_path, new_path) < 0) {
+            shl_log(SHL_LOG_ERROR, "could not rename %s to %s: %s", old_path, new_path, strerror(errno));
+            return false;
+        }
+#endif
+        return true;
+    }
+
+    const char *shl_get_current_dir_temp(void) {
+#ifdef WINDOWS
+        DWORD nBufferLength = GetCurrentDirectory(0, NULL);
+        if (nBufferLength == 0) {
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", shl_win32_error_message(GetLastError()));
+            return NULL;
+        }
+
+        char *buffer = (char*) shl_temp_alloc(nBufferLength);
+        if (GetCurrentDirectory(nBufferLength, buffer) == 0) {
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", shl_win32_error_message(GetLastError()));
+            return NULL;
+        }
+
+        return buffer;
+#else
+        char *buffer = (char*) shl_temp_alloc(PATH_MAX);
+        if (getcwd(buffer, PATH_MAX) == NULL) {
+            shl_log(SHL_LOG_ERROR, "could not get current directory: %s", strerror(errno));
+            return NULL;
+        }
+
+        return buffer;
+#endif
+    }
+
+    bool shl_set_current_dir(const char *path) {
+#ifdef WINDOWS
+        if (!SetCurrentDirectory(path)) {
+            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s", path, shl_win32_error_message(GetLastError()));
+            return false;
+        }
+        return true;
+#else
+        if (chdir(path) < 0) {
+            shl_log(SHL_LOG_ERROR, "could not set current directory to %s: %s", path, strerror(errno));
+            return false;
+        }
+        return true;
+#endif
+    }
+
+    int shl_file_exists(const char *file_path) {
+#ifdef WINDOWS
+        DWORD dwAttrib = GetFileAttributesA(file_path);
+        return dwAttrib != INVALID_FILE_ATTRIBUTES;
+#else
+        struct stat statbuf;
+        if (stat(file_path, &statbuf) < 0) {
+            if (errno == ENOENT) return 0;
+            shl_log(SHL_LOG_ERROR, "Could not check if file %s exists: %s", file_path, strerror(errno));
+            return -1;
+        }
+        return 1;
+#endif
+    }
+
+    // Rebuild detection
+    int shl_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count) {
+#ifdef WINDOWS
+        BOOL bSuccess;
+
+        HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+        if (output_path_fd == INVALID_HANDLE_VALUE) {
+            if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
+            shl_log(SHL_LOG_ERROR, "Could not open file %s: %s", output_path, shl_win32_error_message(GetLastError()));
+            return -1;
+        }
+        FILETIME output_path_time;
+        bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
+        CloseHandle(output_path_fd);
+        if (!bSuccess) {
+            shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s", output_path, shl_win32_error_message(GetLastError()));
+            return -1;
+        }
+
+        for (size_t i = 0; i < input_paths_count; ++i) {
+            const char *input_path = input_paths[i];
+            HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+            if (input_path_fd == INVALID_HANDLE_VALUE) {
+                shl_log(SHL_LOG_ERROR, "Could not open file %s: %s", input_path, shl_win32_error_message(GetLastError()));
+                return -1;
+            }
+            FILETIME input_path_time;
+            bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
+            CloseHandle(input_path_fd);
+            if (!bSuccess) {
+                shl_log(SHL_LOG_ERROR, "Could not get time of %s: %s", input_path, shl_win32_error_message(GetLastError()));
+                return -1;
+            }
+
+            if (CompareFileTime(&input_path_time, &output_path_time) == 1) return 1;
+        }
+
+        return 0;
+#else
+        struct stat statbuf = {0};
+
+        if (stat(output_path, &statbuf) < 0) {
+            if (errno == ENOENT) return 1;
+            shl_log(SHL_LOG_ERROR, "could not stat %s: %s", output_path, strerror(errno));
+            return -1;
+        }
+        int output_path_time = statbuf.st_mtime;
+
+        for (size_t i = 0; i < input_paths_count; ++i) {
+            const char *input_path = input_paths[i];
+            if (stat(input_path, &statbuf) < 0) {
+                shl_log(SHL_LOG_ERROR, "could not stat %s: %s", input_path, strerror(errno));
+                return -1;
+            }
+            int input_path_time = statbuf.st_mtime;
+            if (input_path_time > output_path_time) return 1;
+        }
+
+        return 0;
+#endif
+    }
+
+    int shl_needs_rebuild1(const char *output_path, const char *input_path) {
+        return shl_needs_rebuild(output_path, &input_path, 1);
     }
 
     //////////////////////////////////////////////////
@@ -2098,6 +2429,21 @@ void shl_timer_reset(SHL_Timer *timer);
     #define delete_file             shl_delete_file
     #define delete_dir              shl_delete_dir
     #define release_string          shl_release_string
+    #define path_name               shl_path_name
+    #define rename                  shl_rename
+    #define get_current_dir_temp    shl_get_current_dir_temp
+    #define set_current_dir         shl_set_current_dir
+    #define file_exists             shl_file_exists
+    #define needs_rebuild           shl_needs_rebuild
+    #define needs_rebuild1          shl_needs_rebuild1
+
+    // TEMP_ALLOCATOR
+    #define temp_strdup             shl_temp_strdup
+    #define temp_alloc              shl_temp_alloc
+    #define temp_sprintf            shl_temp_sprintf
+    #define temp_reset              shl_temp_reset
+    #define temp_save               shl_temp_save
+    #define temp_rewind             shl_temp_rewind
 
     // HASHMAP
     #define HashMap                 SHL_HashMap
