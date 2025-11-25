@@ -1278,7 +1278,7 @@ void shl_timer_reset(SHL_Timer *timer);
     // Build command string for logging
     static void shl_cmd_log(SHL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) return;
-        
+
         char command[4096] = {0};
         size_t pos = 0;
         for (size_t i = 0; i < cmd->len; i++) {
@@ -1421,7 +1421,7 @@ void shl_timer_reset(SHL_Timer *timer);
     // Wait for all processes in a Procs array to complete
     bool shl_procs_wait(SHL_Procs *procs) {
         if (!procs) return false;
-        
+
         bool all_success = true;
         for (size_t i = 0; i < procs->len; i++) {
             if (procs->data[i] != SHL_INVALID_PROC) {
@@ -1470,11 +1470,8 @@ void shl_timer_reset(SHL_Timer *timer);
             return false;
         }
 
-        // Initialize async flag to false if not set (for backward compatibility)
-        bool async_mode = config->async;
-
         SHL_Proc proc;
-        if (async_mode) {
+        if (opts.procs) {
             // Async mode: start process and add to procs array if provided
             proc = shl_cmd_execute_async(config);
             if (proc == SHL_INVALID_PROC) {
