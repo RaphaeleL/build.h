@@ -63,12 +63,51 @@ cc -o build build.c && ./build
 ### No-build helpers (what actually runs)
 
 - **`default_c_build(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
-- **`run(&cmd)`**: builds only if `source` is newer than `output` (extracts source/output from command array). Uses fork/exec (POSIX) or CreateProcess (Windows).
-- **`run_always(&cmd)`**: always build (no timestamp check). Also uses proper process execution.
+- **`run(&cmd)`** or **`run(&cmd, .procs=&procs)`**: builds only if `source` is newer than `output` (extracts source/output from command array). Uses fork/exec (POSIX) or CreateProcess (Windows). Supports both sync and async execution.
+- **`run_always(&cmd)`** or **`run_always(&cmd, .procs=&procs)`**: always build (no timestamp check). Also uses proper process execution. Supports both sync and async execution.
+- **`proc_wait(proc)`**: wait for an async process to complete. Returns `true` on success, `false` on failure.
+- **`procs_wait(&procs)`**: wait for all processes in a `Procs` array to complete. Returns `true` if all succeed, `false` otherwise.
 - **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
 - **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
 - **`needs_rebuild(output_path, input_paths, count)`**: check if rebuild is needed by comparing timestamps. Returns `1` if rebuild needed, `0` if up-to-date, `-1` on error. Handles multiple input files.
 - **`needs_rebuild1(output_path, input_path)`**: convenience wrapper for single input file.
+
+#### Async execution
+
+Both `run()` and `run_always()` support asynchronous execution. By default, they run synchronously (wait for completion), maintaining backward compatibility. To enable async mode, set the `async` field on the command and pass a `Procs` array using designated initializer syntax:
+
+```c
+// Sync mode (default, backward compatible)
+Cmd cmd = default_c_build("main.c", "main");
+if (!run(&cmd)) {  // waits for completion
+    return EXIT_FAILURE;
+}
+
+// Async mode - run multiple builds in parallel
+Procs procs = {0};
+
+Cmd build1 = default_c_build("file1.c", "file1");
+build1.async = true;
+run_always(&build1, .procs=&procs);  // process handle automatically added to procs
+
+Cmd build2 = default_c_build("file2.c", "file2");
+build2.async = true;
+run_always(&build2, .procs=&procs);  // process handle automatically added to procs
+
+// Do other work while builds run...
+
+// Wait for all builds to complete
+if (!procs_wait(&procs)) {
+    return EXIT_FAILURE;
+}
+```
+
+**Notes:**
+- Use designated initializer syntax: `run(&cmd, .procs=&procs)` to track async processes
+- The `procs` parameter is optional - omit it for sync mode or when you don't need to track processes
+- When `async=true` and `procs` is provided, process handles are automatically added to the `procs` array
+- Use `procs_wait(&procs)` to wait for all tracked processes to complete
+- Cross-platform compatible: uses `CreateProcess`/`WaitForSingleObject` on Windows, `fork`/`execvp`/`waitpid` on Unix
 
 `SHL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
@@ -87,7 +126,7 @@ Or build from scratch:
 Cmd cmd = {0};
 push(&cmd, "cc", "-Wall", "-Wextra");  // variadic push for compiler and flags
 push(&cmd, "main.c", "-o", "main");
-run_always(&cmd);
+run_always(&cmd);  // or run_always(&cmd, .procs=&procs) for async
 release(&cmd);
 ```
 
@@ -252,8 +291,9 @@ Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`
 
 ### Platform notes
 
-- Linux/macOS: uses `pthread`, `dirent`, `fork`/`execvp`, `stat`, `unlink`, `clock_gettime` where needed.
-- Windows: uses WinAPI (`CreateProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
+- Linux/macOS: uses `pthread`, `dirent`, `fork`/`execvp`/`waitpid`, `stat`, `unlink`, `clock_gettime` where needed.
+- Windows: uses WinAPI (`CreateProcess`, `WaitForSingleObject`, `GetExitCodeProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
+- Async execution is fully cross-platform: Windows uses process handles (`HANDLE`), Unix uses process IDs (`pid_t`).
 
 ### FAQ
 

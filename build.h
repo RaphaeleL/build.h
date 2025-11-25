@@ -232,11 +232,36 @@ shl_arg_t *shl_get_argument(const char *long_name);
 
 #define MAX_TASKS 32
 
+// Process handle type
+#ifdef WINDOWS
+    typedef HANDLE SHL_Proc;
+    #define SHL_INVALID_PROC INVALID_HANDLE_VALUE
+#else
+    typedef int SHL_Proc;
+    #define SHL_INVALID_PROC (-1)
+#endif
+
+// Helper macro to check if a process handle is valid (for backward compatibility with boolean checks)
+#define SHL_PROC_IS_VALID(proc) ((proc) != SHL_INVALID_PROC)
+
+// Dynamic array of process handles
+typedef struct {
+    SHL_Proc *data;
+    size_t len;
+    size_t cap;
+} SHL_Procs;
+
 typedef struct {
     const char **data;
     size_t len;
     size_t cap;
+    bool async;  // If true, run asynchronously; if false (default), run synchronously
 } SHL_Cmd;
+
+// Options for run/run_always functions
+typedef struct {
+    SHL_Procs *procs;  // If provided and async=true, process handle is added here
+} SHL_RunOptions;
 
 typedef struct {
     SHL_Cmd config;
@@ -249,9 +274,24 @@ static inline char *shl_default_compiler_flags(void);
 SHL_Cmd shl_default_c_build(const char *source, const char *output);
 
 // Runs a BuildConfig based on the Timestamp
-bool shl_run(SHL_Cmd *config);
+// Usage: run(&cmd) or run(&cmd, (RunOptions){ .procs = &procs })
+// If config->async is true and opts.procs is provided, process handle is added to procs array
+// If config->async is false (default), waits for completion and returns success/failure
+bool shl_run_impl(SHL_Cmd *config, SHL_RunOptions opts);
 // Always runs a BuildConfig
-bool shl_run_always(SHL_Cmd* config);
+// Usage: run_always(&cmd) or run_always(&cmd, (RunOptions){ .procs = &procs })
+// If config->async is true and opts.procs is provided, process handle is added to procs array
+// If config->async is false (default), waits for completion and returns success/failure
+bool shl_run_always_impl(SHL_Cmd* config, SHL_RunOptions opts);
+
+// Macros to make options parameter optional with designated initializer syntax
+// Usage: run(&cmd) or run(&cmd, .procs=&procs)
+#define shl_run(cmd, ...) shl_run_impl(cmd, (SHL_RunOptions){__VA_ARGS__})
+#define shl_run_always(cmd, ...) shl_run_always_impl(cmd, (SHL_RunOptions){__VA_ARGS__})
+// Wait for an async process to complete
+bool shl_proc_wait(SHL_Proc proc);
+// Wait for all processes in a Procs array to complete
+bool shl_procs_wait(SHL_Procs *procs);
 // Auto Rebuild a Source File depending on the Timestamp
 void shl_auto_rebuild(const char *src);
 // Auto Rebuild a Source File and it's deps depending on the Timestamp
@@ -1235,14 +1275,10 @@ void shl_timer_reset(SHL_Timer *timer);
     }
 #endif
 
-    // Execute command array - now uses fork/exec or CreateProcess instead of system()
-    static bool shl_cmd_execute(SHL_Cmd* cmd) {
-        if (!cmd || !cmd->data || cmd->len == 0) {
-            shl_log(SHL_LOG_ERROR, "Invalid command: empty or null\n");
-            return false;
-        }
-
-        // Build command string for logging
+    // Build command string for logging
+    static void shl_cmd_log(SHL_Cmd* cmd) {
+        if (!cmd || !cmd->data || cmd->len == 0) return;
+        
         char command[4096] = {0};
         size_t pos = 0;
         for (size_t i = 0; i < cmd->len; i++) {
@@ -1259,11 +1295,21 @@ void shl_timer_reset(SHL_Timer *timer);
         }
         command[pos] = '\0';
         shl_log(SHL_LOG_CMD, "%s\n", command);
+    }
+
+    // Execute command array asynchronously - returns process handle
+    static SHL_Proc shl_cmd_execute_async(SHL_Cmd* cmd) {
+        if (!cmd || !cmd->data || cmd->len == 0) {
+            shl_log(SHL_LOG_ERROR, "Invalid command: empty or null\n");
+            return SHL_INVALID_PROC;
+        }
+
+        shl_cmd_log(cmd);
 
 #ifdef WINDOWS
         // Build command line for Windows CreateProcess
         char cmdline[4096] = {0};
-        pos = 0;
+        size_t pos = 0;
         for (size_t i = 0; i < cmd->len; ++i) {
             if (i > 0 && pos < sizeof(cmdline) - 1) cmdline[pos++] = ' ';
             const char *arg = cmd->data[i];
@@ -1292,26 +1338,16 @@ void shl_timer_reset(SHL_Timer *timer);
         BOOL success = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
         if (!success) {
             shl_log(SHL_LOG_ERROR, "Could not create process: %s\n", shl_win32_error_message(GetLastError()));
-            return false;
+            return SHL_INVALID_PROC;
         }
 
         CloseHandle(pi.hThread);
-        DWORD exit_code;
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        GetExitCodeProcess(pi.hProcess, &exit_code);
-        CloseHandle(pi.hProcess);
-
-        if (exit_code != 0) {
-            shl_log(SHL_LOG_ERROR, "Command failed with exit code %lu\n", exit_code);
-            return false;
-        }
-
-        return true;
+        return pi.hProcess;
 #else
         pid_t pid = fork();
         if (pid < 0) {
             shl_log(SHL_LOG_ERROR, "Could not fork process: %s\n", strerror(errno));
-            return false;
+            return SHL_INVALID_PROC;
         }
 
         if (pid == 0) {
@@ -1326,12 +1362,43 @@ void shl_timer_reset(SHL_Timer *timer);
                 shl_log(SHL_LOG_ERROR, "Could not exec process: %s\n", strerror(errno));
                 exit(1);
             }
-            SHL_UNREACHABLE("shl_cmd_execute");
+            SHL_UNREACHABLE("shl_cmd_execute_async");
         }
 
-        // Parent process - wait for child
+        return pid;
+#endif
+    }
+
+    // Wait for a process to complete
+    bool shl_proc_wait(SHL_Proc proc) {
+        if (proc == SHL_INVALID_PROC) return false;
+
+#ifdef WINDOWS
+        DWORD result = WaitForSingleObject(proc, INFINITE);
+        if (result == WAIT_FAILED) {
+            shl_log(SHL_LOG_ERROR, "Could not wait on child process: %s\n", shl_win32_error_message(GetLastError()));
+            CloseHandle(proc);
+            return false;
+        }
+
+        DWORD exit_code;
+        if (!GetExitCodeProcess(proc, &exit_code)) {
+            shl_log(SHL_LOG_ERROR, "Could not get process exit code: %s\n", shl_win32_error_message(GetLastError()));
+            CloseHandle(proc);
+            return false;
+        }
+
+        CloseHandle(proc);
+
+        if (exit_code != 0) {
+            shl_log(SHL_LOG_ERROR, "Command failed with exit code %lu\n", exit_code);
+            return false;
+        }
+
+        return true;
+#else
         int wstatus;
-        if (waitpid(pid, &wstatus, 0) < 0) {
+        if (waitpid(proc, &wstatus, 0) < 0) {
             shl_log(SHL_LOG_ERROR, "Could not wait for process: %s\n", strerror(errno));
             return false;
         }
@@ -1351,7 +1418,24 @@ void shl_timer_reset(SHL_Timer *timer);
 #endif
     }
 
-    bool shl_run(SHL_Cmd* config) {
+    // Wait for all processes in a Procs array to complete
+    bool shl_procs_wait(SHL_Procs *procs) {
+        if (!procs) return false;
+        
+        bool all_success = true;
+        for (size_t i = 0; i < procs->len; i++) {
+            if (procs->data[i] != SHL_INVALID_PROC) {
+                if (!shl_proc_wait(procs->data[i])) {
+                    all_success = false;
+                }
+            }
+        }
+        // Clear the procs array after waiting
+        procs->len = 0;
+        return all_success;
+    }
+
+    bool shl_run_impl(SHL_Cmd* config, SHL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
             shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
             if (config) shl_release(config);
@@ -1376,21 +1460,44 @@ void shl_timer_reset(SHL_Timer *timer);
             return true; // Already up to date
         }
 
-        bool res = shl_run_always(config);
-        shl_release(config);
-        return res;
+        return shl_run_always_impl(config, opts);
     }
 
-    bool shl_run_always(SHL_Cmd* config) {
+    bool shl_run_always_impl(SHL_Cmd* config, SHL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
             shl_log(SHL_LOG_ERROR, "Invalid build configuration\n");
             if (config) shl_release(config);
             return false;
         }
 
-        bool res = shl_cmd_execute(config);
-        shl_release(config);
-        return res;
+        // Initialize async flag to false if not set (for backward compatibility)
+        bool async_mode = config->async;
+
+        SHL_Proc proc;
+        if (async_mode) {
+            // Async mode: start process and add to procs array if provided
+            proc = shl_cmd_execute_async(config);
+            if (proc == SHL_INVALID_PROC) {
+                shl_release(config);
+                return false;
+            }
+            // Add proc to procs array if provided
+            if (opts.procs) {
+                shl_push(opts.procs, proc);
+            }
+            shl_release(config);  // Release command, proc is tracked in procs array
+            return true;
+        } else {
+            // Sync mode: wait for completion (backward compatible behavior)
+            proc = shl_cmd_execute_async(config);
+            if (proc == SHL_INVALID_PROC) {
+                shl_release(config);
+                return false;
+            }
+            bool success = shl_proc_wait(proc);
+            shl_release(config);
+            return success;
+        }
     }
 
     //////////////////////////////////////////////////
@@ -2393,6 +2500,8 @@ void shl_timer_reset(SHL_Timer *timer);
 
     // NO_BUILD
     #define CmdTask                 SHL_CmdTask
+    #define Proc                    SHL_Proc
+    #define INVALID_PROC            SHL_INVALID_PROC
     #define auto_rebuild            shl_auto_rebuild
     #define auto_rebuild_plus       shl_auto_rebuild_plus
     #define get_filename_no_ext     shl_get_filename_no_ext
@@ -2401,7 +2510,11 @@ void shl_timer_reset(SHL_Timer *timer);
     #define run                     shl_run
     // #define curl_file               shl_curl_file
     #define run_always              shl_run_always
+    #define proc_wait               shl_proc_wait
+    #define procs_wait              shl_procs_wait
     #define Cmd                     SHL_Cmd
+    #define Procs                   SHL_Procs
+    #define RunOptions              SHL_RunOptions
 
     // DYN_ARRAY
     #define grow                    shl_grow

@@ -2,8 +2,6 @@
 #define SHL_STRIP_PREFIX
 #include "./build.h"
 
-Cmd cmd = {0};
-
 int main() {
     auto_rebuild_plus(__FILE__, "build.h");
 
@@ -24,10 +22,27 @@ int main() {
         { "tests/unittests.c",                  "out/unittests" },
     };
 
+    Cmd cmd = {0};
+    Procs procs = {0};
+    Timer timer = {0};
+
+    timer_start(&timer);
+
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
         cmd = default_c_build(examples[i][0], examples[i][1]);
-        if (!run(&cmd)) return EXIT_FAILURE;
+        cmd.async = true;
+        if (!run(&cmd, .procs = &procs)) {
+            error("Failed to run build command for %s\n", examples[i][0]);
+        }
     }
+
+    if (!procs_wait(&procs)) {
+        return EXIT_FAILURE;
+    }
+
+    double elapsed_ms = timer_elapsed_ms(&timer);
+    info("Finished in %.3f ms\n", elapsed_ms);
+    timer_reset(&timer);
 
     return EXIT_SUCCESS;
 }
