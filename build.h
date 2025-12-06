@@ -11,8 +11,8 @@
     The Idea could be considered as a mix between nothings/stb and tsoding/nob.h
 
     ----------------------------------------------------------------------------
-    Created : 25 Nov 2025
-    Changed : 14 Nov 2025
+    Created : 02 Oct 2025
+    Changed : 06 Dez 2025
     Author  : Raphaele Salvatore Licciardo
     License : MIT (see LICENSE for details)
     Version : 0.0.1
