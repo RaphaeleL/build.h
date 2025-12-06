@@ -27,7 +27,7 @@ static int add_v2(int a, int b) {
     return a + b;
 }
 
-void example_a() {
+void example_a() { // stack
     int result = 0;
     int a = 2;
     int b = 3;
@@ -35,7 +35,7 @@ void example_a() {
     info("a) %d + %d = %d\n", a, b, result);
 }
 
-void example_b() {
+void example_b() { // stack allocation
     int tmp;
     int* result = &tmp;
     int a = 2;
@@ -44,7 +44,7 @@ void example_b() {
     info("b) %d + %d = %d\n", a, b, *result);
 }
 
-void example_c() {
+void example_c() { // heap allocation
     int* result = malloc(sizeof(int));
     int a = 2;
     int b = 3;
@@ -53,7 +53,7 @@ void example_c() {
     free(result);
 }
 
-void example_d() {
+void example_d() { // stack allocated array of 3 ints
     int results[3];
     int* ptr = results;
 
@@ -64,7 +64,7 @@ void example_d() {
     info("d) %d, %d, %d\n", results[0], results[1], results[2]);
 }
 
-void example_e() {
+void example_e() { // heap allocated array of 3 ints
     int n = 3;
     int* results = malloc(n * sizeof(int));
 
@@ -77,7 +77,7 @@ void example_e() {
     free(results);
 }
 
-void example_f() {
+void example_f() { // struct with function pointer in heap
     Calculator_v1 *calculator = malloc(sizeof(Calculator_v1));
     calculator->a = 2;
     calculator->b = 3;
@@ -90,7 +90,7 @@ void example_f() {
     free(calculator);
 }
 
-void example_g() {
+void example_g() { // struct with function pointer in heap, hidden function itself
     Calculator_v2 *calculator = malloc(sizeof(Calculator_v2));
     calculator->a = 2;
     calculator->b = 3;
@@ -108,8 +108,8 @@ int main() {
     example_c(); // heap allocation
     example_d(); // stack allocated array of 3 ints
     example_e(); // heap allocated array of 3 ints
-    example_f(); // struct with function pointer
-    example_g(); // struct with function pointer, hidden function itself
+    example_f(); // struct with function pointer in heap
+    example_g(); // struct with function pointer in heap, hidden function itself
 
     return EXIT_SUCCESS;
 }
