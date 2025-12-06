@@ -3,6 +3,7 @@
 Single-header utilities for C. Pragmatic. Portable. No nonsense.
 
 - **Logger** with levels, colors, timestamps.
+- **ANSI color support** with macros for foreground/background colors, text attributes, 256-color, and RGB truecolor.
 - **CLI arg parser** with simple long/short flags.
 - **Dynamic array macros** (`grow`, `push`, etc.).
 - **HashMap** for string keys to pointer values.
@@ -141,6 +142,45 @@ error("fatal error message\n");  // exits
 ```
 
 Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` (exit), `LOG_CRITICAL` (abort).
+
+### ANSI Colors
+
+`build.h` provides comprehensive ANSI color support for terminal output. All color codes are available as macros that you can use directly in your code.
+
+**Basic colors:**
+
+```c
+printf("%sRed text%s\n", SHL_FG_RED, SHL_RESET);
+printf("%sGreen background%s\n", SHL_BG_GREEN, SHL_RESET);
+```
+
+**Available macros:**
+
+- Reset
+- Text attributes
+- Foreground colors
+- Bright foreground
+- Background colors
+- Bright background
+- 256-color support
+- Truecolor/RGB
+
+**Windows support:**
+
+On Windows, call `SHL_enable_ansi()` once at program startup to enable ANSI color support in the console:
+
+```c
+#define SHL_IMPLEMENTATION
+#include "./build.h"
+
+int main(void) {
+    SHL_enable_ansi();  // Enable ANSI colors on Windows
+    printf("%sHello, colored world!%s\n", SHL_FG_GREEN, SHL_RESET);
+    return 0;
+}
+```
+
+On Linux and macOS, ANSI colors work automatically in terminals that support them.
 
 ### CLI argument parser
 
