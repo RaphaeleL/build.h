@@ -213,7 +213,7 @@
 #define SHL_FG_RGB(r,g,b)   "\x1b[38;2;" _SHL_STR(r) ";" _SHL_STR(g) ";" _SHL_STR(b) "m"
 #define SHL_BG_RGB(r,g,b)   "\x1b[48;2;" _SHL_STR(r) ";" _SHL_STR(g) ";" _SHL_STR(b) "m"
 
-void AC_EnableANSICodes(void);
+void SHL_enable_ansi(void);
 
 /* Use: SHL_FG256(196) for bright red, SHL_BG256(21) for deep blue */
 /* Use: SHL_FG_RGB(255, 128, 0) */
@@ -688,7 +688,7 @@ void shl_timer_reset(SHL_Timer *timer);
     //////////////////////////////////////////////////
     
     // https://github.com/mlabbe/ansicodes/blob/main/ansicodes.h#L305-L316
-    void AC_EnableANSICodes(void) {
+    void SHL_enable_ansi(void) {
 #if defined(WINDOWS)
         HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
         DWORD mode;
@@ -2677,6 +2677,9 @@ void shl_timer_reset(SHL_Timer *timer);
     #define timer_elapsed_us        shl_timer_elapsed_us
     #define timer_elapsed_ns        shl_timer_elapsed_ns
     #define timer_reset             shl_timer_reset
+
+    // ANSI COLORS
+    #define enable_ansi             SHL_enable_ansi
 
 #endif // SHL_STRIP_PREFIX
 
