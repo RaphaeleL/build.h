@@ -154,6 +154,71 @@
 #endif
 
 //////////////////////////////////////////////////
+/// ANSI COLORS //////////////////////////////////
+//////////////////////////////////////////////////
+
+#define SHL_RESET           "\x1b[0m"  // RESET
+#define SHL_RESET_FG        "\x1b[39m"
+#define SHL_RESET_BG        "\x1b[49m"
+
+#define SHL_BOLD            "\x1b[1m"  // Text Attributes
+#define SHL_DIM             "\x1b[2m"
+#define SHL_ITALIC          "\x1b[3m"
+#define SHL_UNDERLINE       "\x1b[4m"
+#define SHL_INVERT          "\x1b[7m"
+#define SHL_HIDE            "\x1b[8m"
+#define SHL_STRIKE          "\x1b[9m"
+
+#define SHL_FG_BLACK        "\x1b[30m"  // Foreground
+#define SHL_FG_RED          "\x1b[31m"
+#define SHL_FG_GREEN        "\x1b[32m"
+#define SHL_FG_YELLOW       "\x1b[33m"
+#define SHL_FG_BLUE         "\x1b[34m"
+#define SHL_FG_MAGENTA      "\x1b[35m"
+#define SHL_FG_CYAN         "\x1b[36m"
+#define SHL_FG_WHITE        "\x1b[37m"
+
+#define SHL_FG_BBLACK       "\x1b[90m"  // Bright Foreground
+#define SHL_FG_BRED         "\x1b[91m"
+#define SHL_FG_BGREEN       "\x1b[92m"
+#define SHL_FG_BYELLOW      "\x1b[93m"
+#define SHL_FG_BBLUE        "\x1b[94m"
+#define SHL_FG_BMAGENTA     "\x1b[95m"
+#define SHL_FG_BCYAN        "\x1b[96m"
+#define SHL_FG_BWHITE       "\x1b[97m"
+
+#define SHL_BG_BLACK        "\x1b[40m"  // Background
+#define SHL_BG_RED          "\x1b[41m"
+#define SHL_BG_GREEN        "\x1b[42m"
+#define SHL_BG_YELLOW       "\x1b[43m"
+#define SHL_BG_BLUE         "\x1b[44m"
+#define SHL_BG_MAGENTA      "\x1b[45m"
+#define SHL_BG_CYAN         "\x1b[46m"
+#define SHL_BG_WHITE        "\x1b[47m"
+
+#define SHL_BG_BBLACK       "\x1b[100m"  // Bright Background
+#define SHL_BG_BRED         "\x1b[101m"
+#define SHL_BG_BGREEN       "\x1b[102m"
+#define SHL_BG_BYELLOW      "\x1b[103m"
+#define SHL_BG_BBLUE        "\x1b[104m"
+#define SHL_BG_BMAGENTA     "\x1b[105m"
+#define SHL_BG_BCYAN        "\x1b[106m"
+#define SHL_BG_BWHITE       "\x1b[107m"
+
+#define SHL_FG256(n)        "\x1b[38;5;" #n "m" // 256-Color Support
+#define SHL_BG256(n)        "\x1b[48;5;" #n "m"
+
+#define _SHL_STR_HELPER(x) #x  // Truecolor (RGB Support)
+#define _SHL_STR(x) _SHL_STR_HELPER(x)
+#define SHL_FG_RGB(r,g,b)   "\x1b[38;2;" _SHL_STR(r) ";" _SHL_STR(g) ";" _SHL_STR(b) "m"
+#define SHL_BG_RGB(r,g,b)   "\x1b[48;2;" _SHL_STR(r) ";" _SHL_STR(g) ";" _SHL_STR(b) "m"
+
+void AC_EnableANSICodes(void);
+
+/* Use: SHL_FG256(196) for bright red, SHL_BG256(21) for deep blue */
+/* Use: SHL_FG_RGB(255, 128, 0) */
+
+//////////////////////////////////////////////////
 /// LOGGER ///////////////////////////////////////
 //////////////////////////////////////////////////
 
@@ -619,17 +684,33 @@ void shl_timer_reset(SHL_Timer *timer);
 #ifdef SHL_IMPLEMENTATION
 
     //////////////////////////////////////////////////
+    /// ANSI COLORS //////////////////////////////////
+    //////////////////////////////////////////////////
+    
+    // https://github.com/mlabbe/ansicodes/blob/main/ansicodes.h#L305-L316
+    void AC_EnableANSICodes(void) {
+#if defined(WINDOWS)
+        HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD mode;
+        GetConsoleMode(hStdout, &mode);
+        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        mode |= DISABLE_NEWLINE_AUTO_RETURN;
+        SetConsoleMode(hStdout, mode);
+#endif
+    }
+
+    //////////////////////////////////////////////////
     /// LOGGER ///////////////////////////////////////
     //////////////////////////////////////////////////
 
-    #define SHL_COLOR_RESET     "\x1b[0m"
-    #define SHL_COLOR_ERROR     "\x1b[31m" // red
-    #define SHL_COLOR_INFO      "\x1b[32m" // green
-    #define SHL_COLOR_WARN      "\x1b[33m" // yellow
-    #define SHL_COLOR_HINT      "\x1b[34m" // blue
-    #define SHL_COLOR_CRITICAL  "\x1b[35m" // purple
-    #define SHL_COLOR_CMD       "\x1b[36m" // yellow
-    #define SHL_COLOR_DEBUG     "\x1b[90m" // gray
+    #define SHL_COLOR_RESET SHL_RESET
+    #define SHL_COLOR_ERROR SHL_BOLD SHL_FG_RED
+    #define SHL_COLOR_INFO SHL_FG_GREEN
+    #define SHL_COLOR_WARN SHL_FG_YELLOW
+    #define SHL_COLOR_HINT SHL_FG_BLUE
+    #define SHL_COLOR_CRITICAL SHL_BOLD SHL_FG_MAGENTA
+    #define SHL_COLOR_CMD SHL_FG_CYAN
+    #define SHL_COLOR_DEBUG SHL_FG_BBLACK
 
     static shl_log_level_t shl_logger_min_level = SHL_LOG_INFO;
     static bool shl_logger_color = false;
@@ -726,7 +807,7 @@ void shl_timer_reset(SHL_Timer *timer);
         case SHL_LOG_WARN:     return "WARN";
         case SHL_LOG_ERROR:    return "ERROR";
         case SHL_LOG_CRITICAL: return "CRITICAL";
-        default:               return "UNK";
+        default:               return "UNKNOWN";
         }
     }
 
@@ -758,7 +839,7 @@ void shl_timer_reset(SHL_Timer *timer);
             time_t t = time(NULL);
             struct tm *lt = localtime(&t);
             strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
-            fprintf(stderr, "%s[%s]%s %s >>> ", level_color, level_str, SHL_COLOR_RESET, time_buf);
+            fprintf(stderr, "%s[%s]%s %s >>> %s", level_color, level_str, SHL_DIM, time_buf, SHL_COLOR_RESET);
         } else {
             fprintf(stderr, "%s[%s]%s ", level_color, level_str, SHL_COLOR_RESET);
         }
@@ -2505,7 +2586,6 @@ void shl_timer_reset(SHL_Timer *timer);
     #define default_compiler_flags  shl_default_compiler_flags
     #define default_c_build         shl_default_c_build
     #define run                     shl_run
-    // #define curl_file               shl_curl_file
     #define run_always              shl_run_always
     #define proc_wait               shl_proc_wait
     #define procs_wait              shl_procs_wait
