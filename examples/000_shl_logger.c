@@ -18,6 +18,7 @@
 #include "../build.h"
 
 int main() {
+    init_logger(LOG_DEBUG, true, true);
     debug("This is a debug message\n");
     info("Starting program with pid=%d\n", 1234);
     cmd("cc -o foo foo.c\n");
