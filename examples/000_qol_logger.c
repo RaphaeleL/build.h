@@ -1,8 +1,8 @@
 /*
  * ===========================================================================
- * 000_shl_logger.c
+ * 000_qol_logger.c
  *
- * Example usage for SHL Logger
+ * Example usage for QOL Logger
  *
  * Created: 29 Sep 2025
  * Author : Raphaele Salvatore Licciardo
@@ -13,8 +13,8 @@
 
 #include <stdio.h>
 
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "../build.h"
 
 int main() {

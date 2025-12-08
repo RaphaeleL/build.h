@@ -25,11 +25,11 @@ Drop `build.h` into your project.
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
 ```
 
-In exactly one `.c` file, before including `build.h`, define `SHL_IMPLEMENTATION`. Optionally define `SHL_STRIP_PREFIX` to remove the `shl_` prefix from public names.
+In exactly one `.c` file, before including `build.h`, define `QOL_IMPLEMENTATION`. Optionally define `QOL_STRIP_PREFIX` to remove the `qol_` prefix from public names.
 
 ```c
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "./build.h"
 ```
 
@@ -38,8 +38,8 @@ In exactly one `.c` file, before including `build.h`, define `SHL_IMPLEMENTATION
 This `build.c` recompiles itself when it changes and builds `main.c` to `./main`.
 
 ```c
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "./build.h"
 
 int main(void) {
@@ -63,7 +63,7 @@ cc -o build build.c && ./build
 
 ### No-build helpers (what actually runs)
 
-- **`default_c_build(source, output)`**: returns a `SHL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
+- **`default_c_build(source, output)`**: returns a `QOL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
 - **`run(&cmd)`** or **`run(&cmd, .procs=&procs)`**: builds only if `source` is newer than `output` (extracts source/output from command array). Uses fork/exec (POSIX) or CreateProcess (Windows). Supports both sync and async execution.
 - **`run_always(&cmd)`** or **`run_always(&cmd, .procs=&procs)`**: always build (no timestamp check). Also uses proper process execution. Supports both sync and async execution.
 - **`proc_wait(proc)`**: wait for an async process to complete. Returns `true` on success, `false` on failure.
@@ -110,7 +110,7 @@ if (!procs_wait(&procs)) {
 - Use `procs_wait(&procs)` to wait for all tracked processes to complete
 - Cross-platform compatible: uses `CreateProcess`/`WaitForSingleObject` on Windows, `fork`/`execvp`/`waitpid` on Unix
 
-`SHL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
+`QOL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
 ```c
 Cmd cfg = default_c_build("main.c", "main");
@@ -150,8 +150,8 @@ Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` 
 **Basic colors:**
 
 ```c
-printf("%sRed text%s\n", SHL_FG_RED, SHL_RESET);
-printf("%sGreen background%s\n", SHL_BG_GREEN, SHL_RESET);
+printf("%sRed text%s\n", QOL_FG_RED, QOL_RESET);
+printf("%sGreen background%s\n", QOL_BG_GREEN, QOL_RESET);
 ```
 
 **Available macros:**
@@ -167,15 +167,15 @@ printf("%sGreen background%s\n", SHL_BG_GREEN, SHL_RESET);
 
 **Windows support:**
 
-On Windows, call `SHL_enable_ansi()` once at program startup to enable ANSI color support in the console:
+On Windows, call `QOL_enable_ansi()` once at program startup to enable ANSI color support in the console:
 
 ```c
-#define SHL_IMPLEMENTATION
+#define QOL_IMPLEMENTATION
 #include "./build.h"
 
 int main(void) {
-    SHL_enable_ansi();  // Enable ANSI colors on Windows
-    printf("%sHello, colored world!%s\n", SHL_FG_GREEN, SHL_RESET);
+    QOL_enable_ansi();  // Enable ANSI colors on Windows
+    printf("%sHello, colored world!%s\n", QOL_FG_GREEN, QOL_RESET);
     return 0;
 }
 ```
@@ -210,7 +210,7 @@ release(&a);
 
 Provided: `grow`, `shrink`, `push` (variadic), `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
 
-**Note**: `SHL_Cmd` (used by build helpers) is a dynamic array of `const char*` - use these same macros to build commands dynamically.
+**Note**: `QOL_Cmd` (used by build helpers) is a dynamic array of `const char*` - use these same macros to build commands dynamically.
 
 ### HashMap (string keys → pointer values)
 
@@ -287,7 +287,7 @@ Functions:
 
 **Important:** The temporary allocator is an *arena allocator* - it doesn't actually "free" memory in the traditional sense. When you call `temp_reset()` or `temp_rewind()`, the memory is marked as reusable, but the data isn't erased. **Pointers become invalid after reset/rewind** - don't use them! The data might still appear to be there until overwritten, but accessing it is undefined behavior.
 
-The allocator uses a fixed-size buffer (8MB by default, configurable via `SHL_TEMP_CAPACITY`). If you need more, increase the capacity or use regular `malloc()`/`free()`.
+The allocator uses a fixed-size buffer (8MB by default, configurable via `QOL_TEMP_CAPACITY`). If you need more, increase the capacity or use regular `malloc()`/`free()`.
 
 ### High-resolution timers
 
@@ -327,7 +327,7 @@ Macros: `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ
 
 ### Prefix stripping
 
-Define `SHL_STRIP_PREFIX` to use short names (e.g., `info` instead of `shl_info`, `Cmd` instead of `SHL_Cmd`). See the bottom of `build.h` for the full mapping.
+Define `QOL_STRIP_PREFIX` to use short names (e.g., `info` instead of `qol_info`, `Cmd` instead of `QOL_Cmd`). See the bottom of `build.h` for the full mapping.
 
 ### Platform notes
 

@@ -1,8 +1,8 @@
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "../build.h"
 
-typedef shl_list(int) Vector;
+typedef qol_list(int) Vector;
 
 void print_da(Vector *vector) {
     info("len = %2zu, cap = %2zu, last = %2d -> ", vector->len, vector->cap, back(vector));

@@ -1,8 +1,8 @@
 /*
  * ===========================================================================
- * 008_shl_timer.c
+ * 008_qol_timer.c
  *
- * Example usage for SHL High-Resolution Timer
+ * Example usage for QOL High-Resolution Timer
  *
  * Created: 31 Oct 2025
  * Author : Raphaele Salvatore Licciardo
@@ -14,8 +14,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "../build.h"
 
 int main() {

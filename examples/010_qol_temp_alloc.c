@@ -1,6 +1,6 @@
 /*
  * ===========================================================================
- * 010_shl_temp_alloc.c
+ * 010_qol_temp_alloc.c
  *
  * Example usage for temporary allocator
  *
@@ -11,8 +11,8 @@
  * ===========================================================================
  */
 
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "../build.h"
 
 int main() {

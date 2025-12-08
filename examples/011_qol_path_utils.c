@@ -1,6 +1,6 @@
 /*
  * ===========================================================================
- * 011_shl_path_utils.c
+ * 011_qol_path_utils.c
  *
  * Example usage for path utilities
  *
@@ -11,8 +11,8 @@
  * ===========================================================================
  */
 
-#define SHL_IMPLEMENTATION
-#define SHL_STRIP_PREFIX
+#define QOL_IMPLEMENTATION
+#define QOL_STRIP_PREFIX
 #include "../build.h"
 
 int main() {
