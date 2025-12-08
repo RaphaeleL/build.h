@@ -1931,6 +1931,8 @@ void qol_timer_reset(QOL_Timer *timer);
             // Never returns on success (process image replaced)
             if (execvp(cmd->data[0], (char * const*) cmd_null.data) < 0) {
                 // execvp failed (shouldn't happen if command exists)
+                // Free cmd_null before exiting to avoid memory leak
+                qol_release(&cmd_null);
                 qol_log(QOL_LOG_ERROR, "Could not exec process: %s\n", strerror(errno));
                 exit(1); // Exit child process with error
             }
@@ -2830,14 +2832,19 @@ void qol_timer_reset(QOL_Timer *timer);
             if (hm->buckets[index].state == QOL_HM_USED && qol_hm_keys_equal(hm->buckets[index].key, key)) {
                 qol_log(QOL_LOG_DEBUG, "Updating entry for key: %s\n", (const char*)key);
                 // Key already exists: Update value (replace old pointer with new pointer)
-                free(hm->buckets[index].value); // Free old pointer storage
-                hm->buckets[index].value = malloc(value_size);
-                if (hm->buckets[index].value) {
+                // Allocate new value storage before freeing old to avoid inconsistent state on failure
+                void *new_value = malloc(value_size);
+                if (new_value) {
                     // Store address of value parameter (pointer to pointer)
-                    memcpy(hm->buckets[index].value, &value, value_size);
+                    memcpy(new_value, &value, value_size);
+                    free(hm->buckets[index].value); // Free old pointer storage
+                    hm->buckets[index].value = new_value;
                     hm->buckets[index].value_size = value_size;
+                } else {
+                    // Allocation failed: log error but keep old value to maintain consistency
+                    qol_log(QOL_LOG_ERROR, "Failed to allocate memory for hashmap value update\n");
                 }
-                return; // Update complete, no need to increment size
+                return; // Update complete (or failed), no need to increment size
             }
             // Collision: Move to next bucket (wrap around if needed)
             index = (index + 1) % hm->capacity;
