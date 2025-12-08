@@ -2076,9 +2076,10 @@ void qol_timer_reset(QOL_Timer *timer);
     static char qol_temp[QOL_TEMP_CAPACITY] = {0}; // Fixed-size buffer (8MB default)
 
     char *qol_temp_strdup(const char *cstr) {
+        if (!cstr) return NULL;
         size_t n = strlen(cstr);
         char *result = qol_temp_alloc(n + 1);
-        QOL_ASSERT(result != NULL && "Increase QOL_TEMP_CAPACITY");
+        if (!result) return NULL; // Return NULL instead of aborting when temp allocator is full
         memcpy(result, cstr, n);
         result[n] = '\0';
         return result;
@@ -2092,6 +2093,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     char *qol_temp_sprintf(const char *format, ...) {
+        if (!format) return NULL;
         va_list args;
         // First pass: Determine required buffer size
         // vsnprintf with NULL buffer returns number of characters needed (excluding null terminator)
@@ -2099,10 +2101,10 @@ void qol_timer_reset(QOL_Timer *timer);
         int n = vsnprintf(NULL, 0, format, args);
         va_end(args);
 
-        QOL_ASSERT(n >= 0); // Negative value indicates formatting error
+        if (n < 0) return NULL; // Formatting error, return NULL instead of aborting
         // Allocate buffer: n characters + 1 for null terminator
         char *result = qol_temp_alloc(n + 1);
-        QOL_ASSERT(result != NULL && "Extend the size of the temporary allocator");
+        if (!result) return NULL; // Return NULL instead of aborting when temp allocator is full
         // Second pass: Format string into allocated buffer
         // Must restart va_list because it can only be traversed once per va_start
         va_start(args, format);
