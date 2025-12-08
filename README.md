@@ -343,6 +343,8 @@ Define `QOL_STRIP_PREFIX` to use short names (e.g., `info` instead of `qol_info`
 
 ### Roadmap
 
+> Check out the `changelog/` Directory for the Version History.
+
 - Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, Improved command execution (fork/exec), Windows error handling.
 - Planned:  strings, queue/stack macros, ring buffer, linked list, easier parallel builds.
 
