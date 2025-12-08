@@ -2608,14 +2608,6 @@ void qol_timer_reset(QOL_Timer *timer);
     #define swap                    qol_swap
     #define list                    qol_list
 
-    // HELPER
-    #define ASSERT                  QOL_ASSERT
-    #define UNUSED                  QOL_UNUSED
-    #define TODO                    QOL_TODO
-    #define UNREACHABLE             QOL_UNREACHABLE
-    #define ARRAY_LEN               QOL_ARRAY_LEN
-    #define ARRAY_GET               QOL_ARRAY_GET
-
     // FILE_OPS
     #define String                  QOL_String
     #define mkdir                   qol_mkdir
