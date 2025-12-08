@@ -2203,15 +2203,23 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         struct dirent *entry;
-        char src_file[1024];
-        char dst_file[1024];
+        char src_file[QOL_PATH_BUFFER_SIZE];
+        char dst_file[QOL_PATH_BUFFER_SIZE];
 
         while ((entry = readdir(dir)) != NULL) {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
                 continue;
 
-            snprintf(src_file, sizeof(src_file), "%s/%s", src_path, entry->d_name);
-            snprintf(dst_file, sizeof(dst_file), "%s/%s", dst_path, entry->d_name);
+            if (snprintf(src_file, sizeof(src_file), "%s/%s", src_path, entry->d_name) >= (int)sizeof(src_file)) {
+                qol_log(QOL_LOG_ERROR, "Source path too long: %s/%s\n", src_path, entry->d_name);
+                closedir(dir);
+                return false;
+            }
+            if (snprintf(dst_file, sizeof(dst_file), "%s/%s", dst_path, entry->d_name) >= (int)sizeof(dst_file)) {
+                qol_log(QOL_LOG_ERROR, "Destination path too long: %s/%s\n", dst_path, entry->d_name);
+                closedir(dir);
+                return false;
+            }
 
             struct stat st;
             if (stat(src_file, &st) == 0) {
@@ -2233,8 +2241,11 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
 #elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s\\*", src_path);
+        char search_path[QOL_PATH_BUFFER_SIZE];
+        if (snprintf(search_path, sizeof(search_path), "%s\\*", src_path) >= (int)sizeof(search_path)) {
+            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", src_path);
+            return false;
+        }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
@@ -2251,10 +2262,18 @@ void qol_timer_reset(QOL_Timer *timer);
             if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
                 continue;
 
-            char src_file[1024];
-            char dst_file[1024];
-            snprintf(src_file, sizeof(src_file), "%s\\%s", src_path, find_data.cFileName);
-            snprintf(dst_file, sizeof(dst_file), "%s\\%s", dst_path, find_data.cFileName);
+            char src_file[QOL_PATH_BUFFER_SIZE];
+            char dst_file[QOL_PATH_BUFFER_SIZE];
+            if (snprintf(src_file, sizeof(src_file), "%s\\%s", src_path, find_data.cFileName) >= (int)sizeof(src_file)) {
+                qol_log(QOL_LOG_ERROR, "Source path too long: %s\\%s\n", src_path, find_data.cFileName);
+                FindClose(handle);
+                return false;
+            }
+            if (snprintf(dst_file, sizeof(dst_file), "%s\\%s", dst_path, find_data.cFileName) >= (int)sizeof(dst_file)) {
+                qol_log(QOL_LOG_ERROR, "Destination path too long: %s\\%s\n", dst_path, find_data.cFileName);
+                FindClose(handle);
+                return false;
+            }
 
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 if (!qol_copy_dir_rec(src_file, dst_file)) {
@@ -2329,8 +2348,11 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_log(QOL_LOG_INFO, "Contents of %s:\n", parent);
         while ((entry = readdir(dir)) != NULL) {
             struct stat st;
-            char full_path[1024];
-            snprintf(full_path, sizeof(full_path), "%s/%s", parent, entry->d_name);
+            char full_path[QOL_PATH_BUFFER_SIZE];
+            if (snprintf(full_path, sizeof(full_path), "%s/%s", parent, entry->d_name) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_WARN, "Path too long, skipping: %s/%s\n", parent, entry->d_name);
+                continue;
+            }
 
             if (stat(full_path, &st) == 0) {
                 if (S_ISDIR(st.st_mode)) {
@@ -2347,8 +2369,11 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
 #elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s\\*", parent);
+        char search_path[QOL_PATH_BUFFER_SIZE];
+        if (snprintf(search_path, sizeof(search_path), "%s\\*", parent) >= (int)sizeof(search_path)) {
+            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", parent);
+            return false;
+        }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
@@ -2438,13 +2463,17 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         struct dirent *entry;
-        char full_path[1024];
+        char full_path[QOL_PATH_BUFFER_SIZE];
 
         while ((entry = readdir(dir)) != NULL) {
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
                 continue;
 
-            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+            if (snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_ERROR, "Path too long: %s/%s\n", path, entry->d_name);
+                closedir(dir);
+                return false;
+            }
 
             struct stat st;
             if (stat(full_path, &st) == 0) {
@@ -2465,8 +2494,11 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
 #elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s\\*", path);
+        char search_path[QOL_PATH_BUFFER_SIZE];
+        if (snprintf(search_path, sizeof(search_path), "%s\\*", path) >= (int)sizeof(search_path)) {
+            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", path);
+            return false;
+        }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
@@ -2478,8 +2510,12 @@ void qol_timer_reset(QOL_Timer *timer);
             if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
                 continue;
 
-            char full_path[1024];
-            snprintf(full_path, sizeof(full_path), "%s\\%s", path, find_data.cFileName);
+            char full_path[QOL_PATH_BUFFER_SIZE];
+            if (snprintf(full_path, sizeof(full_path), "%s\\%s", path, find_data.cFileName) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_ERROR, "Path too long: %s\\%s\n", path, find_data.cFileName);
+                FindClose(handle);
+                return false;
+            }
 
             if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
                 qol_delete_dir(full_path);
