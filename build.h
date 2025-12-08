@@ -435,10 +435,12 @@ typedef struct {
 static inline char *qol_default_compiler_flags(void);
 
 // Build a default C compilation command structure. Creates a QOL_Cmd with compiler, flags, source, and output.
-// source: Path to source file (e.g., "main.c"). Required.
+// source: Path to source file (e.g., "main.c"). Required. Must be a trusted path - no validation is performed.
 // output: Path to output executable, or NULL to auto-generate from source filename (without extension).
 // Returns a QOL_Cmd structure ready to use with qol_run() or qol_run_always().
 // On Windows uses "gcc", on Unix uses "cc". Adds -Wall -Wextra flags on Unix platforms.
+// SECURITY NOTE: Paths are used directly in command execution without sanitization. Only use trusted paths
+// from your application, not user input. Paths containing shell metacharacters could cause command injection.
 QOL_Cmd qol_default_c_build(const char *source, const char *output);
 
 // Run a build command only if source files are newer than the output (incremental build).
@@ -526,6 +528,8 @@ typedef struct {
 // Create a directory at the specified path. Returns true on success, false on failure.
 // On Unix-like systems, creates directory with permissions 0755.
 // Logs an error message if the directory creation fails.
+// SECURITY NOTE: Paths are used directly without validation. Only use trusted paths from your application.
+// Paths containing ".." or absolute paths could access unintended directories.
 bool qol_mkdir(const char *path);
 
 // Create a directory at the specified path only if it doesn't already exist.
@@ -536,6 +540,8 @@ bool qol_mkdir_if_not_exists(const char *path);
 // Copy a file from src_path to dst_path. Returns true on success, false on failure.
 // Creates the destination file if it doesn't exist, overwrites if it does.
 // Uses a 4KB buffer for efficient copying. Logs errors if file operations fail.
+// SECURITY NOTE: Paths are used directly without validation. Only use trusted paths from your application.
+// Paths containing ".." could enable path traversal attacks.
 bool qol_copy_file(const char *src_path, const char *dst_path);
 
 // Recursively copy a directory and all its contents from src_path to dst_path.
@@ -598,9 +604,10 @@ const char *qol_get_current_dir_temp(void);
 // Logs an error message if the directory change fails. Affects all subsequent relative path operations.
 bool qol_set_current_dir(const char *path);
 
-// Check if a file or directory exists at the specified path. Returns 1 if exists, 0 if not found, -1 on error.
-// On error, logs an error message. Useful for checking file existence before operations.
-int qol_file_exists(const char *file_path);
+// Check if a file or directory exists at the specified path. Returns true if exists, false if not found.
+// On error, logs an error message and returns false. Useful for checking file existence before operations.
+// Changed return type from int (1/0/-1) to bool for consistency with other file operations.
+bool qol_file_exists(const char *file_path);
 
 // Rebuild detection
 
@@ -619,9 +626,16 @@ int qol_needs_rebuild1(const char *output_path, const char *input_path);
 /// TEMP_ALLOCATOR ///////////////////////////////
 //////////////////////////////////////////////////
 
+// Temporary allocator buffer size: 8MB default capacity
+// Can be overridden by defining QOL_TEMP_CAPACITY before including this header
 #ifndef QOL_TEMP_CAPACITY
     #define QOL_TEMP_CAPACITY (8*1024*1024)
 #endif
+
+// Fixed buffer sizes for command building and path operations
+#define QOL_CMD_BUFFER_SIZE 4096      // Maximum command line length
+#define QOL_PATH_BUFFER_SIZE 1024     // Maximum path length for file operations
+#define QOL_WIN32_ERR_BUFFER_SIZE (4*1024)  // Windows error message buffer size
 
 // Temporary allocator: Fast, stack-like memory allocation that doesn't require manual freeing.
 // All allocations are automatically freed when qol_temp_reset() is called.
@@ -883,12 +897,18 @@ QOL_HashMap *qol_hm_create();
 // Insert or update a key-value pair in the hashmap. Keys are strings (null-terminated), values are void* pointers.
 // If key already exists, updates the existing value. If key doesn't exist, creates new entry.
 // Keys are copied internally, but values are stored as pointers (caller manages value lifetime).
+// IMPORTANT: The hashmap stores only the pointer to the value, not the value itself. The caller must ensure
+// that the value pointer remains valid for the lifetime of the hashmap entry. Do not free the value or
+// use stack-allocated values unless you guarantee they remain valid. Values are freed when the entry is
+// removed or the hashmap is cleared/released, but only the pointer storage is freed, not the data it points to.
 // The hashmap automatically resizes if load factor exceeds 0.75 after insertion.
 void qol_hm_put(QOL_HashMap *hm, void *key, void *value);
 
 // Retrieve a value from the hashmap by key. Returns pointer to value if found, NULL if key doesn't exist.
 // Keys are compared as null-terminated strings. Returns NULL if hashmap is NULL or key is NULL.
-// The returned pointer is the same pointer that was stored with qol_hm_put().
+// The returned pointer is the same pointer that was stored with qol_hm_put(). The caller must not free
+// this pointer - it is managed by the hashmap. The pointer remains valid until the entry is removed
+// or the hashmap is cleared/released. However, the data the pointer points to must remain valid (see qol_hm_put).
 void *qol_hm_get(QOL_HashMap *hm, void *key);
 
 // Check if the hashmap contains a specific key. Returns true if key exists, false otherwise.
@@ -1766,7 +1786,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
 #ifdef WINDOWS
     char *qol_win32_error_message(DWORD err) {
-        static char win32ErrMsg[4 * 1024] = {0};
+        static char win32ErrMsg[QOL_WIN32_ERR_BUFFER_SIZE] = {0};
         DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
                                           sizeof(win32ErrMsg), NULL);
 
@@ -1797,8 +1817,9 @@ void qol_timer_reset(QOL_Timer *timer);
     static void qol_cmd_log(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) return;
 
-        char command[4096] = {0};
+        char command[QOL_CMD_BUFFER_SIZE] = {0};
         size_t pos = 0;
+        bool truncated = false;
         for (size_t i = 0; i < cmd->len; i++) {
             if (!cmd->data[i]) continue;
             if (pos > 0 && pos < sizeof(command) - 1) {
@@ -1809,9 +1830,15 @@ void qol_timer_reset(QOL_Timer *timer);
             if (pos + item_len < sizeof(command) - 1) {
                 strncpy(command + pos, item, sizeof(command) - pos - 1);
                 pos += item_len;
+            } else {
+                truncated = true;
+                break; // Buffer full, stop adding arguments
             }
         }
-        command[pos] = '\0';
+        command[sizeof(command) - 1] = '\0'; // Ensure null termination
+        if (truncated) {
+            qol_log(QOL_LOG_WARN, "Command truncated (exceeds %zu bytes): %s...\n", QOL_CMD_BUFFER_SIZE - 1, command);
+        }
         qol_log(QOL_LOG_CMD, "%s\n", command);
     }
 
@@ -1826,32 +1853,45 @@ void qol_timer_reset(QOL_Timer *timer);
 #ifdef WINDOWS
         // Windows: CreateProcess requires a single command-line string, not an array
         // Arguments with spaces must be quoted. Example: "cc -Wall main.c -o main"
-        char cmdline[4096] = {0};
+        char cmdline[QOL_CMD_BUFFER_SIZE] = {0};
         size_t pos = 0;
+        bool truncated = false;
         for (size_t i = 0; i < cmd->len; ++i) {
             // Add space separator before each argument (except first)
             if (i > 0 && pos < sizeof(cmdline) - 1) cmdline[pos++] = ' ';
             const char *arg = cmd->data[i];
             // Quote arguments that contain spaces or tabs (required by Windows)
             if (strchr(arg, ' ') || strchr(arg, '\t')) {
-                if (pos < sizeof(cmdline) - 1) cmdline[pos++] = '"'; // Opening quote
+                if (pos >= sizeof(cmdline) - 1) { truncated = true; break; }
+                cmdline[pos++] = '"'; // Opening quote
                 size_t len = strlen(arg);
                 // Copy argument to buffer (with bounds checking)
                 if (pos + len < sizeof(cmdline) - 1) {
                     strncpy(cmdline + pos, arg, sizeof(cmdline) - pos - 1);
                     pos += len;
+                } else {
+                    truncated = true;
+                    break;
                 }
-                if (pos < sizeof(cmdline) - 1) cmdline[pos++] = '"'; // Closing quote
+                if (pos >= sizeof(cmdline) - 1) { truncated = true; break; }
+                cmdline[pos++] = '"'; // Closing quote
             } else {
                 // No spaces, copy directly without quotes
                 size_t len = strlen(arg);
                 if (pos + len < sizeof(cmdline) - 1) {
                     strncpy(cmdline + pos, arg, sizeof(cmdline) - pos - 1);
                     pos += len;
+                } else {
+                    truncated = true;
+                    break;
                 }
             }
         }
-        cmdline[pos] = '\0'; // Ensure null termination
+        cmdline[sizeof(cmdline) - 1] = '\0'; // Ensure null termination
+        if (truncated) {
+            qol_log(QOL_LOG_ERROR, "Command line truncated (exceeds %zu bytes), command execution may fail\n", QOL_CMD_BUFFER_SIZE - 1);
+            return QOL_INVALID_PROC;
+        }
 
         // Create process using Windows API
         STARTUPINFO si = { sizeof(si) }; // Startup info (zero-initialized)
@@ -2257,7 +2297,8 @@ void qol_timer_reset(QOL_Timer *timer);
             // Duplicate line: getline's buffer is reused, we need our own copy
             char *copy = strdup(line);
             if (!copy) {
-                // Allocation failed: clean up and abort
+                // Allocation failed: clean up previously read lines and abort
+                qol_release_string(content); // Free all previously allocated lines
                 fclose(fp);
                 free(line); // Free getline's buffer
                 return false;
@@ -2542,18 +2583,18 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    int qol_file_exists(const char *file_path) {
+    bool qol_file_exists(const char *file_path) {
 #ifdef WINDOWS
         DWORD dwAttrib = GetFileAttributesA(file_path);
         return dwAttrib != INVALID_FILE_ATTRIBUTES;
 #else
         struct stat statbuf;
         if (stat(file_path, &statbuf) < 0) {
-            if (errno == ENOENT) return 0;
+            if (errno == ENOENT) return false;
             qol_log(QOL_LOG_ERROR, "Could not check if file %s exists: %s\n", file_path, strerror(errno));
-            return -1;
+            return false;
         }
-        return 1;
+        return true;
 #endif
     }
 
