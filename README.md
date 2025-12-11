@@ -13,6 +13,7 @@ Single-header utilities for C. Pragmatic. Portable. No nonsense.
 - **Unit test harness** with minimal macros.
 - **Temporary allocator** for short-lived allocations without manual cleanup.
 - **Path utilities** for common path manipulations.
+- **String utilities** for common string operations (trim, split, join, replace, etc.).
 - **Improved command execution** using fork/exec (POSIX) or CreateProcess (Windows).
 
 Supported: Linux, macOS, Windows. It's as fast as [GNU Make](https://www.gnu.org/software/make/).
@@ -253,6 +254,55 @@ int exists = file_exists("file.txt");               // returns 1 if exists, 0 if
 
 **Why `get_current_dir_temp()`?** It uses the temporary allocator (see below), so you don't need to free the result. Perfect for short-lived path operations.
 
+### String utilities
+
+```c
+// Check prefix/suffix
+bool starts = str_starts_with("Hello, World!", "Hello");  // true
+bool ends = str_ends_with("Hello, World!", "World!");      // true
+bool contains = str_contains("Hello, World!", "World");    // true
+
+// Case-insensitive comparison
+int cmp = str_icmp("Hello", "HELLO");  // 0 (equal)
+
+// Trim whitespace (in-place)
+char str[] = "   hello   ";
+str_trim(str);      // "hello" (both sides)
+str_ltrim(str);     // "hello   " (left only)
+str_rtrim(str);     // "   hello" (right only)
+
+// Replace substring (returns new string, caller must free)
+char *replaced = str_replace("Hello, World!", "World", "Universe");
+// "Hello, Universe!"
+free(replaced);
+
+// Split string by delimiter
+String parts = {0};
+str_split("apple,banana,cherry", ',', &parts);
+// parts.data[0] = "apple", parts.data[1] = "banana", etc.
+release_string(&parts);
+
+// Join strings with separator
+String fruits = {0};
+push(&fruits, "apple");
+push(&fruits, "banana");
+char *joined = str_join(&fruits, ", ");  // "apple, banana"
+free(joined);
+release_string(&fruits);
+```
+
+Functions:
+- **`str_starts_with(str, prefix)`**: Check if string starts with prefix
+- **`str_ends_with(str, suffix)`**: Check if string ends with suffix
+- **`str_trim(str)`**: Trim whitespace from both ends (in-place)
+- **`str_ltrim(str)`**: Trim whitespace from left (in-place)
+- **`str_rtrim(str)`**: Trim whitespace from right (in-place)
+- **`str_replace(str, old_sub, new_sub)`**: Replace all occurrences (returns new string)
+- **`str_split(str, delimiter, result)`**: Split string into `QOL_String` array
+- **`str_join(strings, separator)`**: Join `QOL_String` array with separator (returns new string)
+- **`str_contains(str, substring)`**: Check if string contains substring
+- **`str_icmp(str1, str2)`**: Case-insensitive string comparison
+
 ### Temporary allocator
 
 A simple arena-style allocator for short-lived allocations. **Why use it?** No manual `free()` calls needed - perfect for temporary strings, formatted output, and path manipulations that only live for a function call or two.
@@ -345,8 +395,8 @@ Define `QOL_STRIP_PREFIX` to use short names (e.g., `info` instead of `qol_info`
 
 > Check out the `changelog/` Directory for the Version History.
 
-- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, Improved command execution (fork/exec), Windows error handling.
-- Planned:  strings, queue/stack macros, ring buffer, linked list, easier parallel builds.
+- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Improved command execution (fork/exec), Windows error handling.
+- Planned: queue/stack macros, ring buffer, linked list, easier parallel builds.
 
 ### License
 

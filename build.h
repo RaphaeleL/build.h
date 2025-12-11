@@ -78,7 +78,10 @@
     Changelog:
 
       v0.0.1 (08.12.2025) - Initial release
-      v0.0.2 (dd.mm.yyyy) - wip
+      v0.0.2 (dd.mm.yyyy) - Several Fixes (prevent buffer overflow & memory 
+                                           leak & inconsistent state on after 
+                                           failures, easier error handling)
+                          - New Features (String Utilities)
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -163,11 +166,15 @@
     #include <time.h>         // Time functions (clock_gettime for timers)
 #elif defined(WINDOWS)
     // Exclude rarely-used Windows APIs to reduce compilation time and header bloat
-    #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>      // Core Windows API (processes, files, etc.)
-    #include <io.h>           // File I/O (_mkdir, etc.)
-    #include <direct.h>       // Directory operations (_mkdir, _chdir)
-    #include <shellapi.h>     // Shell operations (for future features)
+    #define WIN32_LEAN_AND_MEAN  // Exclude rarely used APIs
+    #define _WINUSER_            // Skip user interface header
+    #define _WINGDI_             // Skip GDI graphics header
+    #define _IMM_                // Skip input method header
+    #define _WINCON_             // Skip console API header
+    #include <windows.h>   // Core Windows API (processes, files, etc.)
+    #include <io.h>        // File I/O (_mkdir, etc.)
+    #include <direct.h>    // Directory operations (_mkdir, _chdir)
+    #include <shellapi.h>  // Shell operations (for future features)
 #else
     // Unsupported platform - fail compilation with clear error message
     #error Unsupported platform
@@ -582,6 +589,54 @@ bool qol_delete_dir(const char *path);
 // and the array itself. Sets data to NULL and resets len and cap to 0.
 // Safe to call on NULL or already-freed content.
 void qol_release_string(QOL_String* content);
+
+//////////////////////////////////////////////////
+/// STRING UTILITIES /////////////////////////////
+//////////////////////////////////////////////////
+
+// Check if a string starts with a given prefix. Returns true if str starts with prefix, false otherwise.
+// Both parameters must be non-NULL. Returns false if prefix is longer than str.
+bool qol_str_starts_with(const char *str, const char *prefix);
+
+// Check if a string ends with a given suffix. Returns true if str ends with suffix, false otherwise.
+// Both parameters must be non-NULL. Returns false if suffix is longer than str.
+bool qol_str_ends_with(const char *str, const char *suffix);
+
+// Trim whitespace from both ends of a string in-place. Modifies the string directly.
+// Returns a pointer to the trimmed string (may be different from input if leading whitespace was removed).
+// The string is modified in-place, so ensure it's writable. Trims spaces, tabs, newlines, carriage returns.
+char *qol_str_trim(char *str);
+
+// Trim whitespace from the left (beginning) of a string in-place. Modifies the string directly.
+// Returns a pointer to the trimmed string (may be different from input if leading whitespace was removed).
+char *qol_str_ltrim(char *str);
+
+// Trim whitespace from the right (end) of a string in-place. Modifies the string directly.
+// Returns the same pointer as input (string is modified in-place).
+char *qol_str_rtrim(char *str);
+
+// Replace all occurrences of a substring in a string. Returns a newly allocated string with replacements.
+// Returns NULL on allocation failure. Caller must free the returned string.
+// This is a safe, non-regex replacement. If old_sub is empty or not found, returns a copy of str.
+char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub);
+
+// Split a string by a delimiter character into a QOL_String array. Returns true on success, false on failure.
+// The result parameter must be initialized (or zeroed). Each element in result will be a dynamically allocated string.
+// Caller must free with qol_release_string(). Empty strings between consecutive delimiters are included as empty strings.
+bool qol_str_split(const char *str, char delimiter, QOL_String *result);
+
+// Join strings from a QOL_String array into a single string using a separator. Returns newly allocated string.
+// Returns NULL on allocation failure. Caller must free the returned string.
+// If the array is empty, returns an empty string (allocated). The separator is inserted between each string.
+char *qol_str_join(QOL_String *strings, const char *separator);
+
+// Check if a string contains a substring. Returns true if substring is found, false otherwise.
+// Both parameters must be non-NULL. Returns false if substring is empty.
+bool qol_str_contains(const char *str, const char *substring);
+
+// Case-insensitive string comparison. Returns 0 if strings are equal (ignoring case), negative if str1 < str2, positive if str1 > str2.
+// Similar to strcmp but case-insensitive. Both parameters must be non-NULL.
+int qol_str_icmp(const char *str1, const char *str2);
 
 // Path utilities
 
@@ -2552,6 +2607,202 @@ void qol_timer_reset(QOL_Timer *timer);
         content->len = content->cap = 0;
     }
 
+    // String utilities
+    bool qol_str_starts_with(const char *str, const char *prefix) {
+        if (!str || !prefix) return false;
+        size_t str_len = strlen(str);
+        size_t prefix_len = strlen(prefix);
+        if (prefix_len > str_len) return false;
+        return strncmp(str, prefix, prefix_len) == 0;
+    }
+
+    bool qol_str_ends_with(const char *str, const char *suffix) {
+        if (!str || !suffix) return false;
+        size_t str_len = strlen(str);
+        size_t suffix_len = strlen(suffix);
+        if (suffix_len > str_len) return false;
+        return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
+    }
+
+    char *qol_str_ltrim(char *str) {
+        if (!str) return str;
+        char *start = str;
+        while (*start && isspace((unsigned char)*start)) {
+            start++;
+        }
+        if (start != str) {
+            size_t len = strlen(start);
+            memmove(str, start, len + 1);
+        }
+        return str;
+    }
+
+    char *qol_str_rtrim(char *str) {
+        if (!str) return str;
+        char *end = str + strlen(str);
+        while (end > str && isspace((unsigned char)*(end - 1))) {
+            end--;
+        }
+        *end = '\0';
+        return str;
+    }
+
+    char *qol_str_trim(char *str) {
+        qol_str_rtrim(str);
+        return qol_str_ltrim(str);
+    }
+
+    char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub) {
+        if (!str || !old_sub || !new_sub) return NULL;
+        if (strlen(old_sub) == 0) {
+            char *result = (char*)malloc(strlen(str) + 1);
+            if (!result) return NULL;
+            strcpy(result, str);
+            return result;
+        }
+
+        size_t str_len = strlen(str);
+        size_t old_len = strlen(old_sub);
+        size_t new_len = strlen(new_sub);
+
+        // Count occurrences
+        size_t count = 0;
+        const char *pos = str;
+        while ((pos = strstr(pos, old_sub)) != NULL) {
+            count++;
+            pos += old_len;
+        }
+
+        // Calculate result size
+        size_t result_len = str_len + count * (new_len - old_len);
+        char *result = (char*)malloc(result_len + 1);
+        if (!result) return NULL;
+
+        // Build result string
+        char *dst = result;
+        const char *src = str;
+        while (*src) {
+            if (strncmp(src, old_sub, old_len) == 0) {
+                memcpy(dst, new_sub, new_len);
+                dst += new_len;
+                src += old_len;
+            } else {
+                *dst++ = *src++;
+            }
+        }
+        *dst = '\0';
+
+        return result;
+    }
+
+    bool qol_str_split(const char *str, char delimiter, QOL_String *result) {
+        if (!str || !result) return false;
+
+        result->data = NULL;
+        result->len = 0;
+        result->cap = 0;
+
+        const char *start = str;
+        const char *end = str;
+
+        while (*end) {
+            if (*end == delimiter) {
+                size_t len = end - start;
+                char *token = (char*)malloc(len + 1);
+                if (!token) {
+                    qol_release_string(result);
+                    return false;
+                }
+                memcpy(token, start, len);
+                token[len] = '\0';
+                qol_push(result, token);
+                start = end + 1;
+            }
+            end++;
+        }
+
+        // Add final token
+        size_t len = end - start;
+        char *token = (char*)malloc(len + 1);
+        if (!token) {
+            qol_release_string(result);
+            return false;
+        }
+        memcpy(token, start, len);
+        token[len] = '\0';
+        qol_push(result, token);
+
+        return true;
+    }
+
+    char *qol_str_join(QOL_String *strings, const char *separator) {
+        if (!strings || !separator) return NULL;
+
+        if (strings->len == 0 || !strings->data) {
+            char *result = (char*)malloc(1);
+            if (!result) return NULL;
+            result[0] = '\0';
+            return result;
+        }
+
+        size_t sep_len = strlen(separator);
+        size_t total_len = 0;
+
+        // Calculate total length
+        for (size_t i = 0; i < strings->len; i++) {
+            if (strings->data[i]) {
+                total_len += strlen(strings->data[i]);
+            }
+            if (i < strings->len - 1) {
+                total_len += sep_len;
+            }
+        }
+
+        char *result = (char*)malloc(total_len + 1);
+        if (!result) return NULL;
+
+        char *dst = result;
+        for (size_t i = 0; i < strings->len; i++) {
+            if (strings->data[i]) {
+                size_t len = strlen(strings->data[i]);
+                memcpy(dst, strings->data[i], len);
+                dst += len;
+            }
+            if (i < strings->len - 1) {
+                memcpy(dst, separator, sep_len);
+                dst += sep_len;
+            }
+        }
+        *dst = '\0';
+
+        return result;
+    }
+
+    bool qol_str_contains(const char *str, const char *substring) {
+        if (!str || !substring) return false;
+        if (strlen(substring) == 0) return false;
+        return strstr(str, substring) != NULL;
+    }
+
+    int qol_str_icmp(const char *str1, const char *str2) {
+        if (!str1 || !str2) {
+            if (!str1 && !str2) return 0;
+            return str1 ? 1 : -1;
+        }
+
+        while (*str1 && *str2) {
+            int c1 = tolower((unsigned char)*str1);
+            int c2 = tolower((unsigned char)*str2);
+            if (c1 != c2) {
+                return c1 - c2;
+            }
+            str1++;
+            str2++;
+        }
+
+        return tolower((unsigned char)*str1) - tolower((unsigned char)*str2);
+    }
+
     // Path utilities
     const char *qol_path_name(const char *path) {
 #ifdef WINDOWS
@@ -3213,6 +3464,18 @@ void qol_timer_reset(QOL_Timer *timer);
     #define get_current_dir_temp    qol_get_current_dir_temp
     #define set_current_dir         qol_set_current_dir
     #define file_exists             qol_file_exists
+
+    // STRING_UTILS
+    #define str_starts_with         qol_str_starts_with
+    #define str_ends_with           qol_str_ends_with
+    #define str_trim                qol_str_trim
+    #define str_ltrim               qol_str_ltrim
+    #define str_rtrim               qol_str_rtrim
+    #define str_replace             qol_str_replace
+    #define str_split               qol_str_split
+    #define str_join                qol_str_join
+    #define str_contains            qol_str_contains
+    #define str_icmp                qol_str_icmp
     #define needs_rebuild           qol_needs_rebuild
     #define needs_rebuild1          qol_needs_rebuild1
 

@@ -31,6 +31,7 @@ int main() {
         {"examples/008_qol_timer.c", "out/008_timer"},
         {"examples/010_qol_temp_alloc.c", "out/010_temp_alloc"},
         {"examples/011_qol_path_utils.c", "out/011_path_utils"},
+        {"examples/012_qol_string_utils.c", "out/012_string_utils"},
         {"examples/901_qol_demo_calculator.c", "out/901_demo_calculator"},
         {"examples/902_qol_demo_pointer.c", "out/902_demo_pointer"},
         {"tests/unittests.c", "out/unittests"},
