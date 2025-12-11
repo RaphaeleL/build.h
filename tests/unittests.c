@@ -10,6 +10,7 @@
 #include "test_hashmap.h"
 #include "test_helper.h"
 #include "test_logger.h"
+#include "test_string.h"
 #include "test_timer.h"
 
 int main() {
