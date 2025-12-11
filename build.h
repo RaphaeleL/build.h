@@ -105,27 +105,28 @@
     SOFTWARE.
    ============================================================================ */
 
-#pragma once
+#pragma once  // Prevent multiple header includes
 
-#ifndef QOL_BUILD_H
+#ifndef QOL_BUILD_H  // include guard
 #define QOL_BUILD_H
 
-#ifdef __cplusplus
+// Check for C++ compilation and use C linkage for compatibility
+#ifdef __cplusplus 
     extern "C" {
 #endif // __cplusplus
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <time.h>
-#include <ctype.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <limits.h>
+#include <stdio.h>      // Standard input/output functions
+#include <stdlib.h>     // Memory and process utilities
+#include <string.h>     // String manipulation functions
+#include <stdarg.h>     // Variable argument handling
+#include <stdbool.h>    // Boolean type support
+#include <stdint.h>     // Fixed-width integer types
+#include <time.h>       // Time and date utilities
+#include <ctype.h>      // Character classification helpers
+#include <sys/stat.h>   // File status/statistics functions
+#include <sys/types.h>  // System data type definitions
+#include <errno.h>      // Error codes and messages
+#include <limits.h>     // System-specific limits
 
 // Custom assertion macro - can be overridden by defining QOL_ASSERT before including this header
 // Defaults to standard assert() from assert.h. Useful for custom assertion handling in tests.
