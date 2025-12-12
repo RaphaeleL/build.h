@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 08 Dez 2025
+    Changed : 11 Dez 2025
     Author  : Raphaele Salvatore Licciardo
     License : MIT (see LICENSE for details)
     Version : 0.0.1
