@@ -142,7 +142,7 @@ warn("warning\n");
 error("fatal error message\n");  // exits
 ```
 
-Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` (exit), `LOG_CRITICAL` (abort).
+Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` (exit), `LOG_FATAL` (abort).
 
 ### ANSI Colors
 

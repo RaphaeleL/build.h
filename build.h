@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 11 Dez 2025
+    Changed : 16 Dez 2025
     Author  : Raphaele Salvatore Licciardo
     License : MIT (see LICENSE for details)
     Version : 0.0.1
@@ -263,7 +263,7 @@ typedef enum {
     QOL_LOG_HINT,        // Hint messages: Helpful suggestions or tips (not errors or warnings)
     QOL_LOG_WARN,        // Warning messages: Something unusual happened but execution can continue
     QOL_LOG_ERROR,       // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
-    QOL_LOG_CRITICAL,    // Critical messages: Severe error, program will abort() after logging
+    QOL_LOG_FATAL,    // Critical messages: Severe error, program will abort() after logging
     QOL_LOG_NONE         // No logging: Disables all logging (useful for release builds)
 } qol_log_level_t;
 
@@ -287,10 +287,10 @@ void qol_init_logger_logfile(const char *format, ...);
 const char *qol_get_time(void);
 
 // Log a message at the specified log level using printf-style formatting.
-// level: Log level (DEBUG, INFO, CMD, HINT, WARN, ERROR, CRITICAL).
+// level: Log level (DEBUG, INFO, CMD, HINT, WARN, ERROR, FATAL).
 // fmt: printf-style format string with optional variadic arguments.
 // Messages below the minimum level set by qol_init_logger() are filtered out.
-// ERROR level calls exit(EXIT_FAILURE) after logging. CRITICAL level calls abort() after logging.
+// ERROR level calls exit(EXIT_FAILURE) after logging. FATAL level calls abort() after logging.
 // Logs to stderr by default, and to file if qol_init_logger_logfile() was configured.
 void qol_log(qol_log_level_t level, const char *fmt, ...);
 
@@ -309,7 +309,7 @@ static char *qol_expand_path(const char *path);
 #define qol_hint(fmt, ...)     qol_log(QOL_LOG_HINT, fmt, ##__VA_ARGS__)
 #define qol_warn(fmt, ...)     qol_log(QOL_LOG_WARN, fmt, ##__VA_ARGS__)
 #define qol_error(fmt, ...)    qol_log(QOL_LOG_ERROR, fmt, ##__VA_ARGS__)
-#define qol_critical(fmt, ...) qol_log(QOL_LOG_CRITICAL, fmt, ##__VA_ARGS__)
+#define qol_critical(fmt, ...) qol_log(QOL_LOG_FATAL, fmt, ##__VA_ARGS__)
 
 // TIME macro - returns current time as formatted string
 #define QOL_TIME qol_get_time()
@@ -1201,11 +1201,11 @@ void qol_timer_reset(QOL_Timer *timer);
     #define QOL_COLOR_RESET     QOL_RESET                // Reset color (default)
     #define QOL_COLOR_INFO      QOL_FG_BBLACK            // Bright black (gray) for info
     #define QOL_COLOR_CMD       QOL_FG_CYAN              // Cyan for commands (distinctive)
-    #define QOL_COLOR_DEBUG     QOL_FG_GREEN             // Green for debug (less intrusive)
+    #define QOL_COLOR_DEBUG     QOL_FG_BLACK             // Green for debug (less intrusive)
     #define QOL_COLOR_HINT      QOL_FG_BLUE              // Blue for hints (informational)
     #define QOL_COLOR_WARN      QOL_FG_YELLOW            // Yellow for warnings (attention)
     #define QOL_COLOR_ERROR     QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
-    #define QOL_COLOR_CRITICAL  QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
+    #define QOL_COLOR_FATAL  QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
 
     // Logger state: Static variables that persist across logger function calls
     static qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
@@ -1304,7 +1304,7 @@ void qol_timer_reset(QOL_Timer *timer);
         case QOL_LOG_HINT:     return "HINT";
         case QOL_LOG_WARN:     return "WARN";
         case QOL_LOG_ERROR:    return "ERROR";
-        case QOL_LOG_CRITICAL: return "CRITICAL";
+        case QOL_LOG_FATAL: return "FATAL";
         default:               return "UNKNOWN";
         }
     }
@@ -1317,7 +1317,7 @@ void qol_timer_reset(QOL_Timer *timer);
         case QOL_LOG_HINT:     return QOL_COLOR_HINT;
         case QOL_LOG_WARN:     return QOL_COLOR_WARN;
         case QOL_LOG_ERROR:    return QOL_COLOR_ERROR;
-        case QOL_LOG_CRITICAL: return QOL_COLOR_CRITICAL;
+        case QOL_LOG_FATAL: return QOL_COLOR_FATAL;
         default:               return QOL_COLOR_RESET;
         }
     }
@@ -1358,20 +1358,15 @@ void qol_timer_reset(QOL_Timer *timer);
         va_list args;
         va_start(args, fmt);
 
-        // Special formatting for ERROR and CRITICAL levels: Display ASCII art "ship sinking" message
+        // Special formatting for ERROR and FATAL levels: Display ASCII art "ship sinking" message
         // This makes critical errors highly visible and memorable
-        if (level == QOL_LOG_ERROR || level == QOL_LOG_CRITICAL) {
-            // Print ASCII art "ship sinking" visualization before error message
+        if (level == QOL_LOG_FATAL) {
             fprintf(stderr, "\t\n");
             fprintf(stderr, "\t\n");
             fprintf(stderr, "\t              |    |    |                 \n");
-            fprintf(stderr, "\t             )_)  )_)  )_)                %s: Leaving the Ship\n", level_str);
+            fprintf(stderr, "\t             )_)  )_)  )_)                "QOL_BOLD"%s: Leaving the Ship\n"QOL_RESET, level_str);
             fprintf(stderr, "\t            )___))___))___)               > ");
-
-            // Print the actual error message
             vfprintf(stderr, fmt, args);
-
-            // Complete the ASCII art
             fprintf(stderr, "\t           )____)____)_____)              \n");
             fprintf(stderr, "\t         _____|____|____|_____            \n");
             fprintf(stderr, "\t---------\\                   /---------  \n");
@@ -1408,13 +1403,11 @@ void qol_timer_reset(QOL_Timer *timer);
 
         va_end(args);  // Clean up original va_list
 
-        // Handle fatal log levels: ERROR exits program, CRITICAL aborts (core dump)
-        if (level == QOL_LOG_ERROR) {
-            fflush(NULL);           // Flush all output streams before exit
-            exit(EXIT_FAILURE);     // Clean exit with failure status
-        } else if (level == QOL_LOG_CRITICAL) {
+        // Handle fatal log level
+        if (level == QOL_LOG_FATAL) {
             fflush(NULL);           // Flush all output streams before abort
-            abort();                // Immediate termination (may generate core dump)
+            exit(EXIT_FAILURE);     // Clean exit with failure status
+            // abort();                // Immediate termination (may generate core dump)
         }
     }
 
@@ -3422,7 +3415,7 @@ void qol_timer_reset(QOL_Timer *timer);
     #define LOG_HINT                QOL_LOG_HINT
     #define LOG_WARN                QOL_LOG_WARN
     #define LOG_ERROR               QOL_LOG_ERROR
-    #define LOG_CRITICAL            QOL_LOG_CRITICAL
+    #define LOG_FATAL            QOL_LOG_FATAL
 
     // CLI_PARSER
     #define init_argparser          qol_init_argparser
