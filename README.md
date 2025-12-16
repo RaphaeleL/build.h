@@ -135,14 +135,14 @@ release(&cmd);
 ### Logger
 
 ```c
-init_logger(LOG_DEBUG, /*color*/true, /*time*/true);
+init_logger(LOG_DIAG, /*color*/true, /*time*/true);
 debug("debug: %d\n", 1);
 info("info\n");
 warn("warning\n");
 error("fatal error message\n");  // exits
 ```
 
-Levels: `LOG_DEBUG`, `LOG_INFO`, `LOG_CMD`, `LOG_HINT`, `LOG_WARN`, `LOG_ERROR` (exit), `LOG_FATAL` (abort).
+Levels: `LOG_DIAG`, `LOG_INFO`, `LOG_EXEC`, `LOG_HINT`, `LOG_WARN`, `LOG_ERRO` (exit), `LOG_DEAD` (abort).
 
 ### ANSI Colors
 

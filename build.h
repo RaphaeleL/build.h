@@ -82,6 +82,8 @@
                                            leak & inconsistent state on after 
                                            failures, easier error handling)
                           - New Features (String Utilities)
+                          - Refactor (Rename the log levels and redefine their 
+                                      behavior)
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -257,13 +259,13 @@ void QOL_enable_ansi(void);
 // Lower numbers = more verbose, higher numbers = more critical
 // Messages below the minimum level set by qol_init_logger() are filtered out
 typedef enum {
-    QOL_LOG_DEBUG = 0,   // Debug messages: Detailed information for debugging (most verbose)
+    QOL_LOG_DIAG = 0,   // Debug messages: Detailed information for debugging (most verbose)
     QOL_LOG_INFO,        // Info messages: General informational messages about program flow
-    QOL_LOG_CMD,         // Command messages: Logs executed shell commands (useful for build systems)
+    QOL_LOG_EXEC,         // Command messages: Logs executed shell commands (useful for build systems)
     QOL_LOG_HINT,        // Hint messages: Helpful suggestions or tips (not errors or warnings)
     QOL_LOG_WARN,        // Warning messages: Something unusual happened but execution can continue
-    QOL_LOG_ERROR,       // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
-    QOL_LOG_FATAL,    // Critical messages: Severe error, program will abort() after logging
+    QOL_LOG_ERRO,       // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
+    QOL_LOG_DEAD,    // Critical messages: Severe error, program will abort() after logging
     QOL_LOG_NONE         // No logging: Disables all logging (useful for release builds)
 } qol_log_level_t;
 
@@ -287,10 +289,10 @@ void qol_init_logger_logfile(const char *format, ...);
 const char *qol_get_time(void);
 
 // Log a message at the specified log level using printf-style formatting.
-// level: Log level (DEBUG, INFO, CMD, HINT, WARN, ERROR, FATAL).
+// level: Log level (DIAG, INFO, EXEC, HINT, WARN, ERRO, DEAD).
 // fmt: printf-style format string with optional variadic arguments.
 // Messages below the minimum level set by qol_init_logger() are filtered out.
-// ERROR level calls exit(EXIT_FAILURE) after logging. FATAL level calls abort() after logging.
+// ERRO level calls exit(EXIT_FAILURE) after logging. DEAD level calls abort() after logging.
 // Logs to stderr by default, and to file if qol_init_logger_logfile() was configured.
 void qol_log(qol_log_level_t level, const char *fmt, ...);
 
@@ -303,13 +305,13 @@ static char *qol_expand_path(const char *path);
 
 // Macros to easify the usage of log, instead of log(level, fmt) we are offering
 // are more intuitive way of logging level(fmt)
-#define qol_debug(fmt, ...)    qol_log(QOL_LOG_DEBUG, fmt, ##__VA_ARGS__)
+#define qol_debug(fmt, ...)    qol_log(QOL_LOG_DIAG, fmt, ##__VA_ARGS__)
 #define qol_info(fmt, ...)     qol_log(QOL_LOG_INFO, fmt, ##__VA_ARGS__)
-#define qol_cmd(fmt, ...)      qol_log(QOL_LOG_CMD, fmt, ##__VA_ARGS__)
+#define qol_cmd(fmt, ...)      qol_log(QOL_LOG_EXEC, fmt, ##__VA_ARGS__)
 #define qol_hint(fmt, ...)     qol_log(QOL_LOG_HINT, fmt, ##__VA_ARGS__)
 #define qol_warn(fmt, ...)     qol_log(QOL_LOG_WARN, fmt, ##__VA_ARGS__)
-#define qol_error(fmt, ...)    qol_log(QOL_LOG_ERROR, fmt, ##__VA_ARGS__)
-#define qol_critical(fmt, ...) qol_log(QOL_LOG_FATAL, fmt, ##__VA_ARGS__)
+#define qol_error(fmt, ...)    qol_log(QOL_LOG_ERRO, fmt, ##__VA_ARGS__)
+#define qol_critical(fmt, ...) qol_log(QOL_LOG_DEAD, fmt, ##__VA_ARGS__)
 
 // TIME macro - returns current time as formatted string
 #define QOL_TIME qol_get_time()
@@ -689,7 +691,7 @@ int qol_needs_rebuild1(const char *output_path, const char *input_path);
 #endif
 
 // Fixed buffer sizes for command building and path operations
-#define QOL_CMD_BUFFER_SIZE 4096      // Maximum command line length
+#define QOL_EXEC_BUFFER_SIZE 4096      // Maximum command line length
 #define QOL_PATH_BUFFER_SIZE 1024     // Maximum path length for file operations
 #define QOL_WIN32_ERR_BUFFER_SIZE (4*1024)  // Windows error message buffer size
 
@@ -766,14 +768,14 @@ void qol_temp_rewind(size_t checkpoint);
             while (newcap < (n)) newcap *= 2;                                                                \
             /* Log allocation event for debugging */                                                          \
             if ((vec)->cap == 0) {                                                                           \
-                qol_log(QOL_LOG_DEBUG, "Dynamic array inits memory on %d.\n", newcap);                       \
+                qol_log(QOL_LOG_DIAG, "Dynamic array inits memory on %d.\n", newcap);                       \
             } else {                                                                                         \
-                qol_log(QOL_LOG_DEBUG, "Dynamic array needs more memory (%d -> %d)!\n", (vec)->cap, newcap); \
+                qol_log(QOL_LOG_DIAG, "Dynamic array needs more memory (%d -> %d)!\n", (vec)->cap, newcap); \
             }                                                                                                \
             /* Reallocate memory - realloc handles NULL pointer (first allocation) */                        \
             void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                                 \
             if (!tmp) {                                                                                      \
-                qol_log(QOL_LOG_ERROR, "Dynamic array out of memory (need %zu elements)\n", n);              \
+                qol_log(QOL_LOG_ERRO, "Dynamic array out of memory (need %zu elements)\n", n);              \
                 abort();                                                                                     \
             }                                                                                                \
             (vec)->data = tmp;                                                                               \
@@ -790,7 +792,7 @@ void qol_temp_rewind(size_t checkpoint);
     do {                                                                                                       \
         if ((vec)->len < (vec)->cap / 2 && (vec)->cap > QOL_INIT_CAP) {                                        \
             size_t newcap = (vec)->cap / 2;                                                                    \
-            qol_log(QOL_LOG_DEBUG, "Dynamic array can release some memory (%d -> %d)!\n", (vec)->cap, newcap); \
+            qol_log(QOL_LOG_DIAG, "Dynamic array can release some memory (%d -> %d)!\n", (vec)->cap, newcap); \
             void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                                   \
             if (tmp) {                                                                                         \
                 (vec)->data = tmp;                                                                             \
@@ -832,7 +834,7 @@ void qol_temp_rewind(size_t checkpoint);
 #define qol_drop(vec)                                              \
     do {                                                           \
         if ((vec)->len == 0) {                                     \
-            qol_log(QOL_LOG_ERROR, "qol_drop() on empty array\n"); \
+            qol_log(QOL_LOG_ERRO, "qol_drop() on empty array\n"); \
             abort();                                               \
         }                                                          \
         --(vec)->len;                                              \
@@ -848,7 +850,7 @@ void qol_temp_rewind(size_t checkpoint);
     do {                                                                 \
         size_t __idx = (n);                                              \
         if (__idx >= (vec)->len) {                                       \
-            qol_log(QOL_LOG_ERROR, "qol_dropn(): index out of range\n"); \
+            qol_log(QOL_LOG_ERRO, "qol_dropn(): index out of range\n"); \
             abort();                                                     \
         }                                                                \
         /* Shift elements after index down by one position */            \
@@ -885,7 +887,7 @@ void qol_temp_rewind(size_t checkpoint);
 // Usage: int last = qol_back(&vec); // Get last element
 #define qol_back(vec) \
     ((vec)->len > 0 ? (vec)->data[(vec)->len-1] : \
-     (fprintf(stderr, "[ERROR] qol_back() on empty array\n"), abort(), (vec)->data[0]))
+     (fprintf(stderr, "[ERRO] qol_back() on empty array\n"), abort(), (vec)->data[0]))
 
 // Swap macro: Swap element at index i with the last element (without removing)
 // Useful for implementing remove-by-value: swap target to end, then drop
@@ -895,7 +897,7 @@ void qol_temp_rewind(size_t checkpoint);
     do {                                                          \
         size_t __idx = (i);                                       \
         if (__idx >= (vec)->len) {                                \
-            qol_log(QOL_LOG_ERROR, "qol_swap(): out of range\n"); \
+            qol_log(QOL_LOG_ERRO, "qol_swap(): out of range\n"); \
             abort();                                              \
         }                                                         \
         typeof((vec)->data[0]) __tmp = (vec)->data[__idx];        \
@@ -1200,12 +1202,12 @@ void qol_timer_reset(QOL_Timer *timer);
     // These colors are applied to log level labels when color output is enabled
     #define QOL_COLOR_RESET     QOL_RESET                // Reset color (default)
     #define QOL_COLOR_INFO      QOL_FG_BBLACK            // Bright black (gray) for info
-    #define QOL_COLOR_CMD       QOL_FG_CYAN              // Cyan for commands (distinctive)
-    #define QOL_COLOR_DEBUG     QOL_FG_BLACK             // Green for debug (less intrusive)
+    #define QOL_COLOR_EXEC       QOL_FG_CYAN              // Cyan for commands (distinctive)
+    #define QOL_COLOR_DIAG     QOL_FG_BLACK             // Green for debug (less intrusive)
     #define QOL_COLOR_HINT      QOL_FG_BLUE              // Blue for hints (informational)
     #define QOL_COLOR_WARN      QOL_FG_YELLOW            // Yellow for warnings (attention)
-    #define QOL_COLOR_ERROR     QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
-    #define QOL_COLOR_FATAL  QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
+    #define QOL_COLOR_ERRO     QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
+    #define QOL_COLOR_DEAD  QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
 
     // Logger state: Static variables that persist across logger function calls
     static qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
@@ -1298,26 +1300,26 @@ void qol_timer_reset(QOL_Timer *timer);
 
     static const char *qol_level_to_str(qol_log_level_t level) {
         switch (level) {
-        case QOL_LOG_DEBUG:    return "DEBUG";
+        case QOL_LOG_DIAG:    return "DIAG";
         case QOL_LOG_INFO:     return "INFO";
-        case QOL_LOG_CMD:      return "CMD";
+        case QOL_LOG_EXEC:      return "EXEC";
         case QOL_LOG_HINT:     return "HINT";
         case QOL_LOG_WARN:     return "WARN";
-        case QOL_LOG_ERROR:    return "ERROR";
-        case QOL_LOG_FATAL: return "FATAL";
+        case QOL_LOG_ERRO:    return "ERRO";
+        case QOL_LOG_DEAD: return "DEAD";
         default:               return "UNKNOWN";
         }
     }
 
     static const char *qol_level_to_color(qol_log_level_t level) {
         switch (level) {
-        case QOL_LOG_DEBUG:    return QOL_COLOR_DEBUG;
+        case QOL_LOG_DIAG:    return QOL_COLOR_DIAG;
         case QOL_LOG_INFO:     return QOL_COLOR_INFO;
-        case QOL_LOG_CMD:      return QOL_COLOR_CMD;
+        case QOL_LOG_EXEC:      return QOL_COLOR_EXEC;
         case QOL_LOG_HINT:     return QOL_COLOR_HINT;
         case QOL_LOG_WARN:     return QOL_COLOR_WARN;
-        case QOL_LOG_ERROR:    return QOL_COLOR_ERROR;
-        case QOL_LOG_FATAL: return QOL_COLOR_FATAL;
+        case QOL_LOG_ERRO:    return QOL_COLOR_ERRO;
+        case QOL_LOG_DEAD: return QOL_COLOR_DEAD;
         default:               return QOL_COLOR_RESET;
         }
     }
@@ -1333,7 +1335,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         // TODO: decide if we want to reset color for certain log levels or not.
-        // const char* reset_str = !(level == QOL_LOG_WARN || level == QOL_LOG_DEBUG) ? QOL_COLOR_RESET : "";
+        // const char* reset_str = !(level == QOL_LOG_WARN || level == QOL_LOG_DIAG) ? QOL_COLOR_RESET : "";
 
         char time_buf[32] = {0};
         if (qol_logger_time) {
@@ -1358,13 +1360,13 @@ void qol_timer_reset(QOL_Timer *timer);
         va_list args;
         va_start(args, fmt);
 
-        // Special formatting for ERROR and FATAL levels: Display ASCII art "ship sinking" message
+        // Special formatting for ERRO and DEAD levels: Display ASCII art "ship sinking" message
         // This makes critical errors highly visible and memorable
-        if (level == QOL_LOG_FATAL) {
+        if (level == QOL_LOG_DEAD) {
             fprintf(stderr, "\t\n");
             fprintf(stderr, "\t\n");
             fprintf(stderr, "\t              |    |    |                 \n");
-            fprintf(stderr, "\t             )_)  )_)  )_)                "QOL_BOLD"%s: Leaving the Ship\n"QOL_RESET, level_str);
+            fprintf(stderr, "\t             )_)  )_)  )_)                "QOL_BOLD"Leaving the Ship!\n"QOL_RESET);
             fprintf(stderr, "\t            )___))___))___)               > ");
             vfprintf(stderr, fmt, args);
             fprintf(stderr, "\t           )____)____)_____)              \n");
@@ -1404,7 +1406,7 @@ void qol_timer_reset(QOL_Timer *timer);
         va_end(args);  // Clean up original va_list
 
         // Handle fatal log level
-        if (level == QOL_LOG_FATAL) {
+        if (level == QOL_LOG_DEAD) {
             fflush(NULL);           // Flush all output streams before abort
             exit(EXIT_FAILURE);     // Clean exit with failure status
             // abort();                // Immediate termination (may generate core dump)
@@ -1478,7 +1480,7 @@ void qol_timer_reset(QOL_Timer *timer);
     void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
         // Check if we've reached the maximum number of arguments
         if (qol_parser.count >= QOL_ARG_MAX) {
-            qol_log(QOL_LOG_ERROR, "Maximum number of arguments reached\n");
+            qol_log(QOL_LOG_ERRO, "Maximum number of arguments reached\n");
             return;
         }
         // Get pointer to next available argument slot and increment count
@@ -1636,7 +1638,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
 
         if (stat(src, &src_attr) != 0) {
-            qol_log(QOL_LOG_ERROR, "No such file or directory (%s).\n", src);
+            qol_log(QOL_LOG_ERRO, "No such file or directory (%s).\n", src);
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -1656,7 +1658,7 @@ void qol_timer_reset(QOL_Timer *timer);
             QOL_Cmd own_build = qol_default_c_build(src, out);
             if (!qol_run_always(&own_build)) {
                 qol_release(&own_build);
-                qol_log(QOL_LOG_ERROR, "Rebuild failed.\n");
+                qol_log(QOL_LOG_ERRO, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
                 free(out);
 #endif
@@ -1667,7 +1669,7 @@ void qol_timer_reset(QOL_Timer *timer);
             qol_debug("Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
             execv(out, restart_argv);
-            qol_log(QOL_LOG_ERROR, "Failed to restart build process.\n");
+            qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -1676,7 +1678,7 @@ void qol_timer_reset(QOL_Timer *timer);
             QOL_Cmd own_build = qol_default_c_build(src, out);
             if (!qol_run_always(&own_build)) {
                 qol_release(&own_build);
-                qol_log(QOL_LOG_ERROR, "Rebuild failed.\n");
+                qol_log(QOL_LOG_ERRO, "Rebuild failed.\n");
                 exit(1);
             }
             qol_release(&own_build);
@@ -1685,7 +1687,7 @@ void qol_timer_reset(QOL_Timer *timer);
             STARTUPINFO si = { sizeof(si) };
             PROCESS_INFORMATION pi;
             if (!CreateProcess(out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                qol_log(QOL_LOG_ERROR, "Failed to restart build process.\n");
+                qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
                 exit(1);
             }
             ExitProcess(0);
@@ -1709,7 +1711,7 @@ void qol_timer_reset(QOL_Timer *timer);
         char *out = qol_get_filename_no_ext(src);
 #endif
         if (stat(src, &src_attr) != 0) {
-            qol_log(QOL_LOG_ERROR, "No such file or directory (%s).\n", src);
+            qol_log(QOL_LOG_ERRO, "No such file or directory (%s).\n", src);
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -1733,7 +1735,7 @@ void qol_timer_reset(QOL_Timer *timer);
             while (dep_file != NULL) {
                 // Check if this dependency is newer than output
                 if (qol_is_path1_modified_after_path2(dep_file, out)) {
-                    qol_log(QOL_LOG_DEBUG, "Dependency %s is newer than binary, rebuild needed\n", dep_file);
+                    qol_log(QOL_LOG_DIAG, "Dependency %s is newer than binary, rebuild needed\n", dep_file);
                     need_rebuild = true;
                     // Don't break - continue checking all dependencies for complete logging
                     // This helps users understand which dependencies triggered the rebuild
@@ -1750,7 +1752,7 @@ void qol_timer_reset(QOL_Timer *timer);
             QOL_Cmd own_build = qol_default_c_build(src, out);
             if (!qol_run_always(&own_build)) {
                 qol_release(&own_build);
-                qol_log(QOL_LOG_ERROR, "Rebuild failed.\n");
+                qol_log(QOL_LOG_ERRO, "Rebuild failed.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
                 free(out);
 #endif
@@ -1761,7 +1763,7 @@ void qol_timer_reset(QOL_Timer *timer);
             qol_debug("Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
             execv(out, restart_argv);
-            qol_log(QOL_LOG_ERROR, "Failed to restart build process.\n");
+            qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -1770,7 +1772,7 @@ void qol_timer_reset(QOL_Timer *timer);
             QOL_Cmd own_build = qol_default_c_build(src, out);
             if (!qol_run_always(&own_build)) {
                 qol_release(&own_build);
-                qol_log(QOL_LOG_ERROR, "Rebuild failed.\n");
+                qol_log(QOL_LOG_ERRO, "Rebuild failed.\n");
                 exit(1);
             }
             qol_release(&own_build);
@@ -1781,7 +1783,7 @@ void qol_timer_reset(QOL_Timer *timer);
             char cmdline[1024];
             snprintf(cmdline, sizeof(cmdline), "\"%s\"", out);
             if (!CreateProcess(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                qol_log(QOL_LOG_ERROR, "Failed to restart build process.\n");
+                qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
                 exit(1);
             }
             ExitProcess(0);
@@ -1840,7 +1842,7 @@ void qol_timer_reset(QOL_Timer *timer);
                                           sizeof(win32ErrMsg), NULL);
 
         if (errMsgSize == 0) {
-            if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
+            if (GetLastError() != ERRO_MR_MID_NOT_FOUND) {
                 if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "Could not get error message for 0x%lX", err) > 0) {
                     return (char *)&win32ErrMsg;
                 } else {
@@ -1866,7 +1868,7 @@ void qol_timer_reset(QOL_Timer *timer);
     static void qol_cmd_log(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) return;
 
-        char command[QOL_CMD_BUFFER_SIZE] = {0};
+        char command[QOL_EXEC_BUFFER_SIZE] = {0};
         size_t pos = 0;
         bool truncated = false;
         for (size_t i = 0; i < cmd->len; i++) {
@@ -1886,14 +1888,14 @@ void qol_timer_reset(QOL_Timer *timer);
         }
         command[sizeof(command) - 1] = '\0'; // Ensure null termination
         if (truncated) {
-            qol_log(QOL_LOG_WARN, "Command truncated (exceeds %zu bytes): %s...\n", QOL_CMD_BUFFER_SIZE - 1, command);
+            qol_log(QOL_LOG_WARN, "Command truncated (exceeds %zu bytes): %s...\n", QOL_EXEC_BUFFER_SIZE - 1, command);
         }
-        qol_log(QOL_LOG_CMD, "%s\n", command);
+        qol_log(QOL_LOG_EXEC, "%s\n", command);
     }
 
     static QOL_Proc qol_cmd_execute_async(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) {
-            qol_log(QOL_LOG_ERROR, "Invalid command: empty or null\n");
+            qol_log(QOL_LOG_ERRO, "Invalid command: empty or null\n");
             return QOL_INVALID_PROC;
         }
 
@@ -1902,7 +1904,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #ifdef WINDOWS
         // Windows: CreateProcess requires a single command-line string, not an array
         // Arguments with spaces must be quoted. Example: "cc -Wall main.c -o main"
-        char cmdline[QOL_CMD_BUFFER_SIZE] = {0};
+        char cmdline[QOL_EXEC_BUFFER_SIZE] = {0};
         size_t pos = 0;
         bool truncated = false;
         for (size_t i = 0; i < cmd->len; ++i) {
@@ -1938,7 +1940,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
         cmdline[sizeof(cmdline) - 1] = '\0'; // Ensure null termination
         if (truncated) {
-            qol_log(QOL_LOG_ERROR, "Command line truncated (exceeds %zu bytes), command execution may fail\n", QOL_CMD_BUFFER_SIZE - 1);
+            qol_log(QOL_LOG_ERRO, "Command line truncated (exceeds %zu bytes), command execution may fail\n", QOL_EXEC_BUFFER_SIZE - 1);
             return QOL_INVALID_PROC;
         }
 
@@ -1951,7 +1953,7 @@ void qol_timer_reset(QOL_Timer *timer);
         // Returns process handle and thread handle in PROCESS_INFORMATION
         BOOL success = CreateProcessA(NULL, cmdline, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
         if (!success) {
-            qol_log(QOL_LOG_ERROR, "Could not create process: %s\n", qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "Could not create process: %s\n", qol_win32_error_message(GetLastError()));
             return QOL_INVALID_PROC;
         }
 
@@ -1963,7 +1965,7 @@ void qol_timer_reset(QOL_Timer *timer);
         pid_t pid = fork(); // Create child process
         if (pid < 0) {
             // Fork failed
-            qol_log(QOL_LOG_ERROR, "Could not fork process: %s\n", strerror(errno));
+            qol_log(QOL_LOG_ERRO, "Could not fork process: %s\n", strerror(errno));
             return QOL_INVALID_PROC;
         }
 
@@ -1982,7 +1984,7 @@ void qol_timer_reset(QOL_Timer *timer);
                 // execvp failed (shouldn't happen if command exists)
                 // Free cmd_null before exiting to avoid memory leak
                 qol_release(&cmd_null);
-                qol_log(QOL_LOG_ERROR, "Could not exec process: %s\n", strerror(errno));
+                qol_log(QOL_LOG_ERRO, "Could not exec process: %s\n", strerror(errno));
                 exit(1); // Exit child process with error
             }
             QOL_UNREACHABLE("qol_cmd_execute_async"); // execvp never returns on success
@@ -1999,14 +2001,14 @@ void qol_timer_reset(QOL_Timer *timer);
 #ifdef WINDOWS
         DWORD result = WaitForSingleObject(proc, INFINITE);
         if (result == WAIT_FAILED) {
-            qol_log(QOL_LOG_ERROR, "Could not wait on child process: %s\n", qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "Could not wait on child process: %s\n", qol_win32_error_message(GetLastError()));
             CloseHandle(proc);
             return false;
         }
 
         DWORD exit_code;
         if (!GetExitCodeProcess(proc, &exit_code)) {
-            qol_log(QOL_LOG_ERROR, "Could not get process exit code: %s\n", qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "Could not get process exit code: %s\n", qol_win32_error_message(GetLastError()));
             CloseHandle(proc);
             return false;
         }
@@ -2014,7 +2016,7 @@ void qol_timer_reset(QOL_Timer *timer);
         CloseHandle(proc);
 
         if (exit_code != 0) {
-            qol_log(QOL_LOG_ERROR, "Command failed with exit code %lu\n", exit_code);
+            qol_log(QOL_LOG_ERRO, "Command failed with exit code %lu\n", exit_code);
             return false;
         }
 
@@ -2022,18 +2024,18 @@ void qol_timer_reset(QOL_Timer *timer);
 #else
         int wstatus;
         if (waitpid(proc, &wstatus, 0) < 0) {
-            qol_log(QOL_LOG_ERROR, "Could not wait for process: %s\n", strerror(errno));
+            qol_log(QOL_LOG_ERRO, "Could not wait for process: %s\n", strerror(errno));
             return false;
         }
 
         if (WIFEXITED(wstatus)) {
             int exit_code = WEXITSTATUS(wstatus);
             if (exit_code != 0) {
-                qol_log(QOL_LOG_ERROR, "Command failed with exit code %d\n", exit_code);
+                qol_log(QOL_LOG_ERRO, "Command failed with exit code %d\n", exit_code);
                 return false;
             }
         } else if (WIFSIGNALED(wstatus)) {
-            qol_log(QOL_LOG_ERROR, "Command terminated by signal %d\n", WTERMSIG(wstatus));
+            qol_log(QOL_LOG_ERRO, "Command terminated by signal %d\n", WTERMSIG(wstatus));
             return false;
         }
 
@@ -2058,7 +2060,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
     bool qol_run_impl(QOL_Cmd* config, QOL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
-            qol_log(QOL_LOG_ERROR, "Invalid build configuration\n");
+            qol_log(QOL_LOG_ERRO, "Invalid build configuration\n");
             if (config) qol_release(config);
             return false;
         }
@@ -2067,7 +2069,7 @@ void qol_timer_reset(QOL_Timer *timer);
         const char *output = qol_cmd_get_output(config);
 
         if (!source || !output) {
-            qol_log(QOL_LOG_ERROR, "Could not extract source or output from command\n");
+            qol_log(QOL_LOG_ERRO, "Could not extract source or output from command\n");
             qol_release(config);
             return false;
         }
@@ -2075,7 +2077,7 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_ensure_dir_for_file(output);
 
         if (!qol_is_path1_modified_after_path2(source, output)) {
-            qol_log(QOL_LOG_DEBUG, "Up to date: %s\n", output);
+            qol_log(QOL_LOG_DIAG, "Up to date: %s\n", output);
             qol_release(config);
             return true;
         }
@@ -2085,7 +2087,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
     bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
-            qol_log(QOL_LOG_ERROR, "Invalid build configuration\n");
+            qol_log(QOL_LOG_ERRO, "Invalid build configuration\n");
             if (config) qol_release(config);
             return false;
         }
@@ -2200,10 +2202,10 @@ void qol_timer_reset(QOL_Timer *timer);
         int result = mkdir(path, 0755);
 #endif
         if (result != 0) {
-            qol_log(QOL_LOG_ERROR, "Failed to create directory: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to create directory: %s\n", path);
             return false;
         }
-        qol_log(QOL_LOG_DEBUG, "created directory `%s/`\n", path);
+        qol_log(QOL_LOG_DIAG, "created directory `%s/`\n", path);
         return true;
     }
 
@@ -2212,13 +2214,13 @@ void qol_timer_reset(QOL_Timer *timer);
 
         FILE *src = fopen(src_path, "rb");
         if (!src) {
-            qol_log(QOL_LOG_ERROR, "Failed to open source file: %s\n", src_path);
+            qol_log(QOL_LOG_ERRO, "Failed to open source file: %s\n", src_path);
             return false;
         }
 
         FILE *dst = fopen(dst_path, "wb");
         if (!dst) {
-            qol_log(QOL_LOG_ERROR, "Failed to open destination file: %s\n", dst_path);
+            qol_log(QOL_LOG_ERRO, "Failed to open destination file: %s\n", dst_path);
             fclose(src);
             return false;
         }
@@ -2227,7 +2229,7 @@ void qol_timer_reset(QOL_Timer *timer);
         size_t bytes_read;
         while ((bytes_read = fread(buffer, 1, sizeof(buffer), src)) > 0) {
             if (fwrite(buffer, 1, bytes_read, dst) != bytes_read) {
-                qol_log(QOL_LOG_ERROR, "Failed to write to destination file\n");
+                qol_log(QOL_LOG_ERRO, "Failed to write to destination file\n");
                 fclose(src);
                 fclose(dst);
                 return false;
@@ -2236,7 +2238,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
         fclose(src);
         fclose(dst);
-        qol_log(QOL_LOG_DEBUG, "Copied %s to %s\n", src_path, dst_path);
+        qol_log(QOL_LOG_DIAG, "Copied %s to %s\n", src_path, dst_path);
         return true;
     }
 
@@ -2246,7 +2248,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(src_path);
         if (!dir) {
-            qol_log(QOL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
+            qol_log(QOL_LOG_ERRO, "Failed to open source directory: %s\n", src_path);
             return false;
         }
 
@@ -2264,12 +2266,12 @@ void qol_timer_reset(QOL_Timer *timer);
                 continue;
 
             if (snprintf(src_file, sizeof(src_file), "%s/%s", src_path, entry->d_name) >= (int)sizeof(src_file)) {
-                qol_log(QOL_LOG_ERROR, "Source path too long: %s/%s\n", src_path, entry->d_name);
+                qol_log(QOL_LOG_ERRO, "Source path too long: %s/%s\n", src_path, entry->d_name);
                 closedir(dir);
                 return false;
             }
             if (snprintf(dst_file, sizeof(dst_file), "%s/%s", dst_path, entry->d_name) >= (int)sizeof(dst_file)) {
-                qol_log(QOL_LOG_ERROR, "Destination path too long: %s/%s\n", dst_path, entry->d_name);
+                qol_log(QOL_LOG_ERRO, "Destination path too long: %s/%s\n", dst_path, entry->d_name);
                 closedir(dir);
                 return false;
             }
@@ -2296,13 +2298,13 @@ void qol_timer_reset(QOL_Timer *timer);
         WIN32_FIND_DATA find_data;
         char search_path[QOL_PATH_BUFFER_SIZE];
         if (snprintf(search_path, sizeof(search_path), "%s\\*", src_path) >= (int)sizeof(search_path)) {
-            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", src_path);
+            qol_log(QOL_LOG_ERRO, "Search path too long: %s\n", src_path);
             return false;
         }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
-            qol_log(QOL_LOG_ERROR, "Failed to open source directory: %s\n", src_path);
+            qol_log(QOL_LOG_ERRO, "Failed to open source directory: %s\n", src_path);
             return false;
         }
 
@@ -2318,12 +2320,12 @@ void qol_timer_reset(QOL_Timer *timer);
             char src_file[QOL_PATH_BUFFER_SIZE];
             char dst_file[QOL_PATH_BUFFER_SIZE];
             if (snprintf(src_file, sizeof(src_file), "%s\\%s", src_path, find_data.cFileName) >= (int)sizeof(src_file)) {
-                qol_log(QOL_LOG_ERROR, "Source path too long: %s\\%s\n", src_path, find_data.cFileName);
+                qol_log(QOL_LOG_ERRO, "Source path too long: %s\\%s\n", src_path, find_data.cFileName);
                 FindClose(handle);
                 return false;
             }
             if (snprintf(dst_file, sizeof(dst_file), "%s\\%s", dst_path, find_data.cFileName) >= (int)sizeof(dst_file)) {
-                qol_log(QOL_LOG_ERROR, "Destination path too long: %s\\%s\n", dst_path, find_data.cFileName);
+                qol_log(QOL_LOG_ERRO, "Destination path too long: %s\\%s\n", dst_path, find_data.cFileName);
                 FindClose(handle);
                 return false;
             }
@@ -2393,7 +2395,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(parent);
         if (!dir) {
-            qol_log(QOL_LOG_ERROR, "Failed to open directory: %s\n", parent);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory: %s\n", parent);
             return false;
         }
 
@@ -2424,13 +2426,13 @@ void qol_timer_reset(QOL_Timer *timer);
         WIN32_FIND_DATA find_data;
         char search_path[QOL_PATH_BUFFER_SIZE];
         if (snprintf(search_path, sizeof(search_path), "%s\\*", parent) >= (int)sizeof(search_path)) {
-            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", parent);
+            qol_log(QOL_LOG_ERRO, "Search path too long: %s\n", parent);
             return false;
         }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
-            qol_log(QOL_LOG_ERROR, "Failed to open directory: %s\n", parent);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory: %s\n", parent);
             return false;
         }
 
@@ -2456,7 +2458,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
         FILE *fp = fopen(path, "wb");
         if (!fp) {
-            qol_log(QOL_LOG_ERROR, "Failed to open file for writing: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to open file for writing: %s\n", path);
             return false;
         }
 
@@ -2464,11 +2466,11 @@ void qol_timer_reset(QOL_Timer *timer);
         fclose(fp);
 
         if (written != size) {
-            qol_log(QOL_LOG_ERROR, "Failed to write all data to file: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to write all data to file: %s\n", path);
             return false;
         }
 
-        qol_log(QOL_LOG_DEBUG, "Wrote %zu bytes to %s\n", written, path);
+        qol_log(QOL_LOG_DIAG, "Wrote %zu bytes to %s\n", written, path);
         return true;
     }
 
@@ -2486,19 +2488,19 @@ void qol_timer_reset(QOL_Timer *timer);
 
 #if defined(MACOS) || defined(LINUX)
         if (unlink(path) != 0) {
-            qol_log(QOL_LOG_ERROR, "Failed to delete file: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to delete file: %s\n", path);
             return false;
         }
 
-        qol_log(QOL_LOG_DEBUG, "Deleted file: %s\n", path);
+        qol_log(QOL_LOG_DIAG, "Deleted file: %s\n", path);
         return true;
 #elif defined(WINDOWS)
         if (DeleteFile(path) == 0) {
-            qol_log(QOL_LOG_ERROR, "Failed to delete file: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to delete file: %s\n", path);
             return false;
         }
 
-        qol_log(QOL_LOG_DEBUG, "Deleted file: %s\n", path);
+        qol_log(QOL_LOG_DIAG, "Deleted file: %s\n", path);
         return true;
 #else
         #error Unsupported platform
@@ -2511,7 +2513,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(path);
         if (!dir) {
-            qol_log(QOL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: %s\n", path);
             return false;
         }
 
@@ -2523,7 +2525,7 @@ void qol_timer_reset(QOL_Timer *timer);
                 continue;
 
             if (snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name) >= (int)sizeof(full_path)) {
-                qol_log(QOL_LOG_ERROR, "Path too long: %s/%s\n", path, entry->d_name);
+                qol_log(QOL_LOG_ERRO, "Path too long: %s/%s\n", path, entry->d_name);
                 closedir(dir);
                 return false;
             }
@@ -2540,22 +2542,22 @@ void qol_timer_reset(QOL_Timer *timer);
 
         closedir(dir);
         if (rmdir(path) != 0) {
-            qol_log(QOL_LOG_ERROR, "Failed to remove directory: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to remove directory: %s\n", path);
         } else {
-            qol_log(QOL_LOG_DEBUG, "Removed directory: %s\n", path);
+            qol_log(QOL_LOG_DIAG, "Removed directory: %s\n", path);
         }
         return true;
 #elif defined(WINDOWS)
         WIN32_FIND_DATA find_data;
         char search_path[QOL_PATH_BUFFER_SIZE];
         if (snprintf(search_path, sizeof(search_path), "%s\\*", path) >= (int)sizeof(search_path)) {
-            qol_log(QOL_LOG_ERROR, "Search path too long: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Search path too long: %s\n", path);
             return false;
         }
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
-            qol_log(QOL_LOG_ERROR, "Failed to open directory for deletion: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: %s\n", path);
             return false;
         }
 
@@ -2565,7 +2567,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
             char full_path[QOL_PATH_BUFFER_SIZE];
             if (snprintf(full_path, sizeof(full_path), "%s\\%s", path, find_data.cFileName) >= (int)sizeof(full_path)) {
-                qol_log(QOL_LOG_ERROR, "Path too long: %s\\%s\n", path, find_data.cFileName);
+                qol_log(QOL_LOG_ERRO, "Path too long: %s\\%s\n", path, find_data.cFileName);
                 FindClose(handle);
                 return false;
             }
@@ -2579,9 +2581,9 @@ void qol_timer_reset(QOL_Timer *timer);
 
         FindClose(handle);
         if (RemoveDirectory(path) == 0) {
-            qol_log(QOL_LOG_ERROR, "Failed to remove directory: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to remove directory: %s\n", path);
         } else {
-            qol_log(QOL_LOG_DEBUG, "Removed directory: %s\n", path);
+            qol_log(QOL_LOG_DIAG, "Removed directory: %s\n", path);
         }
         return true;
 #else
@@ -2814,12 +2816,12 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_log(QOL_LOG_INFO, "renaming %s -> %s\n", old_path, new_path);
 #ifdef WINDOWS
         if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
-            qol_log(QOL_LOG_ERROR, "could not rename %s to %s: %s\n", old_path, new_path, qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "could not rename %s to %s: %s\n", old_path, new_path, qol_win32_error_message(GetLastError()));
             return false;
         }
 #else
         if (rename(old_path, new_path) < 0) {
-            qol_log(QOL_LOG_ERROR, "could not rename %s to %s: %s\n", old_path, new_path, strerror(errno));
+            qol_log(QOL_LOG_ERRO, "could not rename %s to %s: %s\n", old_path, new_path, strerror(errno));
             return false;
         }
 #endif
@@ -2830,13 +2832,13 @@ void qol_timer_reset(QOL_Timer *timer);
 #ifdef WINDOWS
         DWORD nBufferLength = GetCurrentDirectory(0, NULL);
         if (nBufferLength == 0) {
-            qol_log(QOL_LOG_ERROR, "could not get current directory: %s\n", qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "could not get current directory: %s\n", qol_win32_error_message(GetLastError()));
             return NULL;
         }
 
         char *buffer = (char*) qol_temp_alloc(nBufferLength);
         if (GetCurrentDirectory(nBufferLength, buffer) == 0) {
-            qol_log(QOL_LOG_ERROR, "could not get current directory: %s\n", qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "could not get current directory: %s\n", qol_win32_error_message(GetLastError()));
             return NULL;
         }
 
@@ -2844,7 +2846,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #else
         char *buffer = (char*) qol_temp_alloc(PATH_MAX);
         if (getcwd(buffer, PATH_MAX) == NULL) {
-            qol_log(QOL_LOG_ERROR, "could not get current directory: %s\n", strerror(errno));
+            qol_log(QOL_LOG_ERRO, "could not get current directory: %s\n", strerror(errno));
             return NULL;
         }
 
@@ -2855,13 +2857,13 @@ void qol_timer_reset(QOL_Timer *timer);
     bool qol_set_current_dir(const char *path) {
 #ifdef WINDOWS
         if (!SetCurrentDirectory(path)) {
-            qol_log(QOL_LOG_ERROR, "could not set current directory to %s: %s\n", path, qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "could not set current directory to %s: %s\n", path, qol_win32_error_message(GetLastError()));
             return false;
         }
         return true;
 #else
         if (chdir(path) < 0) {
-            qol_log(QOL_LOG_ERROR, "could not set current directory to %s: %s\n", path, strerror(errno));
+            qol_log(QOL_LOG_ERRO, "could not set current directory to %s: %s\n", path, strerror(errno));
             return false;
         }
         return true;
@@ -2876,7 +2878,7 @@ void qol_timer_reset(QOL_Timer *timer);
         struct stat statbuf;
         if (stat(file_path, &statbuf) < 0) {
             if (errno == ENOENT) return false;
-            qol_log(QOL_LOG_ERROR, "Could not check if file %s exists: %s\n", file_path, strerror(errno));
+            qol_log(QOL_LOG_ERRO, "Could not check if file %s exists: %s\n", file_path, strerror(errno));
             return false;
         }
         return true;
@@ -2892,8 +2894,8 @@ void qol_timer_reset(QOL_Timer *timer);
         HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (output_path_fd == INVALID_HANDLE_VALUE) {
             // Output doesn't exist: rebuild needed
-            if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
-            qol_log(QOL_LOG_ERROR, "Could not open file %s: %s\n", output_path, qol_win32_error_message(GetLastError()));
+            if (GetLastError() == ERRO_FILE_NOT_FOUND) return 1;
+            qol_log(QOL_LOG_ERRO, "Could not open file %s: %s\n", output_path, qol_win32_error_message(GetLastError()));
             return -1;
         }
         FILETIME output_path_time;
@@ -2901,7 +2903,7 @@ void qol_timer_reset(QOL_Timer *timer);
         bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
         CloseHandle(output_path_fd);
         if (!bSuccess) {
-            qol_log(QOL_LOG_ERROR, "Could not get time of %s: %s\n", output_path, qol_win32_error_message(GetLastError()));
+            qol_log(QOL_LOG_ERRO, "Could not get time of %s: %s\n", output_path, qol_win32_error_message(GetLastError()));
             return -1;
         }
 
@@ -2910,14 +2912,14 @@ void qol_timer_reset(QOL_Timer *timer);
             const char *input_path = input_paths[i];
             HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
             if (input_path_fd == INVALID_HANDLE_VALUE) {
-                qol_log(QOL_LOG_ERROR, "Could not open file %s: %s\n", input_path, qol_win32_error_message(GetLastError()));
+                qol_log(QOL_LOG_ERRO, "Could not open file %s: %s\n", input_path, qol_win32_error_message(GetLastError()));
                 return -1;
             }
             FILETIME input_path_time;
             bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
             CloseHandle(input_path_fd);
             if (!bSuccess) {
-                qol_log(QOL_LOG_ERROR, "Could not get time of %s: %s\n", input_path, qol_win32_error_message(GetLastError()));
+                qol_log(QOL_LOG_ERRO, "Could not get time of %s: %s\n", input_path, qol_win32_error_message(GetLastError()));
                 return -1;
             }
 
@@ -2934,7 +2936,7 @@ void qol_timer_reset(QOL_Timer *timer);
         if (stat(output_path, &statbuf) < 0) {
             // Output doesn't exist: rebuild needed
             if (errno == ENOENT) return 1;
-            qol_log(QOL_LOG_ERROR, "could not stat %s: %s\n", output_path, strerror(errno));
+            qol_log(QOL_LOG_ERRO, "could not stat %s: %s\n", output_path, strerror(errno));
             return -1;
         }
         int output_path_time = statbuf.st_mtime; // Modification time (seconds since epoch)
@@ -2943,7 +2945,7 @@ void qol_timer_reset(QOL_Timer *timer);
         for (size_t i = 0; i < input_paths_count; ++i) {
             const char *input_path = input_paths[i];
             if (stat(input_path, &statbuf) < 0) {
-                qol_log(QOL_LOG_ERROR, "could not stat %s: %s\n", input_path, strerror(errno));
+                qol_log(QOL_LOG_ERRO, "could not stat %s: %s\n", input_path, strerror(errno));
                 return -1;
             }
             int input_path_time = statbuf.st_mtime;
@@ -3006,7 +3008,7 @@ void qol_timer_reset(QOL_Timer *timer);
             // Allocation failed: restore old state and abort resize
             hm->buckets = old_buckets;
             hm->capacity = old_capacity;
-            qol_log(QOL_LOG_ERROR, "Failed to resize hashmap\n");
+            qol_log(QOL_LOG_ERRO, "Failed to resize hashmap\n");
             return;
         }
 
@@ -3025,7 +3027,7 @@ void qol_timer_reset(QOL_Timer *timer);
                     index = (index + 1) % hm->capacity; // Wrap around to start if needed
                     if (index == hash) {
                         // Wrapped all the way around: table is full (shouldn't happen with proper load factor)
-                        qol_log(QOL_LOG_ERROR, "Hashmap table is full during resize\n");
+                        qol_log(QOL_LOG_ERRO, "Hashmap table is full during resize\n");
                         break;
                     }
                 }
@@ -3046,7 +3048,7 @@ void qol_timer_reset(QOL_Timer *timer);
         // Free old bucket array (entries were moved, not copied)
         free(old_buckets);
         hm->size = new_size; // Update size (should equal old size if all entries moved)
-        qol_log(QOL_LOG_DEBUG, "Hashmap resized to %zu buckets\n", hm->capacity);
+        qol_log(QOL_LOG_DIAG, "Hashmap resized to %zu buckets\n", hm->capacity);
     }
 
     void qol_hm_put(QOL_HashMap* hm, void* key, void* value) {
@@ -3077,7 +3079,7 @@ void qol_timer_reset(QOL_Timer *timer);
         while (hm->buckets[index].state != QOL_HM_EMPTY) {
             // Check if this bucket contains our key (collision resolution)
             if (hm->buckets[index].state == QOL_HM_USED && qol_hm_keys_equal(hm->buckets[index].key, key)) {
-                qol_log(QOL_LOG_DEBUG, "Updating entry for key: %s\n", (const char*)key);
+                qol_log(QOL_LOG_DIAG, "Updating entry for key: %s\n", (const char*)key);
                 // Key already exists: Update value (replace old pointer with new pointer)
                 // Allocate new value storage before freeing old to avoid inconsistent state on failure
                 void *new_value = malloc(value_size);
@@ -3089,7 +3091,7 @@ void qol_timer_reset(QOL_Timer *timer);
                     hm->buckets[index].value_size = value_size;
                 } else {
                     // Allocation failed: log error but keep old value to maintain consistency
-                    qol_log(QOL_LOG_ERROR, "Failed to allocate memory for hashmap value update\n");
+                    qol_log(QOL_LOG_ERRO, "Failed to allocate memory for hashmap value update\n");
                 }
                 return; // Update complete (or failed), no need to increment size
             }
@@ -3097,14 +3099,14 @@ void qol_timer_reset(QOL_Timer *timer);
             index = (index + 1) % hm->capacity;
             if (index == hash) {
                 // Wrapped all the way around: table is full (shouldn't happen with proper resizing)
-                qol_log(QOL_LOG_ERROR, "Hashmap table is full\n");
+                qol_log(QOL_LOG_ERRO, "Hashmap table is full\n");
                 return;
             }
         }
 
         // Found empty or deleted slot: Insert new entry
         if (hm->buckets[index].state == QOL_HM_EMPTY || hm->buckets[index].state == QOL_HM_DELETED) {
-            qol_log(QOL_LOG_DEBUG, "Inserting new entry for key: %s\n", (const char*)key);
+            qol_log(QOL_LOG_DIAG, "Inserting new entry for key: %s\n", (const char*)key);
 
             // Allocate memory for key and value storage
             hm->buckets[index].key = malloc(key_size);
@@ -3114,7 +3116,7 @@ void qol_timer_reset(QOL_Timer *timer);
             if (!hm->buckets[index].key || !hm->buckets[index].value) {
                 if (hm->buckets[index].key) free(hm->buckets[index].key);
                 if (hm->buckets[index].value) free(hm->buckets[index].value);
-                qol_log(QOL_LOG_ERROR, "Failed to allocate memory for hashmap entry\n");
+                qol_log(QOL_LOG_ERRO, "Failed to allocate memory for hashmap entry\n");
                 return;
             }
 
@@ -3409,13 +3411,13 @@ void qol_timer_reset(QOL_Timer *timer);
     #define error                   qol_error
     #define critical                qol_critical
     #define LOG_NONE                QOL_LOG_NONE
-    #define LOG_DEBUG               QOL_LOG_DEBUG
+    #define LOG_DIAG               QOL_LOG_DIAG
     #define LOG_INFO                QOL_LOG_INFO
-    #define LOG_CMD                 QOL_LOG_CMD
+    #define LOG_EXEC                 QOL_LOG_EXEC
     #define LOG_HINT                QOL_LOG_HINT
     #define LOG_WARN                QOL_LOG_WARN
-    #define LOG_ERROR               QOL_LOG_ERROR
-    #define LOG_FATAL            QOL_LOG_FATAL
+    #define LOG_ERRO               QOL_LOG_ERRO
+    #define LOG_DEAD            QOL_LOG_DEAD
 
     // CLI_PARSER
     #define init_argparser          qol_init_argparser
