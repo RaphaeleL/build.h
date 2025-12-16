@@ -3284,11 +3284,12 @@ void qol_timer_reset(QOL_Timer *timer);
             // size_t dots_needed = total_prefix < target_width ? target_width - total_prefix : 10;
             size_t dots_needed = space_needed;
 
-            printf("[TEST] %s ", test->name);
+            // TODO: make color optional
+            printf(QOL_BOLD QOL_FG_BLUE "[TEST] " QOL_RESET "%s ", test->name);
 
             // Print dots for alignment
             for (size_t j = 0; j < dots_needed; j++) {
-                printf(".");
+                printf(QOL_FG_BBLACK"."QOL_RESET);
             }
 
             // Run the test
@@ -3307,7 +3308,10 @@ void qol_timer_reset(QOL_Timer *timer);
             }
         }
 
-        printf("Total: %zu, Passed: %zu, Failed: %zu\n", qol_test_suite.count, qol_test_suite.passed, qol_test_suite.failed);
+        printf(QOL_BOLD QOL_FG_BLUE "[TEST]"QOL_RESET" Total: " QOL_FG_YELLOW "%zu"
+               QOL_RESET ", Passed: " QOL_FG_GREEN "%zu" QOL_RESET ", Failed: "
+               QOL_FG_RED "%zu" QOL_RESET "\n", qol_test_suite.count,
+               qol_test_suite.passed, qol_test_suite.failed);
 
         return qol_test_suite.failed > 0 ? 1 : 0;
     }
