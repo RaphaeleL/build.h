@@ -17,6 +17,10 @@ int main() {
     // If rebuild happens, the new executable replaces this process
     auto_rebuild_plus(__FILE__, "build.h");
 
+    // Initialize the logging system, here start with log level info
+    // and print with color and time
+    init_logger(LOG_INFO, true, true);
+
     // Array of [source_file, output_binary] pairs for all examples and tests
     // Each example demonstrates a different feature of the build.h library
     char *examples[][2] = {
@@ -43,7 +47,7 @@ int main() {
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
         // Create default C build command: cc source.c -o output
         cmd = default_c_build(examples[i][0], examples[i][1]);
-        
+
         // Run build command asynchronously, adding process handle to procs array
         // If run() returns false, it means the command failed synchronously (before async start)
         // In that case, exit early rather than continuing with broken builds
