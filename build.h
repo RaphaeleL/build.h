@@ -1008,7 +1008,7 @@ bool qol_hm_empty(QOL_HashMap* hm);
 // TODO macro: Mark code locations that need implementation
 // When executed, prints file:line and message, then aborts
 // Usage: QOL_TODO("Implement feature X"); // Marks incomplete code
-#define QOL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#define QOL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); exit(EXIT_FAILURE); } while(0)
 
 // Unreachable macro: Mark code that should never be executed (for error handling)
 // When executed, prints file:line and message, then aborts
