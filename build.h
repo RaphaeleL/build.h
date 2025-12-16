@@ -1182,14 +1182,14 @@ void qol_timer_reset(QOL_Timer *timer);
     // DISABLE_NEWLINE_AUTO_RETURN: Prevents Windows from converting \n to \r\n automatically
     // On Unix-like systems, this is a no-op (ANSI codes work by default)
     void QOL_enable_ansi(void) {
-#if defined(WINDOWS)
-        HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  // Get handle to stdout
-        DWORD mode;
-        GetConsoleMode(hStdout, &mode);                    // Read current console mode
-        mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;        // Enable ANSI escape sequence support
-        mode |= DISABLE_NEWLINE_AUTO_RETURN;               // Disable automatic \r insertion
-        SetConsoleMode(hStdout, mode);                     // Apply new mode
-#endif
+// #if defined(WINDOWS)
+//         HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  // Get handle to stdout
+//         DWORD mode;
+//         GetConsoleMode(hStdout, &mode);                    // Read current console mode
+//         mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;        // Enable ANSI escape sequence support
+//         mode |= DISABLE_NEWLINE_AUTO_RETURN;               // Disable automatic \r insertion
+//         SetConsoleMode(hStdout, mode);                     // Apply new mode
+// #endif
     }
 
     //////////////////////////////////////////////////
