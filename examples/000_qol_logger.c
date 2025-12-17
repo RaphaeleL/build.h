@@ -19,13 +19,13 @@
 
 int main() {
     init_logger(LOG_DIAG, true, true);
-    debug("This is a debug message\n");
+    diag("This is a diag message\n");
     info("Starting program with pid=%d\n", 1234);
-    cmd("cc -o foo foo.c\n");
+    exec("cc -o foo foo.c\n");
     hint("Starting program with pid=%d\n", 1234);
     warn("Low memory detected\n");
-    error("Fatal error: %s\n", "out of memory");    // will exit with failure
-    critical("Fatal error: %s\n", "out of memory"); // will abort (never reached)
+    erro("Fatal erro: %s\n", "out of memory");    // will exit with failure
+    dead("Fatal erro: %s\n", "out of memory"); // will abort (never reached)
 
     return EXIT_SUCCESS;
 }

@@ -53,7 +53,7 @@ static void eval(int a, int b, char op) {
           };
           break;
         default:
-          critical("Unknown operator: %c", op);
+          dead("Unknown operator: %c", op);
           return;
     }
     c.fn(c.a, c.b, c.result);

@@ -305,13 +305,13 @@ static char *qol_expand_path(const char *path);
 
 // Macros to easify the usage of log, instead of log(level, fmt) we are offering
 // are more intuitive way of logging level(fmt)
-#define qol_debug(fmt, ...)    qol_log(QOL_LOG_DIAG, fmt, ##__VA_ARGS__)
-#define qol_info(fmt, ...)     qol_log(QOL_LOG_INFO, fmt, ##__VA_ARGS__)
-#define qol_cmd(fmt, ...)      qol_log(QOL_LOG_EXEC, fmt, ##__VA_ARGS__)
-#define qol_hint(fmt, ...)     qol_log(QOL_LOG_HINT, fmt, ##__VA_ARGS__)
-#define qol_warn(fmt, ...)     qol_log(QOL_LOG_WARN, fmt, ##__VA_ARGS__)
-#define qol_error(fmt, ...)    qol_log(QOL_LOG_ERRO, fmt, ##__VA_ARGS__)
-#define qol_critical(fmt, ...) qol_log(QOL_LOG_DEAD, fmt, ##__VA_ARGS__)
+#define qol_diag(fmt, ...) qol_log(QOL_LOG_DIAG, fmt, ##__VA_ARGS__)
+#define qol_info(fmt, ...) qol_log(QOL_LOG_INFO, fmt, ##__VA_ARGS__)
+#define qol_exec(fmt, ...) qol_log(QOL_LOG_EXEC, fmt, ##__VA_ARGS__)
+#define qol_hint(fmt, ...) qol_log(QOL_LOG_HINT, fmt, ##__VA_ARGS__)
+#define qol_warn(fmt, ...) qol_log(QOL_LOG_WARN, fmt, ##__VA_ARGS__)
+#define qol_erro(fmt, ...) qol_log(QOL_LOG_ERRO, fmt, ##__VA_ARGS__)
+#define qol_dead(fmt, ...) qol_log(QOL_LOG_DEAD, fmt, ##__VA_ARGS__)
 
 // TIME macro - returns current time as formatted string
 #define QOL_TIME qol_get_time()
@@ -1202,12 +1202,12 @@ void qol_timer_reset(QOL_Timer *timer);
     // These colors are applied to log level labels when color output is enabled
     #define QOL_COLOR_RESET     QOL_RESET                // Reset color (default)
     #define QOL_COLOR_INFO      QOL_FG_BBLACK            // Bright black (gray) for info
-    #define QOL_COLOR_EXEC       QOL_FG_CYAN              // Cyan for commands (distinctive)
-    #define QOL_COLOR_DIAG     QOL_FG_BLACK             // Green for debug (less intrusive)
+    #define QOL_COLOR_EXEC      QOL_FG_CYAN              // Cyan for commands (distinctive)
+    #define QOL_COLOR_DIAG      QOL_FG_BLACK             // Green for debug (less intrusive)
     #define QOL_COLOR_HINT      QOL_FG_BLUE              // Blue for hints (informational)
     #define QOL_COLOR_WARN      QOL_FG_YELLOW            // Yellow for warnings (attention)
-    #define QOL_COLOR_ERRO     QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
-    #define QOL_COLOR_DEAD  QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
+    #define QOL_COLOR_ERRO      QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
+    #define QOL_COLOR_DEAD      QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
 
     // Logger state: Static variables that persist across logger function calls
     static qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
@@ -1221,6 +1221,7 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_logger_time = time;
     }
 
+    // TODO: should be moved to file utils?
     static char *qol_expand_path(const char *path) {
         if (!path) return NULL;
 
@@ -1653,7 +1654,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         if (need_rebuild) {
-            qol_debug("Rebuilding: %s -> %s\n", src, out);
+            qol_log(QOL_LOG_DIAG, "Rebuilding: %s -> %s\n", src, out);
 #if defined(MACOS) || defined(LINUX)
             QOL_Cmd own_build = qol_default_c_build(src, out);
             if (!qol_run_always(&own_build)) {
@@ -1666,7 +1667,7 @@ void qol_timer_reset(QOL_Timer *timer);
             }
             qol_release(&own_build);
 
-            qol_debug("Restarting with updated build executable...\n");
+            qol_log(QOL_LOG_DIAG, "Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
             execv(out, restart_argv);
             qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
@@ -1683,7 +1684,7 @@ void qol_timer_reset(QOL_Timer *timer);
             }
             qol_release(&own_build);
 
-            qol_debug("Restarting with updated build executable...\n");
+            qol_log(QOL_LOG_DIAG, "Restarting with updated build executable...\n");
             STARTUPINFO si = { sizeof(si) };
             PROCESS_INFORMATION pi;
             if (!CreateProcess(out, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
@@ -1695,7 +1696,7 @@ void qol_timer_reset(QOL_Timer *timer);
             #error Unsupported platform
 #endif
         } else {
-            qol_debug("Up to date: %s\n", out);
+            qol_log(QOL_LOG_DIAG, "Up to date: %s\n", out);
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -1746,7 +1747,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         if (need_rebuild) {
-            qol_debug("Rebuilding: %s -> %s\n", src, out);
+            qol_log(QOL_LOG_DIAG, "Rebuilding: %s -> %s\n", src, out);
 
 #if defined(MACOS) || defined(LINUX)
             QOL_Cmd own_build = qol_default_c_build(src, out);
@@ -1760,7 +1761,7 @@ void qol_timer_reset(QOL_Timer *timer);
             }
             qol_release(&own_build);
 
-            qol_debug("Restarting with updated build executable...\n");
+            qol_log(QOL_LOG_DIAG, "Restarting with updated build executable...\n");
             char *restart_argv[] = {out, NULL};
             execv(out, restart_argv);
             qol_log(QOL_LOG_ERRO, "Failed to restart build process.\n");
@@ -1777,7 +1778,7 @@ void qol_timer_reset(QOL_Timer *timer);
             }
             qol_release(&own_build);
 
-            qol_debug("Restarting with updated build executable...\n");
+            qol_log(QOL_LOG_DIAG, "Restarting with updated build executable...\n");
             STARTUPINFO si = { sizeof(si) };
             PROCESS_INFORMATION pi;
             char cmdline[1024];
@@ -1791,7 +1792,7 @@ void qol_timer_reset(QOL_Timer *timer);
             #error Unsupported platform
 #endif
         } else {
-            qol_debug("Up to date: %s\n", out);
+            qol_log(QOL_LOG_DIAG, "Up to date: %s\n", out);
 #if !defined(_WIN32) && !defined(_WIN64)
             free(out);
 #endif
@@ -3402,22 +3403,23 @@ void qol_timer_reset(QOL_Timer *timer);
     #define init_logger             qol_init_logger
     #define init_logger_logfile     qol_init_logger_logfile
     #define get_time                qol_get_time
+    #define expand_path             qol_expand_path
     #define TIME                    QOL_TIME
-    #define debug                   qol_debug
+    #define diag                    qol_diag
     #define info                    qol_info
-    #define cmd                     qol_cmd
+    #define exec                    qol_exec
     #define hint                    qol_hint
     #define warn                    qol_warn
-    #define error                   qol_error
-    #define critical                qol_critical
+    #define erro                    qol_erro
+    #define dead                    qol_dead
     #define LOG_NONE                QOL_LOG_NONE
-    #define LOG_DIAG               QOL_LOG_DIAG
+    #define LOG_DIAG                QOL_LOG_DIAG
     #define LOG_INFO                QOL_LOG_INFO
-    #define LOG_EXEC                 QOL_LOG_EXEC
+    #define LOG_EXEC                QOL_LOG_EXEC
     #define LOG_HINT                QOL_LOG_HINT
     #define LOG_WARN                QOL_LOG_WARN
-    #define LOG_ERRO               QOL_LOG_ERRO
-    #define LOG_DEAD            QOL_LOG_DEAD
+    #define LOG_ERRO                QOL_LOG_ERRO
+    #define LOG_DEAD                QOL_LOG_DEAD
 
     // CLI_PARSER
     #define init_argparser          qol_init_argparser
@@ -3534,6 +3536,52 @@ void qol_timer_reset(QOL_Timer *timer);
 
     // ANSI COLORS
     #define enable_ansi             QOL_enable_ansi
+    #define RESET                   QOL_RESET
+    #define RESET_FG                QOL_RESET_FG
+    #define RESET_BG                QOL_RESET_BG
+    #define BOLD                    QOL_BOLD
+    #define DIM                     QOL_DIM
+    #define ITALIC                  QOL_ITALIC
+    #define UNDERLINE               QOL_UNDERLINE
+    #define INVERT                  QOL_INVERT
+    #define HIDE                    QOL_HIDE
+    #define STRIKE                  QOL_STRIKE
+    #define FG_BLACK                QOL_FG_BLACK
+    #define FG_RED                  QOL_FG_RED
+    #define FG_GREEN                QOL_FG_GREEN
+    #define FG_YELLOW               QOL_FG_YELLOW
+    #define FG_BLUE                 QOL_FG_BLUE
+    #define FG_MAGENTA              QOL_FG_MAGENTA
+    #define FG_CYAN                 QOL_FG_CYAN
+    #define FG_WHITE                QOL_FG_WHITE
+    #define FG_BBLACK               QOL_FG_BBLACK
+    #define FG_BRED                 QOL_FG_BRED
+    #define FG_BGREEN               QOL_FG_BGREEN
+    #define FG_BYELLOW              QOL_FG_BYELLOW
+    #define FG_BBLUE                QOL_FG_BBLUE
+    #define FG_BMAGENTA             QOL_FG_BMAGENTA
+    #define FG_BCYAN                QOL_FG_BCYAN
+    #define FG_BWHITE               QOL_FG_BWHITE
+    #define BG_BLACK                QOL_BG_BLACK
+    #define BG_RED                  QOL_BG_RED
+    #define BG_GREEN                QOL_BG_GREEN
+    #define BG_YELLOW               QOL_BG_YELLOW
+    #define BG_BLUE                 QOL_BG_BLUE
+    #define BG_MAGENTA              QOL_BG_MAGENTA
+    #define BG_CYAN                 QOL_BG_CYAN
+    #define BG_WHITE                QOL_BG_WHITE
+    #define BG_BBLACK               QOL_BG_BBLACK
+    #define BG_BRED                 QOL_BG_BRED
+    #define BG_BGREEN               QOL_BG_BGREEN
+    #define BG_BYELLOW              QOL_BG_BYELLOW
+    #define BG_BBLUE                QOL_BG_BBLUE
+    #define BG_BMAGENTA             QOL_BG_BMAGENTA
+    #define BG_BCYAN                QOL_BG_BCYAN
+    #define BG_BWHITE               QOL_BG_BWHITE
+    #define FG256(n)                QOL_FG256(n)
+    #define BG256(n)                QOL_BG256(n)
+    #define FG_RGB(r,g,b)           QOL_FG_RGB(r,g,b) 
+    #define BG_RGB(r,g,b)           QOL_BG_RGB(r,g,b) 
 
 #endif // QOL_STRIP_PREFIX
 
