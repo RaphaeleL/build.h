@@ -593,6 +593,9 @@ bool qol_delete_dir(const char *path);
 // Safe to call on NULL or already-freed content.
 void qol_release_string(QOL_String* content);
 
+// Get all Files of a Directory and store them in a QOL_String array, returns true on success, false on failure.
+bool qol_get_files_in_dir(const char *dir_path, QOL_String *files);
+
 //////////////////////////////////////////////////
 /// STRING UTILITIES /////////////////////////////
 //////////////////////////////////////////////////
@@ -2593,6 +2596,82 @@ void qol_timer_reset(QOL_Timer *timer);
 
     }
 
+    bool qol_get_files_in_dir(const char *dir_path, QOL_String *files) {
+        if (!dir_path || !files) return false;
+
+        files->data = NULL;
+        files->len = 0;
+        files->cap = 0;
+
+#if defined(MACOS) || defined(LINUX)
+        DIR *dir = opendir(dir_path);
+        if (!dir) {
+            qol_log(QOL_LOG_ERRO, "Failed to open directory: %s\n", dir_path);
+            return false;
+        }
+
+        struct dirent *entry;
+        char full_path[QOL_PATH_BUFFER_SIZE];
+        while ((entry = readdir(dir)) != NULL) {
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+
+            if (snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_WARN, "Path too long, skipping: %s/%s\n", dir_path, entry->d_name);
+                continue;
+            }
+
+            char *file_path = strdup(full_path);
+            if (!file_path) {
+                qol_release_string(files);
+                closedir(dir);
+                return false;
+            }
+            qol_push(files, file_path);
+        }
+
+        closedir(dir);
+        return true;
+#elif defined(WINDOWS)
+        WIN32_FIND_DATA find_data;
+        char search_path[QOL_PATH_BUFFER_SIZE];
+        if (snprintf(search_path, sizeof(search_path), "%s\\*", dir_path) >= (int)sizeof(search_path)) {
+            qol_log(QOL_LOG_ERRO, "Search path too long: %s\n", dir_path);
+            return false;
+        }
+
+        HANDLE handle = FindFirstFile(search_path, &find_data);
+        if (handle == INVALID_HANDLE_VALUE) {
+            qol_log(QOL_LOG_ERRO, "Failed to open directory: %s\n", dir_path);
+            return false;
+        }
+
+        char full_path[QOL_PATH_BUFFER_SIZE];
+        do {
+            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+                continue;
+
+            if (snprintf(full_path, sizeof(full_path), "%s\\%s", dir_path, find_data.cFileName) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_WARN, "Path too long, skipping: %s\\%s\n", dir_path, find_data.cFileName);
+                continue;
+            }
+
+            char *file_path = _strdup(full_path);
+            if (!file_path) {
+                qol_release_string(files);
+                FindClose(handle);
+                return false;
+            }
+            qol_push(files, file_path);
+        } while (FindNextFile(handle, &find_data));
+
+        FindClose(handle);
+        return true;
+#else
+        #error Unsupported platform
+#endif
+    }
+
     void qol_release_string(QOL_String* content) {
         if (!content || !content->data) return;
 
@@ -3469,6 +3548,7 @@ void qol_timer_reset(QOL_Timer *timer);
     #define get_file_type           qol_get_file_type
     #define delete_file             qol_delete_file
     #define delete_dir              qol_delete_dir
+    #define get_files_in_dir        qol_get_files_in_dir
     #define release_string          qol_release_string
     #define path_name               qol_path_name
     #define rename                  qol_rename
