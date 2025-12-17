@@ -1304,27 +1304,27 @@ void qol_timer_reset(QOL_Timer *timer);
 
     static const char *qol_level_to_str(qol_log_level_t level) {
         switch (level) {
-        case QOL_LOG_DIAG:    return "DIAG";
-        case QOL_LOG_INFO:     return "INFO";
-        case QOL_LOG_EXEC:      return "EXEC";
-        case QOL_LOG_HINT:     return "HINT";
-        case QOL_LOG_WARN:     return "WARN";
-        case QOL_LOG_ERRO:    return "ERRO";
+        case QOL_LOG_DIAG: return "DIAG";
+        case QOL_LOG_INFO: return "INFO";
+        case QOL_LOG_EXEC: return "EXEC";
+        case QOL_LOG_HINT: return "HINT";
+        case QOL_LOG_WARN: return "WARN";
+        case QOL_LOG_ERRO: return "ERRO";
         case QOL_LOG_DEAD: return "DEAD";
-        default:               return "UNKNOWN";
+        default:           return "UNKNOWN";
         }
     }
 
     static const char *qol_level_to_color(qol_log_level_t level) {
         switch (level) {
-        case QOL_LOG_DIAG:    return QOL_COLOR_DIAG;
-        case QOL_LOG_INFO:     return QOL_COLOR_INFO;
-        case QOL_LOG_EXEC:      return QOL_COLOR_EXEC;
-        case QOL_LOG_HINT:     return QOL_COLOR_HINT;
-        case QOL_LOG_WARN:     return QOL_COLOR_WARN;
-        case QOL_LOG_ERRO:    return QOL_COLOR_ERRO;
+        case QOL_LOG_DIAG: return QOL_COLOR_DIAG;
+        case QOL_LOG_INFO: return QOL_COLOR_INFO;
+        case QOL_LOG_EXEC: return QOL_COLOR_EXEC;
+        case QOL_LOG_HINT: return QOL_COLOR_HINT;
+        case QOL_LOG_WARN: return QOL_COLOR_WARN;
+        case QOL_LOG_ERRO: return QOL_COLOR_ERRO;
         case QOL_LOG_DEAD: return QOL_COLOR_DEAD;
-        default:               return QOL_COLOR_RESET;
+        default:           return QOL_COLOR_RESET;
         }
     }
 
@@ -2209,7 +2209,7 @@ void qol_timer_reset(QOL_Timer *timer);
             qol_log(QOL_LOG_ERRO, "Failed to create directory: %s\n", path);
             return false;
         }
-        qol_log(QOL_LOG_DIAG, "created directory `%s/`\n", path);
+        qol_log(QOL_LOG_INFO, "Created directory `%s/`\n", path);
         return true;
     }
 
@@ -2242,7 +2242,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
         fclose(src);
         fclose(dst);
-        qol_log(QOL_LOG_DIAG, "Copied %s to %s\n", src_path, dst_path);
+        qol_log(QOL_LOG_INFO, "Copied %s to %s\n", src_path, dst_path);
         return true;
     }
 
@@ -2474,7 +2474,7 @@ void qol_timer_reset(QOL_Timer *timer);
             return false;
         }
 
-        qol_log(QOL_LOG_DIAG, "Wrote %zu bytes to %s\n", written, path);
+        qol_log(QOL_LOG_INFO, "Wrote %zu bytes to %s\n", written, path);
         return true;
     }
 
@@ -2496,7 +2496,7 @@ void qol_timer_reset(QOL_Timer *timer);
             return false;
         }
 
-        qol_log(QOL_LOG_DIAG, "Deleted file: %s\n", path);
+        qol_log(QOL_LOG_INFO, "Deleted file: %s\n", path);
         return true;
 #elif defined(WINDOWS)
         if (DeleteFile(path) == 0) {
@@ -2504,7 +2504,7 @@ void qol_timer_reset(QOL_Timer *timer);
             return false;
         }
 
-        qol_log(QOL_LOG_DIAG, "Deleted file: %s\n", path);
+        qol_log(QOL_LOG_INFO, "Deleted file: %s\n", path);
         return true;
 #else
         #error Unsupported platform
@@ -2517,7 +2517,8 @@ void qol_timer_reset(QOL_Timer *timer);
 #if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(path);
         if (!dir) {
-            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: `%s`.\n", path);
+            qol_log(QOL_LOG_WARN, "  Directory may not exist or is not accessible.\n");
             return false;
         }
 
@@ -2548,7 +2549,7 @@ void qol_timer_reset(QOL_Timer *timer);
         if (rmdir(path) != 0) {
             qol_log(QOL_LOG_ERRO, "Failed to remove directory: %s\n", path);
         } else {
-            qol_log(QOL_LOG_DIAG, "Removed directory: %s\n", path);
+            qol_log(QOL_LOG_INFO, "Removed directory: %s\n", path);
         }
         return true;
 #elif defined(WINDOWS)
@@ -2561,7 +2562,8 @@ void qol_timer_reset(QOL_Timer *timer);
 
         HANDLE handle = FindFirstFile(search_path, &find_data);
         if (handle == INVALID_HANDLE_VALUE) {
-            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: %s\n", path);
+            qol_log(QOL_LOG_ERRO, "Failed to open directory for deletion: `%s`.\n", path);
+            qol_log(QOL_LOG_WARN, "  Directory may not exist or is not accessible.\n");
             return false;
         }
 
@@ -2587,7 +2589,7 @@ void qol_timer_reset(QOL_Timer *timer);
         if (RemoveDirectory(path) == 0) {
             qol_log(QOL_LOG_ERRO, "Failed to remove directory: %s\n", path);
         } else {
-            qol_log(QOL_LOG_DIAG, "Removed directory: %s\n", path);
+            qol_log(QOL_LOG_INFO, "Removed directory: %s\n", path);
         }
         return true;
 #else
