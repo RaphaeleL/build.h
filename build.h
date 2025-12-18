@@ -3361,7 +3361,7 @@ void qol_timer_reset(QOL_Timer *timer);
             size_t dots_needed = space_needed;
 
             if (qol_logger_color) qol_log(QOL_LOG_INFO, "%s%s ", prefix, test->name);
-            if (!qol_logger_color) qol_log(QOL_LOG_INFO, "%s%s", prefix, test->name);
+            if (!qol_logger_color) qol_log(QOL_LOG_INFO, "%s%s ", prefix, test->name);
 
             // Print dots for alignment
             for (size_t j = 0; j < dots_needed; j++) {
@@ -3377,15 +3377,15 @@ void qol_timer_reset(QOL_Timer *timer);
 
             // Print result on same line with colors
             if (qol_test_current_failed) {
-                if (qol_logger_color) printf(QOL_FG_RED"[FAILED]"QOL_RESET"\n");
-                if (!qol_logger_color) printf("[FAILED]\n");
+                if (qol_logger_color) printf(QOL_FG_RED" [FAILED]"QOL_RESET"\n");
+                if (!qol_logger_color) printf(" [FAILED]\n");
                 if (qol_test_failure_msg[0] != '\0') {
                     printf("  %s\n", qol_test_failure_msg);
                 }
                 qol_test_suite.failed++;
             } else {
-                if (qol_logger_color) printf(QOL_FG_GREEN"[OK]"QOL_RESET"\n");
-                if (!qol_logger_color) printf("[OK]\n");
+                if (qol_logger_color) printf(QOL_FG_GREEN" [OK]"QOL_RESET"\n");
+                if (!qol_logger_color) printf(" [OK]\n");
                 qol_test_suite.passed++;
             }
         }
