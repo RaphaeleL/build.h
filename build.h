@@ -12,10 +12,10 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 16 Dez 2025
-    Author  : Raphaele Salvatore Licciardo
-    License : MIT (see LICENSE for details)
-    Version : 0.0.1
+    Changed : 20 Dez 2025
+    Author  : Raphaele Salvatore Licciardo, M.Sc.
+    License : MIT
+    Version : 0.0.2
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
@@ -80,8 +80,9 @@
       v0.0.1 (08.12.2025) - Initial release
       v0.0.2 (dd.mm.yyyy) - Several Fixes (prevent buffer overflow & memory 
                                            leak & inconsistent state on after 
-                                           failures, easier error handling)
-                          - New Features (String Utilities)
+                                           failures, easier error handling, 
+                                           logfile newline doubled)
+                          - New Features (String Utilities, Date, Datetime)
                           - Refactor (Rename the log levels and redefine their 
                                       behavior)
 
@@ -283,10 +284,20 @@ void qol_init_logger(qol_log_level_t level, bool color, bool time);
 // Log file contains plain text without ANSI color codes, even if color is enabled for console.
 void qol_init_logger_logfile(const char *format, ...);
 
-// Get current time as a formatted string in format "YYYY-MM-DD_HH-MM-SS".
+// Get current time as a formatted string in format "HH-MM-SS".
 // Returns pointer to a static buffer containing the formatted time string.
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
 const char *qol_get_time(void);
+
+// Get current time as a formatted string in format "DD-MM-YYYY".
+// Returns pointer to a static buffer containing the formatted date string.
+// Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
+const char *qol_get_date(void);
+
+// Get current date and time as a formatted string in format "YYYY-MM-DD_HH-MM-SS".
+// Returns pointer to a static buffer containing the formatted datetime string.
+// Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
+const char *qol_get_datetime(void);
 
 // Log a message at the specified log level using printf-style formatting.
 // level: Log level (DIAG, INFO, EXEC, HINT, WARN, ERRO, DEAD).
@@ -313,8 +324,10 @@ static char *qol_expand_path(const char *path);
 #define qol_erro(fmt, ...) qol_log(QOL_LOG_ERRO, fmt, ##__VA_ARGS__)
 #define qol_dead(fmt, ...) qol_log(QOL_LOG_DEAD, fmt, ##__VA_ARGS__)
 
-// TIME macro - returns current time as formatted string
+// TIME, DATE, DATETIME macro - returns current time as formatted string
 #define QOL_TIME qol_get_time()
+#define QOL_DATE qol_get_date()
+#define QOL_DATETIME qol_get_datetime()
 
 //////////////////////////////////////////////////
 /// CLI_PARSER ///////////////////////////////////
@@ -1263,12 +1276,28 @@ void qol_timer_reset(QOL_Timer *timer);
         return strdup(path);
     }
 
-    const char *qol_get_time(void) {
+    const char *qol_get_time(void) { // TODO: set the fmt as a parameter
         static char time_buf[64];
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
-        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d_%H-%M-%S", lt);
+        strftime(time_buf, sizeof(time_buf), "%H-%M-%S", lt);
         return time_buf;
+    }
+
+    const char *qol_get_date(void) { // TODO: set the fmt as a parameter
+        static char date_buf[64];
+        time_t t = time(NULL);
+        struct tm *lt = localtime(&t);
+        strftime(date_buf, sizeof(date_buf), "%Y-%m-%d", lt);
+        return date_buf;
+    }
+
+    const char *qol_get_datetime(void) { // TODO: set the fmt as a parameter
+        static char datetime_buf[64];
+        time_t t = time(NULL);
+        struct tm *lt = localtime(&t);
+        strftime(datetime_buf, sizeof(datetime_buf), "%Y-%m-%d_%H-%M-%S", lt);
+        return datetime_buf;
     }
 
     void qol_init_logger_logfile(const char *format, ...) {
@@ -1388,7 +1417,6 @@ void qol_timer_reset(QOL_Timer *timer);
                 va_copy(args_copy, args);  // Copy va_list for second traversal
                 vfprintf(qol_log_file, fmt, args_copy);
                 va_end(args_copy);         // Clean up copied va_list
-                fprintf(qol_log_file, "\n");
                 fflush(qol_log_file);       // Ensure message is written immediately
             }
         } else {
@@ -1402,7 +1430,6 @@ void qol_timer_reset(QOL_Timer *timer);
                 va_copy(args_copy, args);  // Copy va_list for second traversal
                 vfprintf(qol_log_file, fmt, args_copy);
                 va_end(args_copy);         // Clean up copied va_list
-                fprintf(qol_log_file, "\n");
                 fflush(qol_log_file);       // Ensure message is written immediately
             }
         }
@@ -3360,8 +3387,8 @@ void qol_timer_reset(QOL_Timer *timer);
             size_t space_needed = (target_width - total_prefix);
             size_t dots_needed = space_needed;
 
-            if (qol_logger_color) qol_log(QOL_LOG_INFO, "%s%s ", prefix, test->name);
-            if (!qol_logger_color) qol_log(QOL_LOG_INFO, "%s%s ", prefix, test->name);
+            if (qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
+            if (!qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
 
             // Print dots for alignment
             for (size_t j = 0; j < dots_needed; j++) {
@@ -3486,6 +3513,8 @@ void qol_timer_reset(QOL_Timer *timer);
     #define get_time                qol_get_time
     #define expand_path             qol_expand_path
     #define TIME                    QOL_TIME
+    #define DATE                    QOL_DATE
+    #define DATETIME                QOL_DATETIME
     #define diag                    qol_diag
     #define info                    qol_info
     #define exec                    qol_exec
