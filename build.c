@@ -18,8 +18,8 @@ int main() {
     auto_rebuild_plus(__FILE__, "build.h");
 
     // Initialize the logging system, here start with log level info
-    // and print with color and time
-    init_logger(LOG_INFO, true, true);
+    // and print with no color and with time
+    init_logger(LOG_INFO, false, true);
 
     // Array of [source_file, output_binary] pairs for all examples and tests
     // Each example demonstrates a different feature of the build.h library
