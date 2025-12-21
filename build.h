@@ -3418,7 +3418,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         if (qol_logger_color) {
-            qol_log(QOL_LOG_INFO, "Total: " QOL_FG_YELLOW "%zu" QOL_RESET", Passed: " QOL_FG_GREEN "%zu" QOL_RESET
+            qol_log(QOL_LOG_HINT, "Total: " QOL_FG_YELLOW "%zu" QOL_RESET", Passed: " QOL_FG_GREEN "%zu" QOL_RESET
                     ", Failed: " QOL_FG_RED "%zu" QOL_RESET "\n", qol_test_suite.count, qol_test_suite.passed,
                     qol_test_suite.failed);
         } else {
