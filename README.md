@@ -1,42 +1,48 @@
-## build.h
+# build.h
 
-Single-header utilities for C. Pragmatic. Portable. No nonsense.
+**Single-header quality-of-life utilities for C.** Pragmatic. Portable. No nonsense.
 
-- **Logger** with levels, colors, timestamps.
-- **ANSI color support** with macros for foreground/background colors, text attributes, 256-color, and RGB truecolor.
-- **CLI arg parser** with simple long/short flags.
-- **Dynamic array macros** (`grow`, `push`, etc.).
-- **HashMap** for string keys to pointer values.
-- **File ops** (mkdir, copy files/dirs, read/write files, list dirs).
-- **High-resolution timers** for precise benchmarking and timing.
-- **No-build helpers**: rebuild self when sources change, run simple builds.
-- **Unit test harness** with minimal macros.
-- **Temporary allocator** for short-lived allocations without manual cleanup.
-- **Path utilities** for common path manipulations.
-- **String utilities** for common string operations (trim, split, join, replace, etc.).
-- **Improved command execution** using fork/exec (POSIX) or CreateProcess (Windows).
+A collection of essential utilities that make C development more pleasant. Think of it as a mix between [stb](https://github.com/nothings/stb) and [nob.h](https://github.com/tsoding/nob.h) — everything you need in one header file.
 
-Supported: Linux, macOS, Windows. It's as fast as [GNU Make](https://www.gnu.org/software/make/).
+## Features
 
-### Install
+- **Logger** with levels, colors, and timestamps
+- **ANSI color support** with macros for foreground/background colors, text attributes, 256-color, and RGB truecolor
+- **CLI arg parser** with simple long/short flags
+- **Dynamic array macros** (`grow`, `push`, etc.)
+- **HashMap** for string keys to pointer values
+- **File operations** (mkdir, copy files/dirs, read/write files, list dirs)
+- **High-resolution timers** for precise benchmarking and timing
+- **Build helpers**: rebuild self when sources change, run simple builds
+- **Unit test harness** with minimal macros
+- **Temporary allocator** for short-lived allocations without manual cleanup
+- **Path utilities** for common path manipulations
+- **String utilities** for common string operations (trim, split, join, replace, etc.)
+- **Cross-platform command execution** using fork/exec (POSIX) or CreateProcess (Windows)
 
-Drop `build.h` into your project.
+**Supported platforms:** Linux, macOS, Windows
+
+## Installation
+
+Drop `build.h` into your project:
 
 ```bash
 wget https://raw.githubusercontent.com/RaphaeleL/build.h/refs/heads/main/build.h
 ```
 
-In exactly one `.c` file, before including `build.h`, define `QOL_IMPLEMENTATION`. Optionally define `QOL_STRIP_PREFIX` to remove the `qol_` prefix from public names.
+In exactly **one** `.c` file, before including `build.h`, define `QOL_IMPLEMENTATION`. Optionally define `QOL_STRIP_PREFIX` to remove the `qol_` prefix from public names for cleaner code:
 
 ```c
 #define QOL_IMPLEMENTATION
-#define QOL_STRIP_PREFIX
+#define QOL_STRIP_PREFIX  // Optional: use short names like `info` instead of `qol_info`
 #include "./build.h"
 ```
 
-### Quick start: tiny build script
+## Quick Start
 
-This `build.c` recompiles itself when it changes and builds `main.c` to `./main`.
+### Tiny Build Script
+
+This `build.c` recompiles itself when it changes and builds `main.c` to `./main`:
 
 ```c
 #define QOL_IMPLEMENTATION
@@ -62,19 +68,26 @@ Compile and run:
 cc -o build build.c && ./build
 ```
 
-### No-build helpers (what actually runs)
+## Build Helpers
 
-- **`default_c_build(source, output)`**: returns a `QOL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`.
-- **`run(&cmd)`** or **`run(&cmd, .procs=&procs)`**: builds only if `source` is newer than `output` (extracts source/output from command array). Uses fork/exec (POSIX) or CreateProcess (Windows). Supports both sync and async execution.
-- **`run_always(&cmd)`** or **`run_always(&cmd, .procs=&procs)`**: always build (no timestamp check). Also uses proper process execution. Supports both sync and async execution.
-- **`proc_wait(proc)`**: wait for an async process to complete. Returns `true` on success, `false` on failure.
-- **`procs_wait(&procs)`**: wait for all processes in a `Procs` array to complete. Returns `true` if all succeed, `false` otherwise.
-- **`auto_rebuild(src)`**: if `src` changed, rebuild current binary, then re-exec it.
-- **`auto_rebuild_plus(src, ...)`**: like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you).
-- **`needs_rebuild(output_path, input_paths, count)`**: check if rebuild is needed by comparing timestamps. Returns `1` if rebuild needed, `0` if up-to-date, `-1` on error. Handles multiple input files.
-- **`needs_rebuild1(output_path, input_path)`**: convenience wrapper for single input file.
+The build helpers provide a simple way to compile C programs without a traditional build system. They automatically check if source files are newer than outputs and only rebuild when necessary.
 
-#### Async execution
+**Core functions:**
+
+- **`default_c_build(source, output)`** — Returns a `QOL_Cmd` (dynamic array) with platform defaults: `[compiler, flags, source, "-o", output]`
+- **`run(&cmd)`** or **`run(&cmd, .procs=&procs)`** — Builds only if `source` is newer than `output` (extracts source/output from command array). Supports both sync and async execution
+- **`run_always(&cmd)`** or **`run_always(&cmd, .procs=&procs)`** — Always builds (no timestamp check). Supports both sync and async execution
+- **`auto_rebuild(src)`** — If `src` changed, rebuilds current binary, then re-executes it
+- **`auto_rebuild_plus(src, ...)`** — Like above but also checks additional dependency paths (variadic, terminated with `NULL`; macro appends the terminator for you)
+- **`needs_rebuild(output_path, input_paths, count)`** — Checks if rebuild is needed by comparing timestamps. Returns `1` if rebuild needed, `0` if up-to-date, `-1` on error. Handles multiple input files
+- **`needs_rebuild1(output_path, input_path)`** — Convenience wrapper for single input file
+
+**Async execution helpers:**
+
+- **`proc_wait(proc)`** — Wait for an async process to complete. Returns `true` on success, `false` on failure
+- **`procs_wait(&procs)`** — Wait for all processes in a `Procs` array to complete. Returns `true` if all succeed, `false` otherwise
+
+### Async Execution
 
 Both `run()` and `run_always()` support asynchronous execution. By default, they run synchronously (wait for completion), maintaining backward compatibility. To enable async mode, set the `async` field on the command and pass a `Procs` array using designated initializer syntax:
 
@@ -106,12 +119,12 @@ if (!procs_wait(&procs)) {
 
 **Notes:**
 - Use designated initializer syntax: `run(&cmd, .procs=&procs)` to track async processes
-- The `procs` parameter is optional - omit it for sync mode or when you don't need to track processes
+- The `procs` parameter is optional — omit it for sync mode or when you don't need to track processes
 - When `async=true` and `procs` is provided, process handles are automatically added to the `procs` array
 - Use `procs_wait(&procs)` to wait for all tracked processes to complete
 - Cross-platform compatible: uses `CreateProcess`/`WaitForSingleObject` on Windows, `fork`/`execvp`/`waitpid` on Unix
 
-`QOL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) - use the dynamic array macros (`push`, `release`, etc.) to build commands:
+`QOL_Cmd` is a dynamic array structure (`data`, `len`, `cap`) — use the dynamic array macros (`push`, `release`, etc.) to build commands:
 
 ```c
 Cmd cfg = default_c_build("main.c", "main");
@@ -132,7 +145,9 @@ run_always(&cmd);  // or run_always(&cmd, .procs=&procs) for async
 release(&cmd);
 ```
 
-### Logger
+## Logger
+
+Simple, colorful logging with levels and timestamps:
 
 ```c
 init_logger(LOG_DIAG, /*color*/true, /*time*/true);
@@ -142,13 +157,13 @@ warn("warning\n");
 error("fatal error message\n");  // exits
 ```
 
-Levels: `LOG_DIAG`, `LOG_INFO`, `LOG_EXEC`, `LOG_HINT`, `LOG_WARN`, `LOG_ERRO` (exit), `LOG_DEAD` (abort).
+**Log levels:** `LOG_DIAG`, `LOG_INFO`, `LOG_EXEC`, `LOG_HINT`, `LOG_WARN`, `LOG_ERRO` (exits), `LOG_DEAD` (aborts)
 
-### ANSI Colors
+## ANSI Colors
 
-`build.h` provides comprehensive ANSI color support for terminal output. All color codes are available as macros that you can use directly in your code.
+Comprehensive ANSI color support for terminal output. All color codes are available as macros that you can use directly in your code.
 
-**Basic colors:**
+**Basic usage:**
 
 ```c
 printf("%sRed text%s\n", QOL_FG_RED, QOL_RESET);
@@ -157,14 +172,12 @@ printf("%sGreen background%s\n", QOL_BG_GREEN, QOL_RESET);
 
 **Available macros:**
 
-- Reset
-- Text attributes
-- Foreground colors
-- Bright foreground
-- Background colors
-- Bright background
+- Reset codes
+- Text attributes (bold, dim, italic, underline, etc.)
+- Foreground colors (standard and bright)
+- Background colors (standard and bright)
 - 256-color support
-- Truecolor/RGB
+- Truecolor/RGB support
 
 **Windows support:**
 
@@ -183,7 +196,9 @@ int main(void) {
 
 On Linux and macOS, ANSI colors work automatically in terminals that support them.
 
-### CLI argument parser
+## CLI Argument Parser
+
+Simple argument parsing with long and short flags:
 
 ```c
 init_argparser(argc, argv);
@@ -193,11 +208,14 @@ arg_t *thr = get_argument("--threads");
 info("threads = %s\n", thr ? thr->value : "");
 ```
 
+**Features:**
 - Long flags: `--flag [value]`
 - Short flags: `-f [value]` (auto-mapped from the first letter after `--`)
-- `--help` prints usage and exits
+- `--help` automatically prints usage and exits
 
-### Dynamic array macros
+## Dynamic Arrays
+
+Type-safe dynamic arrays with variadic push support:
 
 ```c
 list(int) a = {0};
@@ -209,11 +227,13 @@ drop(&a);
 release(&a);
 ```
 
-Provided: `grow`, `shrink`, `push` (variadic), `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`.
+**Available macros:** `grow`, `shrink`, `push` (variadic), `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`
 
-**Note**: `QOL_Cmd` (used by build helpers) is a dynamic array of `const char*` - use these same macros to build commands dynamically.
+**Note:** `QOL_Cmd` (used by build helpers) is a dynamic array of `const char*` — use these same macros to build commands dynamically.
 
-### HashMap (string keys → pointer values)
+## HashMap
+
+String-keyed hash map for pointer values:
 
 ```c
 HashMap *hm = hm_create();
@@ -224,11 +244,13 @@ hm_remove(hm, (void*)"name");
 hm_release(hm);
 ```
 
-Notes:
-- Keys are treated as C strings; they are copied into the map.
-- Values are stored as the pointer you pass (the map allocates storage for the pointer, not the pointee). Manage pointee lifetime yourself.
+**Notes:**
+- Keys are treated as C strings and are copied into the map
+- Values are stored as the pointer you pass (the map allocates storage for the pointer, not the pointee). Manage pointee lifetime yourself
 
-### File operations
+## File Operations
+
+Cross-platform file and directory operations:
 
 ```c
 mkdir_if_not_exists("out");
@@ -240,9 +262,11 @@ for (size_t i = 0; i < lines.len; i++) info("%s\n", lines.data[i]);
 release_string(&lines);
 ```
 
-Also: `read_dir(path, filter)`, `write_file(path, data, size)`, `get_file_type(path)`, `delete_file(path)`.
+**Available functions:** `read_dir(path, filter)`, `write_file(path, data, size)`, `get_file_type(path)`, `delete_file(path)`
 
-### Path utilities
+## Path Utilities
+
+Common path manipulation functions:
 
 ```c
 const char *name = path_name("/path/to/file.txt");  // returns "file.txt"
@@ -254,7 +278,9 @@ int exists = file_exists("file.txt");               // returns 1 if exists, 0 if
 
 **Why `get_current_dir_temp()`?** It uses the temporary allocator (see below), so you don't need to free the result. Perfect for short-lived path operations.
 
-### String utilities
+## String Utilities
+
+Common string operations for everyday C programming:
 
 ```c
 // Check prefix/suffix
@@ -291,21 +317,21 @@ free(joined);
 release_string(&fruits);
 ```
 
-Functions:
-- **`str_starts_with(str, prefix)`**: Check if string starts with prefix
-- **`str_ends_with(str, suffix)`**: Check if string ends with suffix
-- **`str_trim(str)`**: Trim whitespace from both ends (in-place)
-- **`str_ltrim(str)`**: Trim whitespace from left (in-place)
-- **`str_rtrim(str)`**: Trim whitespace from right (in-place)
-- **`str_replace(str, old_sub, new_sub)`**: Replace all occurrences (returns new string)
-- **`str_split(str, delimiter, result)`**: Split string into `QOL_String` array
-- **`str_join(strings, separator)`**: Join `QOL_String` array with separator (returns new string)
-- **`str_contains(str, substring)`**: Check if string contains substring
-- **`str_icmp(str1, str2)`**: Case-insensitive string comparison
+**Available functions:**
+- `str_starts_with(str, prefix)` — Check if string starts with prefix
+- `str_ends_with(str, suffix)` — Check if string ends with suffix
+- `str_trim(str)` — Trim whitespace from both ends (in-place)
+- `str_ltrim(str)` — Trim whitespace from left (in-place)
+- `str_rtrim(str)` — Trim whitespace from right (in-place)
+- `str_replace(str, old_sub, new_sub)` — Replace all occurrences (returns new string)
+- `str_split(str, delimiter, result)` — Split string into `QOL_String` array
+- `str_join(strings, separator)` — Join `QOL_String` array with separator (returns new string)
+- `str_contains(str, substring)` — Check if string contains substring
+- `str_icmp(str1, str2)` — Case-insensitive string comparison
 
-### Temporary allocator
+## Temporary Allocator
 
-A simple arena-style allocator for short-lived allocations. **Why use it?** No manual `free()` calls needed - perfect for temporary strings, formatted output, and path manipulations that only live for a function call or two.
+A simple arena-style allocator for short-lived allocations. **Why use it?** No manual `free()` calls needed — perfect for temporary strings, formatted output, and path manipulations that only live for a function call or two.
 
 ```c
 temp_reset(); // start fresh
@@ -321,13 +347,13 @@ temp_rewind(checkpoint); // frees everything after checkpoint
 // 'temp' is now invalid, but earlier allocations remain
 ```
 
-Functions:
-- **`temp_strdup(cstr)`**: duplicate a string
-- **`temp_alloc(size)`**: allocate raw memory
-- **`temp_sprintf(format, ...)`**: formatted string allocation
-- **`temp_reset()`**: free all temp memory
-- **`temp_save()`**: save checkpoint
-- **`temp_rewind(checkpoint)`**: free memory back to checkpoint
+**Available functions:**
+- `temp_strdup(cstr)` — Duplicate a string
+- `temp_alloc(size)` — Allocate raw memory
+- `temp_sprintf(format, ...)` — Formatted string allocation
+- `temp_reset()` — Free all temp memory
+- `temp_save()` — Save checkpoint
+- `temp_rewind(checkpoint)` — Free memory back to checkpoint
 
 **Use cases:**
 - Building temporary file paths: `temp_sprintf("%s/%s", dir, filename)`
@@ -335,11 +361,13 @@ Functions:
 - Path manipulations in functions that don't need to return allocated strings
 - Any short-lived string operations where manual memory management is annoying
 
-**Important:** The temporary allocator is an *arena allocator* - it doesn't actually "free" memory in the traditional sense. When you call `temp_reset()` or `temp_rewind()`, the memory is marked as reusable, but the data isn't erased. **Pointers become invalid after reset/rewind** - don't use them! The data might still appear to be there until overwritten, but accessing it is undefined behavior.
+**Important:** The temporary allocator is an *arena allocator* — it doesn't actually "free" memory in the traditional sense. When you call `temp_reset()` or `temp_rewind()`, the memory is marked as reusable, but the data isn't erased. **Pointers become invalid after reset/rewind** — don't use them! The data might still appear to be there until overwritten, but accessing it is undefined behavior.
 
 The allocator uses a fixed-size buffer (8MB by default, configurable via `QOL_TEMP_CAPACITY`). If you need more, increase the capacity or use regular `malloc()`/`free()`.
 
-### High-resolution timers
+## High-Resolution Timers
+
+Precise timing for benchmarking and performance measurement:
 
 ```c
 Timer t = {0};
@@ -355,13 +383,15 @@ uint64_t elapsed_ns = timer_elapsed_ns(&t);
 timer_reset(&t);  // restart from now
 ```
 
-Functions: `timer_start`, `timer_elapsed` (seconds), `timer_elapsed_ms`, `timer_elapsed_us`, `timer_elapsed_ns`, `timer_reset`.
+**Available functions:** `timer_start`, `timer_elapsed` (seconds), `timer_elapsed_ms`, `timer_elapsed_us`, `timer_elapsed_ns`, `timer_reset`
 
-Uses platform-specific high-resolution clocks:
+**Platform support:**
 - Windows: `QueryPerformanceCounter` / `QueryPerformanceFrequency`
 - Linux/macOS: `clock_gettime(CLOCK_MONOTONIC)`
 
-### Unit testing
+## Unit Testing
+
+Minimal test harness with simple macros:
 
 ```c
 TEST(sample) {
@@ -373,31 +403,41 @@ int main(void) {
 }
 ```
 
-Macros: `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ`, `TEST_TRUTHY`, `TEST_FALSY`.
+**Available macros:** `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ`, `TEST_TRUTHY`, `TEST_FALSY`
 
-### Prefix stripping
+## Prefix Stripping
 
 Define `QOL_STRIP_PREFIX` to use short names (e.g., `info` instead of `qol_info`, `Cmd` instead of `QOL_Cmd`). See the bottom of `build.h` for the full mapping.
 
-### Platform notes
+## Platform Support
 
-- Linux/macOS: uses `pthread`, `dirent`, `fork`/`execvp`/`waitpid`, `stat`, `unlink`, `clock_gettime` where needed.
-- Windows: uses WinAPI (`CreateProcess`, `WaitForSingleObject`, `GetExitCodeProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
-- Async execution is fully cross-platform: Windows uses process handles (`HANDLE`), Unix uses process IDs (`pid_t`).
+**Linux/macOS:** Uses `pthread`, `dirent`, `fork`/`execvp`/`waitpid`, `stat`, `unlink`, `clock_gettime` where needed.
 
-### FAQ
+**Windows:** Uses WinAPI (`CreateProcess`, `WaitForSingleObject`, `GetExitCodeProcess`, `FindFirstFile`, `_mkdir`, `DeleteFile`, `QueryPerformanceCounter`).
 
-- Why a single header? Easier drop-in, no build system glue.
-- Can I use this only for logging/arrays/etc.? Yes. `auto_rebuild` and friends are optional.
-- Thread safety? The logger has process-global settings; other parts are not thread-safe.
+**Async execution** is fully cross-platform: Windows uses process handles (`HANDLE`), Unix uses process IDs (`pid_t`).
 
-### Roadmap
+## FAQ
 
-> Check out the `changelog/` Directory for the Version History.
+**Q: Why a single header?**  
+A: Easier drop-in, no build system glue. Just include and go.
 
-- Finished: Logger, No-build, Dynamic arrays, Helpers, CLI parser, File ops, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Improved command execution (fork/exec), Windows error handling.
-- Planned: queue/stack macros, ring buffer, linked list, easier parallel builds.
+**Q: Can I use this only for logging/arrays/etc.?**  
+A: Yes. `auto_rebuild` and build helpers are optional. Use only what you need.
 
-### License
+**Q: Is it thread-safe?**  
+A: The logger has process-global settings; other parts are not thread-safe. Use appropriate synchronization if needed.
 
-MIT. See `LICENSE`.
+## Roadmap
+
+> Check out the `changelog/` directory for the version history.
+
+**Completed:**
+- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling
+
+**Planned:**
+- Queue/stack macros, ring buffer, linked list, easier parallel builds
+
+## License
+
+MIT. See `LICENSE` file for details.
