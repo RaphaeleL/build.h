@@ -161,11 +161,6 @@ int main(void) {
     info("If you see this message and the program completed without crashes,\n");
     info("the thread-safety implementation is working correctly.\n");
     info("\n");
-    info("Note: The logger now uses thread-safe printf internally, so log\n");
-    info("messages should appear complete and not interleaved. If you use\n");
-    info("printf/fprintf directly in your code, use qol_printf/qol_fprintf\n");
-    info("for thread-safe output.\n");
-    info("\n");
     info("Key observations:\n");
     info("  1. No crashes or undefined behavior\n");
     info("  2. Temporary allocator handled concurrent allocations safely\n");
