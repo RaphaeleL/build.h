@@ -85,6 +85,7 @@
                           - New Features (String Utilities, Date, Datetime)
                           - Refactor (Rename the log levels and redefine their 
                                       behavior)
+      v0.0.3 (xx.xx.xxxx) - New Features (Thread Safe)
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -1092,7 +1093,10 @@ extern char qol_test_failure_msg[];
 #define QOL_TEST_ASSERT(condition, message) \
     do { \
         if (!(condition)) { \
+            qol_init_mutexes(); \
+            QOL_MUTEX_LOCK(qol_test_mutex); \
             snprintf(qol_test_failure_msg, sizeof(qol_test_failure_msg), "%s:%d: %s", __FILE__, __LINE__, message); \
+            QOL_MUTEX_UNLOCK(qol_test_mutex); \
             qol_test_fail(); \
             return; \
         } \
@@ -1190,6 +1194,85 @@ void qol_timer_reset(QOL_Timer *timer);
 #ifdef QOL_IMPLEMENTATION
 
     //////////////////////////////////////////////////
+    /// THREAD SAFETY ////////////////////////////////
+    //////////////////////////////////////////////////
+
+    // Thread-safety infrastructure: Cross-platform mutex support
+    // Uses pthread_mutex_t on Unix-like systems and CRITICAL_SECTION on Windows
+    // All global state access is protected by these mutexes
+#if defined(WINDOWS)
+    typedef CRITICAL_SECTION QOL_Mutex;
+    #define QOL_MUTEX_INIT(mutex) InitializeCriticalSection(&(mutex))
+    #define QOL_MUTEX_LOCK(mutex) EnterCriticalSection(&(mutex))
+    #define QOL_MUTEX_UNLOCK(mutex) LeaveCriticalSection(&(mutex))
+    #define QOL_MUTEX_DESTROY(mutex) DeleteCriticalSection(&(mutex))
+#else
+    typedef pthread_mutex_t QOL_Mutex;
+    #define QOL_MUTEX_INIT(mutex) pthread_mutex_init(&(mutex), NULL)
+    #define QOL_MUTEX_LOCK(mutex) pthread_mutex_lock(&(mutex))
+    #define QOL_MUTEX_UNLOCK(mutex) pthread_mutex_unlock(&(mutex))
+    #define QOL_MUTEX_DESTROY(mutex) pthread_mutex_destroy(&(mutex))
+#endif
+
+    // Mutexes for protecting global state
+#if defined(WINDOWS)
+    // On Windows, CRITICAL_SECTION must be initialized dynamically
+    static CRITICAL_SECTION qol_logger_mutex;
+    static CRITICAL_SECTION qol_temp_alloc_mutex;
+    static CRITICAL_SECTION qol_argparser_mutex;
+    static CRITICAL_SECTION qol_test_mutex;
+    static CRITICAL_SECTION qol_win32_err_mutex;
+    static volatile LONG qol_mutexes_initialized = 0;  // 0=uninit, 1=initting, 2=done
+#else
+    // On Unix, use PTHREAD_MUTEX_INITIALIZER for static initialization
+    static pthread_mutex_t qol_logger_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_temp_alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_argparser_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_test_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_win32_err_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static volatile int qol_mutexes_initialized = 1;  // Already initialized on Unix
+#endif
+
+    // Initialize all mutexes (called automatically on first use, thread-safe)
+    static void qol_init_mutexes(void) {
+#if defined(WINDOWS)
+        // Simple spin-lock for initialization (Windows only, since CRITICAL_SECTION needs init)
+        LONG expected = 0;
+        if (InterlockedCompareExchange(&qol_mutexes_initialized, 1, 0) == 0) {
+            // We're the first thread to initialize
+            InitializeCriticalSection(&qol_logger_mutex);
+            InitializeCriticalSection(&qol_temp_alloc_mutex);
+            InitializeCriticalSection(&qol_argparser_mutex);
+            InitializeCriticalSection(&qol_test_mutex);
+            InitializeCriticalSection(&qol_win32_err_mutex);
+            InterlockedExchange(&qol_mutexes_initialized, 2);  // Mark as fully initialized
+        } else {
+            // Wait for initialization to complete (spin-wait, should be very fast)
+            while (qol_mutexes_initialized != 2) {
+                Sleep(0);  // Yield to other threads
+            }
+        }
+#else
+        // On Unix, mutexes are statically initialized, nothing to do
+        (void)0;  // Suppress unused function warning
+#endif
+    }
+
+    // Thread-local storage for time/date buffers (better than mutex for these)
+    // Each thread gets its own buffer, eliminating race conditions
+#if defined(WINDOWS)
+    __declspec(thread) static char qol_time_buf_tls[64] = {0};
+    __declspec(thread) static char qol_date_buf_tls[64] = {0};
+    __declspec(thread) static char qol_datetime_buf_tls[64] = {0};
+    __declspec(thread) static bool qol_test_current_failed_tls = false;
+#else
+    static __thread char qol_time_buf_tls[64] = {0};
+    static __thread char qol_date_buf_tls[64] = {0};
+    static __thread char qol_datetime_buf_tls[64] = {0};
+    static __thread bool qol_test_current_failed_tls = false;
+#endif
+
+    //////////////////////////////////////////////////
     /// ANSI COLORS //////////////////////////////////
     //////////////////////////////////////////////////
 
@@ -1232,9 +1315,12 @@ void qol_timer_reset(QOL_Timer *timer);
     static FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
 
     void qol_init_logger(qol_log_level_t level, bool color, bool time) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_logger_mutex);
         qol_logger_min_level = level;
         qol_logger_color = color;
         qol_logger_time = time;
+        QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
     // TODO: should be moved to file utils?
@@ -1277,30 +1363,29 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     const char *qol_get_time(void) { // TODO: set the fmt as a parameter
-        static char time_buf[64];
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
-        strftime(time_buf, sizeof(time_buf), "%H-%M-%S", lt);
-        return time_buf;
+        strftime(qol_time_buf_tls, sizeof(qol_time_buf_tls), "%H-%M-%S", lt);
+        return qol_time_buf_tls;
     }
 
     const char *qol_get_date(void) { // TODO: set the fmt as a parameter
-        static char date_buf[64];
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
-        strftime(date_buf, sizeof(date_buf), "%Y-%m-%d", lt);
-        return date_buf;
+        strftime(qol_date_buf_tls, sizeof(qol_date_buf_tls), "%Y-%m-%d", lt);
+        return qol_date_buf_tls;
     }
 
     const char *qol_get_datetime(void) { // TODO: set the fmt as a parameter
-        static char datetime_buf[64];
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
-        strftime(datetime_buf, sizeof(datetime_buf), "%Y-%m-%d_%H-%M-%S", lt);
-        return datetime_buf;
+        strftime(qol_datetime_buf_tls, sizeof(qol_datetime_buf_tls), "%Y-%m-%d_%H-%M-%S", lt);
+        return qol_datetime_buf_tls;
     }
 
     void qol_init_logger_logfile(const char *format, ...) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_logger_mutex);
         // Close existing log file if open
         if (qol_log_file != NULL) {
             fclose(qol_log_file);
@@ -1318,6 +1403,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
             char *expanded_path = qol_expand_path(path);
             if (!expanded_path) {
+                QOL_MUTEX_UNLOCK(qol_logger_mutex);
                 fprintf(stderr, "Failed to expand path: %s\n", path);
                 return;
             }
@@ -1329,6 +1415,7 @@ void qol_timer_reset(QOL_Timer *timer);
 
             free(expanded_path);
         }
+        QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
     static const char *qol_level_to_str(qol_log_level_t level) {
@@ -1358,12 +1445,23 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     void qol_log(qol_log_level_t level, const char *fmt, ...) {
-        if (level < qol_logger_min_level || level >= QOL_LOG_NONE) return;
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_logger_mutex);
+        // Check level and read settings atomically
+        qol_log_level_t min_level = qol_logger_min_level;
+        bool use_color = qol_logger_color;
+        bool use_time = qol_logger_time;
+        FILE *log_file = qol_log_file;
+
+        if (level < min_level || level >= QOL_LOG_NONE) {
+            QOL_MUTEX_UNLOCK(qol_logger_mutex);
+            return;
+        }
 
         const char *level_str = qol_level_to_str(level);
 
         const char *level_color = "";
-        if (qol_logger_color) {
+        if (use_color) {
             level_color = qol_level_to_color(level);
         }
 
@@ -1371,7 +1469,7 @@ void qol_timer_reset(QOL_Timer *timer);
         // const char* reset_str = !(level == QOL_LOG_WARN || level == QOL_LOG_DIAG) ? QOL_COLOR_RESET : "";
 
         char time_buf[32] = {0};
-        if (qol_logger_time) {
+        if (use_time) {
             time_t t = time(NULL);
             struct tm *lt = localtime(&t);
             strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
@@ -1380,12 +1478,12 @@ void qol_timer_reset(QOL_Timer *timer);
             fprintf(stderr, "%s[%s]%s ", level_color, level_str, QOL_COLOR_RESET);
         }
 
-        // Write to log file (without color codes)
-        if (qol_log_file != NULL) {
-            if (qol_logger_time) {
-                fprintf(qol_log_file, "[%s] %s >>> ", level_str, time_buf);
+        // Write to log file (without color codes) - protect file access
+        if (log_file != NULL) {
+            if (use_time) {
+                fprintf(log_file, "[%s] %s >>> ", level_str, time_buf);
             } else {
-                fprintf(qol_log_file, "[%s] ", level_str);
+                fprintf(log_file, "[%s] ", level_str);
             }
         }
 
@@ -1412,12 +1510,12 @@ void qol_timer_reset(QOL_Timer *timer);
 
             // Write error message to log file (plain text, no ASCII art for readability)
             // va_copy is needed because va_list can only be traversed once per va_start
-            if (qol_log_file != NULL) {
+            if (log_file != NULL) {
                 va_list args_copy;
                 va_copy(args_copy, args);  // Copy va_list for second traversal
-                vfprintf(qol_log_file, fmt, args_copy);
+                vfprintf(log_file, fmt, args_copy);
                 va_end(args_copy);         // Clean up copied va_list
-                fflush(qol_log_file);       // Ensure message is written immediately
+                fflush(log_file);   // Ensure message is written immediately
             }
         } else {
             // Normal log levels: Just print the message with formatting
@@ -1425,16 +1523,17 @@ void qol_timer_reset(QOL_Timer *timer);
 
             // Write message to log file (plain text, no color codes)
             // va_copy allows us to traverse va_list twice (once for stderr, once for file)
-            if (qol_log_file != NULL) {
+            if (log_file != NULL) {
                 va_list args_copy;
                 va_copy(args_copy, args);  // Copy va_list for second traversal
-                vfprintf(qol_log_file, fmt, args_copy);
+                vfprintf(log_file, fmt, args_copy);
                 va_end(args_copy);         // Clean up copied va_list
-                fflush(qol_log_file);       // Ensure message is written immediately
+                fflush(log_file);  // Ensure message is written immediately
             }
         }
 
         va_end(args);  // Clean up original va_list
+        QOL_MUTEX_UNLOCK(qol_logger_mutex);
 
         // Handle fatal log level
         if (level == QOL_LOG_DEAD) {
@@ -1449,13 +1548,20 @@ void qol_timer_reset(QOL_Timer *timer);
     //////////////////////////////////////////////////
 
     void qol_init_argparser(int argc, char *argv[]) {
+        qol_init_mutexes();
         // Register built-in --help argument (no default value, flag-style)
         qol_add_argument("--help", NULL, "Show this help message");
 
         // Parse each command-line argument (skip argv[0] which is program name)
+        QOL_MUTEX_LOCK(qol_argparser_mutex);
+        int parser_count = qol_parser.count;
+        QOL_MUTEX_UNLOCK(qol_argparser_mutex);
         for (int i = 1; i < argc; i++) {
             // Check against all registered arguments
-            for (int j = 0; j < qol_parser.count; j++) {
+            QOL_MUTEX_LOCK(qol_argparser_mutex);
+            // Re-check count in case it changed
+            parser_count = qol_parser.count;
+            for (int j = 0; j < parser_count; j++) {
                 qol_arg_t *arg = &qol_parser.args[j];
 
                 // Long option match: Check if argv[i] matches --long_name format
@@ -1485,14 +1591,17 @@ void qol_timer_reset(QOL_Timer *timer);
                     }
                 }
             }
+            QOL_MUTEX_UNLOCK(qol_argparser_mutex);
         }
 
         // Show help message if --help was specified, then exit
         qol_arg_t *help = qol_get_argument("--help");
         if (help && help->value) {
             printf("Usage:\n");
+            QOL_MUTEX_LOCK(qol_argparser_mutex);
             // Print all registered arguments with their help text
-            for (int i = 0; i < qol_parser.count; i++) {
+            int parser_count = qol_parser.count;
+            for (int i = 0; i < parser_count; i++) {
                 qol_arg_t *arg = &qol_parser.args[i];
                 printf("  %s, -%c: %s (default: %s)\n",
                     arg->long_name,
@@ -1500,6 +1609,7 @@ void qol_timer_reset(QOL_Timer *timer);
                     arg->help_msg ? arg->help_msg : "",
                     arg->default_val ? arg->default_val : "none");
             }
+            QOL_MUTEX_UNLOCK(qol_argparser_mutex);
             exit(0); // Exit successfully after showing help
         }
     }
@@ -1509,8 +1619,11 @@ void qol_timer_reset(QOL_Timer *timer);
     qol_argparser_t qol_parser = { .count = 0 };
 
     void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_argparser_mutex);
         // Check if we've reached the maximum number of arguments
         if (qol_parser.count >= QOL_ARG_MAX) {
+            QOL_MUTEX_UNLOCK(qol_argparser_mutex);
             qol_log(QOL_LOG_ERRO, "Maximum number of arguments reached\n");
             return;
         }
@@ -1521,15 +1634,22 @@ void qol_timer_reset(QOL_Timer *timer);
         arg->default_val = default_val;
         arg->help_msg = help_msg;
         arg->value = default_val; // Initialize value to default (will be overwritten if found in argv)
+        QOL_MUTEX_UNLOCK(qol_argparser_mutex);
     }
 
     qol_arg_t *qol_get_argument(const char *long_name) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_argparser_mutex);
         // Linear search through registered arguments
+        qol_arg_t *result = NULL;
         for (int i = 0; i < qol_parser.count; i++) {
-            if (strcmp(qol_parser.args[i].long_name, long_name) == 0)
-                return &qol_parser.args[i];
+            if (strcmp(qol_parser.args[i].long_name, long_name) == 0) {
+                result = &qol_parser.args[i];
+                break;
+            }
         }
-        return NULL; // Argument not found
+        QOL_MUTEX_UNLOCK(qol_argparser_mutex);
+        return result; // Argument not found
     }
 
     int qol_arg_as_int(qol_arg_t *arg) {
@@ -1868,6 +1988,8 @@ void qol_timer_reset(QOL_Timer *timer);
 
 #ifdef WINDOWS
     char *qol_win32_error_message(DWORD err) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_win32_err_mutex);
         static char win32ErrMsg[QOL_WIN32_ERR_BUFFER_SIZE] = {0};
         DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
                                           sizeof(win32ErrMsg), NULL);
@@ -1875,14 +1997,18 @@ void qol_timer_reset(QOL_Timer *timer);
         if (errMsgSize == 0) {
             if (GetLastError() != ERRO_MR_MID_NOT_FOUND) {
                 if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "Could not get error message for 0x%lX", err) > 0) {
+                    QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
                     return (char *)&win32ErrMsg;
                 } else {
+                    QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
                     return NULL;
                 }
             } else {
                 if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "Invalid Windows Error code (0x%lX)", err) > 0) {
+                    QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
                     return (char *)&win32ErrMsg;
                 } else {
+                    QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
                     return NULL;
                 }
             }
@@ -1892,6 +2018,7 @@ void qol_timer_reset(QOL_Timer *timer);
             win32ErrMsg[--errMsgSize] = '\0';
         }
 
+        QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
         return win32ErrMsg;
     }
 #endif
@@ -2168,9 +2295,15 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     void *qol_temp_alloc(size_t size) {
-        if (qol_temp_size + size > QOL_TEMP_CAPACITY) return NULL;
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
+        if (qol_temp_size + size > QOL_TEMP_CAPACITY) {
+            QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
+            return NULL;
+        }
         void *result = &qol_temp[qol_temp_size];
         qol_temp_size += size;
+        QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
         return result;
     }
 
@@ -2197,15 +2330,25 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     void qol_temp_reset(void) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
         qol_temp_size = 0;
+        QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
     }
 
     size_t qol_temp_save(void) {
-        return qol_temp_size;
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
+        size_t checkpoint = qol_temp_size;
+        QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
+        return checkpoint;
     }
 
     void qol_temp_rewind(size_t checkpoint) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
         qol_temp_size = checkpoint;
+        QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
     }
 
     //////////////////////////////////////////////////
@@ -3344,7 +3487,10 @@ void qol_timer_reset(QOL_Timer *timer);
     char qol_test_failure_msg[256] = {0};
 
     void qol_test_register(const char *name, const char *file, int line, void (*test_func)(void)) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_test_mutex);
         if (qol_test_suite.count >= QOL_ARRAY_LEN(qol_test_suite.tests)) {
+            QOL_MUTEX_UNLOCK(qol_test_mutex);
             fprintf(stderr, "Too many tests registered!\n");
             return;
         }
@@ -3353,33 +3499,41 @@ void qol_timer_reset(QOL_Timer *timer);
         test->file = file;
         test->line = line;
         test->func = test_func;
+        QOL_MUTEX_UNLOCK(qol_test_mutex);
     }
 
-    static bool qol_test_current_failed = false;
-
     void qol_test_fail(void) {
-        qol_test_current_failed = true;
+        qol_test_current_failed_tls = true;
     }
 
     int qol_test_run_all(void) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_test_mutex);
         size_t test_count = qol_test_suite.count;
         qol_test_suite.passed = 0;
         qol_test_suite.failed = 0;
+        QOL_MUTEX_UNLOCK(qol_test_mutex);
 
         // Find the longest test name for alignment
+        QOL_MUTEX_LOCK(qol_test_mutex);
         size_t max_name_len = 0;
         for (size_t i = 0; i < test_count; i++) {
             size_t len = strlen(qol_test_suite.tests[i].name);
             if (len > max_name_len) max_name_len = len;
         }
+        QOL_MUTEX_UNLOCK(qol_test_mutex);
 
         const size_t target_width = 60;
         const char *prefix = "Testcase: ";
 
         for (size_t i = 0; i < test_count; i++) {
+            QOL_MUTEX_LOCK(qol_test_mutex);
             qol_test_t *test = &qol_test_suite.tests[i];
-            qol_test_current_failed = false;
+            QOL_MUTEX_UNLOCK(qol_test_mutex);
+            qol_test_current_failed_tls = false;
+            QOL_MUTEX_LOCK(qol_test_mutex);
             qol_test_failure_msg[0] = '\0'; // Reset failure message
+            QOL_MUTEX_UNLOCK(qol_test_mutex);
 
             // Calculate dots needed to reach alignment point
             size_t name_len = strlen(test->name);
@@ -3390,7 +3544,7 @@ void qol_timer_reset(QOL_Timer *timer);
             if (qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
             if (!qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
 
-            // Print dots for alignment
+            // Print dots for alignment (using thread-safe printf)
             for (size_t j = 0; j < dots_needed; j++) {
                 // TODO: if the line to print is longer then the needed dots, its
                 //       ending up in a inf loop.
@@ -3403,11 +3557,14 @@ void qol_timer_reset(QOL_Timer *timer);
             test->func();
 
             // Print result on same line with colors
-            if (qol_test_current_failed) {
+            bool failed = qol_test_current_failed_tls;
+            QOL_MUTEX_LOCK(qol_test_mutex);
+            const char *failure_msg = qol_test_failure_msg;
+            if (failed) {
                 if (qol_logger_color) printf(QOL_FG_RED" [FAILED]"QOL_RESET"\n");
                 if (!qol_logger_color) printf(" [FAILED]\n");
-                if (qol_test_failure_msg[0] != '\0') {
-                    printf("  %s\n", qol_test_failure_msg);
+                if (failure_msg[0] != '\0') {
+                    printf("  %s\n", failure_msg);
                 }
                 qol_test_suite.failed++;
             } else {
@@ -3415,18 +3572,23 @@ void qol_timer_reset(QOL_Timer *timer);
                 if (!qol_logger_color) printf(" [OK]\n");
                 qol_test_suite.passed++;
             }
+            QOL_MUTEX_UNLOCK(qol_test_mutex);
         }
+
+        QOL_MUTEX_LOCK(qol_test_mutex);
+        size_t total = qol_test_suite.count;
+        size_t passed = qol_test_suite.passed;
+        size_t failed = qol_test_suite.failed;
+        QOL_MUTEX_UNLOCK(qol_test_mutex);
 
         if (qol_logger_color) {
             qol_log(QOL_LOG_HINT, "Total: " QOL_FG_YELLOW "%zu" QOL_RESET", Passed: " QOL_FG_GREEN "%zu" QOL_RESET
-                    ", Failed: " QOL_FG_RED "%zu" QOL_RESET "\n", qol_test_suite.count, qol_test_suite.passed,
-                    qol_test_suite.failed);
+                    ", Failed: " QOL_FG_RED "%zu" QOL_RESET "\n", total, passed, failed);
         } else {
-            qol_log(QOL_LOG_INFO, "Total: %zu, Passed: %zu, Failed: %zu\n", qol_test_suite.count,
-                   qol_test_suite.passed, qol_test_suite.failed);
+            qol_log(QOL_LOG_INFO, "Total: %zu, Passed: %zu, Failed: %zu\n", total, passed, failed);
         }
 
-        return qol_test_suite.failed > 0 ? 1 : 0;
+        return failed > 0 ? 1 : 0;
     }
 
     //////////////////////////////////////////////////
