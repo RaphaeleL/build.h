@@ -36,6 +36,7 @@ int main() {
         {"examples/010_qol_temp_alloc.c", "out/010_temp_alloc"},
         {"examples/011_qol_path_utils.c", "out/011_path_utils"},
         {"examples/012_qol_string_utils.c", "out/012_string_utils"},
+        {"examples/013_qol_thread_safety.c", "out/013_qol_thread_safety"},
         {"examples/901_qol_demo_calculator.c", "out/901_demo_calculator"},
         {"examples/902_qol_demo_pointer.c", "out/902_demo_pointer"},
         {"tests/unittests.c", "out/unittests"},
@@ -47,6 +48,11 @@ int main() {
     for (size_t i = 0; i < ARRAY_LEN(examples); i++) {
         // Create default C build command: cc source.c -o output
         cmd = default_c_build(examples[i][0], examples[i][1]);
+
+        // Add pthread linking for thread-safety example (Unix only)
+#ifdef WINDOWS
+        if (strstr(examples[i][0], "013_qol_thread_safety") != NULL) push(&cmd, "-pthread");
+#endif
 
         // Run build command asynchronously, adding process handle to procs array
         // If run() returns false, it means the command failed synchronously (before async start)
