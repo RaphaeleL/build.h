@@ -19,6 +19,7 @@ A collection of essential utilities that make C development more pleasant. Think
 - **Path utilities** for common path manipulations
 - **String utilities** for common string operations (trim, split, join, replace, etc.)
 - **Cross-platform command execution** using fork/exec (POSIX) or CreateProcess (Windows)
+- **Thread-safe** implementation throughout with mutexes
 
 **Supported platforms:** Linux, macOS, Windows
 
@@ -405,6 +406,38 @@ int main(void) {
 
 **Available macros:** `TEST`, `TEST_ASSERT`, `TEST_EQ`, `TEST_NEQ`, `TEST_STREQ`, `TEST_STRNEQ`, `TEST_TRUTHY`, `TEST_FALSY`
 
+## Thread Safety
+
+The library is fully thread-safe and can be used safely from multiple threads simultaneously. All global state is protected with cross-platform mutexes that are automatically initialized on first use — no manual setup required.
+
+**Implementation details:**
+
+- **Cross-platform mutexes:** Uses `pthread_mutex_t` on Unix-like systems and `CRITICAL_SECTION` on Windows
+- **Per-subsystem mutexes:** Each major subsystem has its own mutex to minimize contention:
+  - Logger (`qol_logger_mutex`) — protects logger configuration and file output
+  - Temporary allocator (`qol_temp_alloc_mutex`) — protects the arena allocator state
+  - Argument parser (`qol_argparser_mutex`) — protects registered arguments and parsing state
+  - Test framework (`qol_test_mutex`) — protects test registration and execution
+  - Windows error handling (`qol_win32_err_mutex`) — protects Windows error message buffers
+- **Thread-local storage:** Time/date buffers (`qol_get_time()`, `qol_get_date()`, `qol_get_datetime()`) and test failure state use thread-local storage to eliminate contention entirely
+- **Automatic initialization:** Mutexes are initialized automatically on first use via `qol_init_mutexes()`, which uses atomic operations to ensure thread-safe initialization
+
+**Usage:**
+
+No special setup is required — just use the library from multiple threads:
+
+```c
+// Thread 1
+qol_log(QOL_LOG_INFO, "Message from thread 1\n");
+
+// Thread 2 (simultaneously)
+qol_log(QOL_LOG_INFO, "Message from thread 2\n");
+
+// Both are safe and will be properly serialized
+```
+
+All functions that access global state automatically acquire the appropriate mutex, ensuring thread-safe operation without any changes to your code.
+
 ## Prefix Stripping
 
 Define `QOL_STRIP_PREFIX` to use short names (e.g., `info` instead of `qol_info`, `Cmd` instead of `QOL_Cmd`). See the bottom of `build.h` for the full mapping.
@@ -433,10 +466,10 @@ A: The logger has process-global settings; other parts are not thread-safe. Use 
 > Check out the `changelog/` directory for the version history.
 
 **Completed:**
-- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling
+- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling, Thread safety
 
 **Planned:**
-- Queue/stack macros, ring buffer, linked list, easier parallel builds
+- Queue/stack macros, ring buffer, linked list, easier parallel builds, better Windows support
 
 ## License
 
