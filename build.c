@@ -50,9 +50,7 @@ int main() {
         cmd = default_c_build(examples[i][0], examples[i][1]);
 
         // Add pthread linking for thread-safety example (Unix only)
-#ifdef WINDOWS
-        if (strstr(examples[i][0], "013_qol_thread_safety") != NULL) push(&cmd, "-pthread");
-#endif
+        if (is_windows && strstr(examples[i][0], "013_qol_thread_safety") != NULL) push(&cmd, "-pthread");
 
         // Run build command asynchronously, adding process handle to procs array
         // If run() returns false, it means the command failed synchronously (before async start)

@@ -146,10 +146,22 @@
 // LINUX: Defined for Linux systems
 // UNKNOWN: Fallback for unrecognized platforms (will cause compile error later)
 #if defined(_WIN32) || defined(_WIN64)
+    static bool qol_is_windows = true;
+    static bool qol_is_linux = false;
+    static bool qol_is_macos = false;
+    static const char *qol_os_name = "Windows";
     #define WINDOWS 1
 #elif defined(__APPLE__) && defined(__MACH__)
+    static bool qol_is_windows = true;
+    static bool qol_is_linux = false;
+    static bool qol_is_macos = true;
+    static const char *qol_os_name = "macOS";
     #define MACOS 1
 #elif defined(__linux__)
+    static bool qol_is_windows = true;
+    static bool qol_is_linux = true;
+    static bool qol_is_macos = false;
+    static const char *qol_os_name = "Linux";
     #define LINUX 1
 #else
     #define UNKNOWN 1
@@ -3855,6 +3867,12 @@ void qol_timer_reset(QOL_Timer *timer);
     #define BG256(n)                QOL_BG256(n)
     #define FG_RGB(r,g,b)           QOL_FG_RGB(r,g,b) 
     #define BG_RGB(r,g,b)           QOL_BG_RGB(r,g,b) 
+
+    // Platform detection
+    #define is_windows              qol_is_windows
+    #define is_macos                qol_is_macos
+    #define is_linux                qol_is_linux   
+    #define os_name                 qol_os_name
 
 #endif // QOL_STRIP_PREFIX
 
