@@ -1,4 +1,4 @@
-/* build.h - v0.0.2 - https://github.com/RaphaeleL/build.h
+/* build.h - v0.0.3 - https://github.com/RaphaeleL/build.h
    ============================================================================
     File: build.h
     Description: Quality-of-life utilities and abstractions for C development.
@@ -15,7 +15,7 @@
     Changed : 21 Dez 2025
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
-    Version : 0.0.2
+    Version : 0.0.3
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
@@ -77,15 +77,21 @@
 
     Changelog:
 
-      v0.0.1 (08.12.2025) - Initial release
-      v0.0.2 (21.12.2025) - Several Fixes (prevent buffer overflow & memory 
-                                           leak & inconsistent state on after 
-                                           failures, easier error handling, 
-                                           logfile newline doubled)
-                          - New Features (String Utilities, Date, Datetime)
-                          - Refactor (Rename the log levels and redefine their 
-                                      behavior)
-      v0.0.3 (xx.xx.xxxx) - New Features (Thread Safe)
+      0.0.1 - 08.12.2025
+        - Initial release 
+
+      0.0.2 - 21.12.2025
+        - prevent buffer overflow 
+        - prevent memory leak 
+        - prevent inconsistent state after several failures
+        - improve the error handling
+        - readability readability in logfile
+        - add string utilities
+        - add date, datetime
+        - rename the log levels and redefine their behavior
+
+      0.0.3 - wip 
+        - overall thread safety improvements
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
