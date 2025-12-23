@@ -121,7 +121,7 @@
 #define QOL_BUILD_H
 
 // Check for C++ compilation and use C linkage for compatibility
-#ifdef __cplusplus 
+#ifdef __cplusplus
     extern "C" {
 #endif // __cplusplus
 
@@ -3871,13 +3871,13 @@ void qol_timer_reset(QOL_Timer *timer);
     #define BG_BWHITE               QOL_BG_BWHITE
     #define FG256(n)                QOL_FG256(n)
     #define BG256(n)                QOL_BG256(n)
-    #define FG_RGB(r,g,b)           QOL_FG_RGB(r,g,b) 
-    #define BG_RGB(r,g,b)           QOL_BG_RGB(r,g,b) 
+    #define FG_RGB(r,g,b)           QOL_FG_RGB(r,g,b)
+    #define BG_RGB(r,g,b)           QOL_BG_RGB(r,g,b)
 
     // Platform detection
     #define is_windows              qol_is_windows
     #define is_macos                qol_is_macos
-    #define is_linux                qol_is_linux   
+    #define is_linux                qol_is_linux
     #define os_name                 qol_os_name
 
 #endif // QOL_STRIP_PREFIX
