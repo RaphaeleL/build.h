@@ -85,9 +85,8 @@
         - prevent memory leak 
         - prevent inconsistent state after several failures
         - improve the error handling
-        - readability readability in logfile
-        - add string utilities
-        - add date, datetime
+        - readability in logfile
+        - add string utilities, date and datetime
         - rename the log levels and redefine their behavior
 
       0.0.3 - wip 
