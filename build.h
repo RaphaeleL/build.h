@@ -2043,6 +2043,11 @@ void qol_timer_reset(QOL_Timer *timer);
     static void qol_cmd_log(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) return;
 
+        // TODO: instead of printing the full command every time, only print a short variant? Basically this 
+        //       `cc -O3 -Wall -Wextra -I./libs/raylib-5.5_macos/include -c main.c -o out/main.o`
+        //       would be transformed into something like `cc ... -c main.c -o out/main.o` or more UNIX 
+        //       Makefile like into `CC main.c`.
+
         char command[QOL_EXEC_BUFFER_SIZE] = {0};
         size_t pos = 0;
         bool truncated = false;
