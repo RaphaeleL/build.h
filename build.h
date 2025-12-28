@@ -590,10 +590,10 @@ bool qol_copy_file(const char *src_path, const char *dst_path);
 // Handles both files and subdirectories recursively. Skips "." and ".." entries.
 bool qol_copy_dir_rec(const char *src_path, const char *dst_path);
 
-// Read and display the contents of a directory. Currently logs directory entries to stdout.
-// The children parameter is reserved for future filtering functionality.
-// Returns true on success, false on failure. Logs directory entries with their types and sizes.
-bool qol_read_dir(const char *parent, const char *children);
+// Read the contents of a directory and store full paths (parent/entry_name) in a QOL_String dynamic array.
+// Returns true on success, false on failure. The content parameter must be initialized (or zeroed).
+// Caller must free with qol_release_string. Skips "." and ".." entries.
+bool qol_read_dir(const char *parent, QOL_String *content);
 
 // Read a file line by line into a QOL_String dynamic array. Each line becomes an element.
 // Returns true on success, false on failure. Strips trailing newlines from each line.
@@ -2584,9 +2584,12 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    bool qol_read_dir(const char *parent, const char *children) {
-        if (!parent || !children) return false;
-        QOL_UNUSED(children); // Reserved for future filtering
+    bool qol_read_dir(const char *parent, QOL_String *content) {
+        if (!parent || !content) return false;
+
+        content->data = NULL;
+        content->len = 0;
+        content->cap = 0;
 
 #if defined(MACOS) || defined(LINUX)
         DIR *dir = opendir(parent);
@@ -2596,24 +2599,24 @@ void qol_timer_reset(QOL_Timer *timer);
         }
 
         struct dirent *entry;
-        qol_log(QOL_LOG_INFO, "Contents of %s:\n", parent);
+        char full_path[QOL_PATH_BUFFER_SIZE];
         while ((entry = readdir(dir)) != NULL) {
-            struct stat st;
-            char full_path[QOL_PATH_BUFFER_SIZE];
+            // Skip "." and ".." entries
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+
             if (snprintf(full_path, sizeof(full_path), "%s/%s", parent, entry->d_name) >= (int)sizeof(full_path)) {
                 qol_log(QOL_LOG_WARN, "Path too long, skipping: %s/%s\n", parent, entry->d_name);
                 continue;
             }
 
-            if (stat(full_path, &st) == 0) {
-                if (S_ISDIR(st.st_mode)) {
-                    qol_log(QOL_LOG_INFO, "  [DIR]  %s\n", entry->d_name);
-                } else if (S_ISREG(st.st_mode)) {
-                    qol_log(QOL_LOG_INFO, "  [FILE] %s (%zu bytes)\n", entry->d_name, (size_t)st.st_size);
-                } else {
-                    qol_log(QOL_LOG_INFO, "  [????] %s\n", entry->d_name);
-                }
+            char *entry_path = strdup(full_path);
+            if (!entry_path) {
+                qol_release_string(content);
+                closedir(dir);
+                return false;
             }
+            qol_push(content, entry_path);
         }
 
         closedir(dir);
@@ -2632,14 +2635,24 @@ void qol_timer_reset(QOL_Timer *timer);
             return false;
         }
 
-        qol_log(QOL_LOG_INFO, "Contents of %s:\n", parent);
+        char full_path[QOL_PATH_BUFFER_SIZE];
         do {
-            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                qol_log(QOL_LOG_INFO, "  [DIR]  %s\n", find_data.cFileName);
-            } else {
-                qol_log(QOL_LOG_INFO, "  [FILE] %s (%lu bytes)\n",
-                        find_data.cFileName, find_data.nFileSizeLow);
+            // Skip "." and ".." entries
+            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+                continue;
+
+            if (snprintf(full_path, sizeof(full_path), "%s\\%s", parent, find_data.cFileName) >= (int)sizeof(full_path)) {
+                qol_log(QOL_LOG_WARN, "Path too long, skipping: %s\\%s\n", parent, find_data.cFileName);
+                continue;
             }
+
+            char *entry_path = _strdup(full_path);
+            if (!entry_path) {
+                qol_release_string(content);
+                FindClose(handle);
+                return false;
+            }
+            qol_push(content, entry_path);
         } while (FindNextFile(handle, &find_data));
 
         FindClose(handle);
