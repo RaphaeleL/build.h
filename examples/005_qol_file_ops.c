@@ -57,7 +57,14 @@ int main() {
 
     // Test 6: Directory listing
     qol_info("\n--- Test 6: Directory Listing ---\n");
-    qol_read_dir(".", NULL);
+    QOL_String dir_contents = {0};
+    if (qol_read_dir(".", &dir_contents)) {
+        qol_info("Directory contains %zu entries:\n", dir_contents.len);
+        for (size_t i = 0; i < dir_contents.len; i++) {
+            qol_info("  %s\n", dir_contents.data[i]);
+        }
+        qol_release_string(&dir_contents);
+    }
 
     // Test 7: Recursive directory copy
     qol_info("\n--- Test 7: Recursive Directory Copy ---\n");
@@ -74,7 +81,13 @@ int main() {
         
         // List the copied directory to verify
         qol_info("\nContents of copied directory:\n");
-        qol_read_dir("test_dir_copy", NULL);
+        QOL_String copied_dir_contents = {0};
+        if (qol_read_dir("test_dir_copy", &copied_dir_contents)) {
+            for (size_t i = 0; i < copied_dir_contents.len; i++) {
+                qol_info("  %s\n", copied_dir_contents.data[i]);
+            }
+            qol_release_string(&copied_dir_contents);
+        }
     }
 
     // Test 8: File deletion
