@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 21 Dez 2025
+    Changed : 28 Dez 2025
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.3
@@ -91,6 +91,7 @@
 
       0.0.3 - wip 
         - overall thread safety improvements
+        - make qol_read_dir() saving full paths
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
