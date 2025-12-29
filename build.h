@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 28 Dez 2025
+    Changed : 29 Dez 2025
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.3
@@ -93,6 +93,7 @@
         - overall thread safety improvements
         - make qol_read_dir() saving full paths
         - add qol_read_dir_recursive() to read dirs recursively
+        - fix mutex forward declaration location
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -138,6 +139,10 @@
 #include <sys/types.h>  // System data type definitions
 #include <errno.h>      // Error codes and messages
 #include <limits.h>     // System-specific limits
+
+#ifndef QOLDEF // Goes before declarations & definitions in case of `static inline` 
+#define QOLDEF
+#endif /* QOLDEF */
 
 // Custom assertion macro - can be overridden by defining QOL_ASSERT before including this header
 // Defaults to standard assert() from assert.h. Useful for custom assertion handling in tests.
@@ -1039,6 +1044,46 @@ size_t qol_hm_size(QOL_HashMap* hm);
 bool qol_hm_empty(QOL_HashMap* hm);
 
 //////////////////////////////////////////////////
+/// THREAD SAFETY ////////////////////////////////
+//////////////////////////////////////////////////
+
+// Thread-safety infrastructure: Cross-platform mutex support
+// Uses pthread_mutex_t on Unix-like systems and CRITICAL_SECTION on Windows
+// All global state access is protected by these mutexes
+#if defined(WINDOWS)
+    typedef CRITICAL_SECTION QOL_Mutex;
+    #define QOL_MUTEX_INIT(mutex) InitializeCriticalSection(&(mutex))
+    #define QOL_MUTEX_LOCK(mutex) EnterCriticalSection(&(mutex))
+    #define QOL_MUTEX_UNLOCK(mutex) LeaveCriticalSection(&(mutex))
+    #define QOL_MUTEX_DESTROY(mutex) DeleteCriticalSection(&(mutex))
+#else
+    typedef pthread_mutex_t QOL_Mutex;
+    #define QOL_MUTEX_INIT(mutex) pthread_mutex_init(&(mutex), NULL)
+    #define QOL_MUTEX_LOCK(mutex) pthread_mutex_lock(&(mutex))
+    #define QOL_MUTEX_UNLOCK(mutex) pthread_mutex_unlock(&(mutex))
+    #define QOL_MUTEX_DESTROY(mutex) pthread_mutex_destroy(&(mutex))
+#endif
+
+// Mutexes for protecting global state
+#if defined(WINDOWS)
+    // On Windows, CRITICAL_SECTION must be initialized dynamically
+    static CRITICAL_SECTION qol_logger_mutex;
+    static CRITICAL_SECTION qol_temp_alloc_mutex;
+    static CRITICAL_SECTION qol_argparser_mutex;
+    static CRITICAL_SECTION qol_test_mutex;
+    static CRITICAL_SECTION qol_win32_err_mutex;
+    static volatile LONG qol_mutexes_initialized = 0;  // 0=uninit, 1=initting, 2=done
+#else
+    // On Unix, use PTHREAD_MUTEX_INITIALIZER for static initialization
+    static pthread_mutex_t qol_logger_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_temp_alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_argparser_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_test_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_mutex_t qol_win32_err_mutex = PTHREAD_MUTEX_INITIALIZER;
+    static volatile int qol_mutexes_initialized = 1;  // Already initialized on Unix
+#endif
+
+//////////////////////////////////////////////////
 /// HELPER ///////////////////////////////////////
 //////////////////////////////////////////////////
 
@@ -1220,42 +1265,6 @@ void qol_timer_reset(QOL_Timer *timer);
     //////////////////////////////////////////////////
     /// THREAD SAFETY ////////////////////////////////
     //////////////////////////////////////////////////
-
-    // Thread-safety infrastructure: Cross-platform mutex support
-    // Uses pthread_mutex_t on Unix-like systems and CRITICAL_SECTION on Windows
-    // All global state access is protected by these mutexes
-#if defined(WINDOWS)
-    typedef CRITICAL_SECTION QOL_Mutex;
-    #define QOL_MUTEX_INIT(mutex) InitializeCriticalSection(&(mutex))
-    #define QOL_MUTEX_LOCK(mutex) EnterCriticalSection(&(mutex))
-    #define QOL_MUTEX_UNLOCK(mutex) LeaveCriticalSection(&(mutex))
-    #define QOL_MUTEX_DESTROY(mutex) DeleteCriticalSection(&(mutex))
-#else
-    typedef pthread_mutex_t QOL_Mutex;
-    #define QOL_MUTEX_INIT(mutex) pthread_mutex_init(&(mutex), NULL)
-    #define QOL_MUTEX_LOCK(mutex) pthread_mutex_lock(&(mutex))
-    #define QOL_MUTEX_UNLOCK(mutex) pthread_mutex_unlock(&(mutex))
-    #define QOL_MUTEX_DESTROY(mutex) pthread_mutex_destroy(&(mutex))
-#endif
-
-    // Mutexes for protecting global state
-#if defined(WINDOWS)
-    // On Windows, CRITICAL_SECTION must be initialized dynamically
-    static CRITICAL_SECTION qol_logger_mutex;
-    static CRITICAL_SECTION qol_temp_alloc_mutex;
-    static CRITICAL_SECTION qol_argparser_mutex;
-    static CRITICAL_SECTION qol_test_mutex;
-    static CRITICAL_SECTION qol_win32_err_mutex;
-    static volatile LONG qol_mutexes_initialized = 0;  // 0=uninit, 1=initting, 2=done
-#else
-    // On Unix, use PTHREAD_MUTEX_INITIALIZER for static initialization
-    static pthread_mutex_t qol_logger_mutex = PTHREAD_MUTEX_INITIALIZER;
-    static pthread_mutex_t qol_temp_alloc_mutex = PTHREAD_MUTEX_INITIALIZER;
-    static pthread_mutex_t qol_argparser_mutex = PTHREAD_MUTEX_INITIALIZER;
-    static pthread_mutex_t qol_test_mutex = PTHREAD_MUTEX_INITIALIZER;
-    static pthread_mutex_t qol_win32_err_mutex = PTHREAD_MUTEX_INITIALIZER;
-    static volatile int qol_mutexes_initialized = 1;  // Already initialized on Unix
-#endif
 
     // Initialize all mutexes (called automatically on first use, thread-safe)
     static void qol_init_mutexes(void) {
