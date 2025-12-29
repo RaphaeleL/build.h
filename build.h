@@ -272,7 +272,7 @@
 // Enable ANSI color codes in Windows console. On Unix-like systems, this is a no-op.
 // This function must be called on Windows before using ANSI color codes for proper display.
 // It enables virtual terminal processing which allows ANSI escape sequences to work.
-void QOL_enable_ansi(void);
+QOLDEF void QOL_enable_ansi(void);
 
 /* Use: QOL_FG256(196) for bright red, QOL_BG256(21) for deep blue */
 /* Use: QOL_FG_RGB(255, 128, 0) */
@@ -300,29 +300,29 @@ typedef enum {
 // color: Enable ANSI color codes for log level highlighting (requires QOL_enable_ansi() on Windows).
 // time: Display timestamps with each log message in format "YYYY-MM-DD HH:MM:SS".
 // Must be called before using any logging functions. Defaults to INFO level if not initialized.
-void qol_init_logger(qol_log_level_t level, bool color, bool time);
+QOLDEF void qol_init_logger(qol_log_level_t level, bool color, bool time);
 
 // Configure logger to also write messages to a file. The file path format string uses printf-style formatting.
 // format: printf-style format string for the log file path (e.g., "logs/app_%s.log", qol_get_time()).
 // Supports variadic arguments for dynamic file naming. File is opened in append mode.
 // If format is NULL, file logging is disabled. Path supports ~ expansion for home directory.
 // Log file contains plain text without ANSI color codes, even if color is enabled for console.
-void qol_init_logger_logfile(const char *format, ...);
+QOLDEF void qol_init_logger_logfile(const char *format, ...);
 
 // Get current time as a formatted string in format "HH-MM-SS".
 // Returns pointer to a static buffer containing the formatted time string.
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
-const char *qol_get_time(void);
+QOLDEF const char *qol_get_time(void);
 
 // Get current time as a formatted string in format "DD-MM-YYYY".
 // Returns pointer to a static buffer containing the formatted date string.
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
-const char *qol_get_date(void);
+QOLDEF const char *qol_get_date(void);
 
 // Get current date and time as a formatted string in format "YYYY-MM-DD_HH-MM-SS".
 // Returns pointer to a static buffer containing the formatted datetime string.
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
-const char *qol_get_datetime(void);
+QOLDEF const char *qol_get_datetime(void);
 
 // Log a message at the specified log level using printf-style formatting.
 // level: Log level (DIAG, INFO, EXEC, HINT, WARN, ERRO, DEAD).
@@ -330,14 +330,13 @@ const char *qol_get_datetime(void);
 // Messages below the minimum level set by qol_init_logger() are filtered out.
 // ERRO level calls exit(EXIT_FAILURE) after logging. DEAD level calls abort() after logging.
 // Logs to stderr by default, and to file if qol_init_logger_logfile() was configured.
-void qol_log(qol_log_level_t level, const char *fmt, ...);
-
+QOLDEF void qol_log(qol_log_level_t level, const char *fmt, ...);
 
 // Expand path: Replace ~ with home directory path (Unix shell-style path expansion)
 // Supports: "~" -> home directory, "~/path" -> home/path
 // Returns newly allocated string that caller must free, or NULL on error
 // If ~ expansion fails (no home directory), returns original path as-is
-static char *qol_expand_path(const char *path);
+QOLDEF char *qol_expand_path(const char *path);
 
 // Macros to easify the usage of log, instead of log(level, fmt) we are offering
 // are more intuitive way of logging level(fmt)
@@ -386,27 +385,27 @@ extern qol_argparser_t qol_parser;
 // Automatically adds --help argument. If --help is found, prints usage and exits.
 // Long options (--option) and short options (-o) are supported. Values follow options.
 // Should be called after registering all arguments with qol_add_argument().
-void qol_init_argparser(int argc, char *argv[]);
+QOLDEF void qol_init_argparser(int argc, char *argv[]);
 
 // Register a command-line argument with the parser. Must be called before qol_init_argparser().
 // long_name: Long option name (e.g., "--output"). Short name is auto-derived from 3rd character.
 // default_val: Default value as string if argument is not provided, or NULL for flags.
 // help_msg: Help text displayed when --help is used. Can be NULL.
 // Arguments are stored in the global qol_parser structure. Maximum QOL_ARG_MAX arguments.
-void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg);
+QOLDEF void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg);
 
 // Get a parsed argument by its long name. Returns pointer to qol_arg_t structure or NULL if not found.
 // The returned structure contains the parsed value (or default) and other argument metadata.
 // Use this after qol_init_argparser() to retrieve argument values. Check value field for result.
-qol_arg_t *qol_get_argument(const char *long_name);
+QOLDEF qol_arg_t *qol_get_argument(const char *long_name);
 
 // Convert an argument's value to an integer. Returns the integer value, or EXIT_SUCCESS (0) if argument is NULL or has no value.
 // Uses atoi() internally to parse the string value. Safe to call on NULL arguments.
-int qol_arg_as_int(qol_arg_t *arg);
+QOLDEF int qol_arg_as_int(qol_arg_t *arg);
 
 // Get an argument's value as a string. Returns the value string, or empty string "" if argument is NULL or has no value.
 // Returns a pointer to the value field in the qol_arg_t structure. The string is valid as long as the argument structure exists.
-const char *qol_arg_as_string(qol_arg_t *arg);
+QOLDEF const char *qol_arg_as_string(qol_arg_t *arg);
 
 // Shift macro: Remove and return the first element from an array, decrementing the size
 // This is a common pattern for processing command-line arguments or array elements sequentially
@@ -456,9 +455,9 @@ typedef struct {
 // Uses dynamic array pattern: grows as arguments are added with qol_push()
 typedef struct {
     const char **data;  // Array of command arguments (argv-style, NULL-terminated when executed)
-    size_t len;          // Number of arguments currently in the command
-    size_t cap;          // Capacity of the data array (for dynamic growth)
-    bool async;          // If true, command runs asynchronously (returns immediately, handle in procs)
+    size_t len;         // Number of arguments currently in the command
+    size_t cap;         // Capacity of the data array (for dynamic growth)
+    bool async;         // If true, command runs asynchronously (returns immediately, handle in procs)
                         // If false, command runs synchronously (waits for completion before returning)
 } QOL_Cmd;
 
@@ -480,7 +479,7 @@ typedef struct {
 // Get default compiler flags for the current platform as a string.
 // Returns platform-specific flags: "-Wall -Wextra" on macOS/Linux, empty string on Windows.
 // This is a static inline function for compile-time optimization.
-static inline char *qol_default_compiler_flags(void);
+QOLDEF char *qol_default_compiler_flags(void);
 
 // Build a default C compilation command structure. Creates a QOL_Cmd with compiler, flags, source, and output.
 // source: Path to source file (e.g., "main.c"). Required. Must be a trusted path - no validation is performed.
@@ -489,7 +488,7 @@ static inline char *qol_default_compiler_flags(void);
 // On Windows uses "gcc", on Unix uses "cc". Adds -Wall -Wextra flags on Unix platforms.
 // SECURITY NOTE: Paths are used directly in command execution without sanitization. Only use trusted paths
 // from your application, not user input. Paths containing shell metacharacters could cause command injection.
-QOL_Cmd qol_default_c_build(const char *source, const char *output);
+QOLDEF QOL_Cmd qol_default_c_build(const char *source, const char *output);
 
 // Run a build command only if source files are newer than the output (incremental build).
 // Checks modification times: if any source is newer than output, runs the command; otherwise skips.
@@ -498,7 +497,7 @@ QOL_Cmd qol_default_c_build(const char *source, const char *output);
 // If config->async is false (default), waits for completion and returns success/failure immediately.
 // Returns true if build succeeded or was skipped (up to date), false on failure.
 // Automatically releases the command memory on completion. Creates output directory if needed.
-bool qol_run_impl(QOL_Cmd *config, QOL_RunOptions opts);
+QOLDEF bool qol_run_impl(QOL_Cmd *config, QOL_RunOptions opts);
 
 // Always run a build command regardless of file modification times (unconditional build).
 // Usage: qol_run_always(&cmd) or qol_run_always(&cmd, (QOL_RunOptions){ .procs = &procs }).
@@ -506,7 +505,7 @@ bool qol_run_impl(QOL_Cmd *config, QOL_RunOptions opts);
 // If config->async is false (default), waits for completion and returns success/failure immediately.
 // Returns true on success, false on failure. Automatically releases the command memory on completion.
 // Creates output directory if needed. Useful for commands that should always run (e.g., tests, clean).
-bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts);
+QOLDEF bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts);
 
 // Macros to make options parameter optional with designated initializer syntax.
 // Usage: qol_run(&cmd) or qol_run(&cmd, .procs=&procs) - options are optional and can be specified by name.
@@ -519,14 +518,14 @@ bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts);
 // Returns true if process exited successfully (exit code 0), false on failure or error.
 // Blocks until the process completes. On Windows, closes the process handle after waiting.
 // Logs error messages if the process failed or if waiting encounters an error.
-bool qol_proc_wait(QOL_Proc proc);
+QOLDEF bool qol_proc_wait(QOL_Proc proc);
 
 // Wait for all processes in a Procs array to complete and check their exit statuses.
 // procs: Pointer to QOL_Procs array containing process handles from async command executions.
 // Returns true if all processes exited successfully, false if any process failed.
 // Waits for each process sequentially and clears the procs array after completion.
 // Useful for waiting on multiple parallel builds or commands executed asynchronously.
-bool qol_procs_wait(QOL_Procs *procs);
+QOLDEF bool qol_procs_wait(QOL_Procs *procs);
 
 // Automatically rebuild the current executable if source file is newer than the binary.
 // src: Path to the source file of the current build system (e.g., "build.c").
@@ -534,7 +533,7 @@ bool qol_procs_wait(QOL_Procs *procs);
 // On Unix, uses execv() to replace the current process. On Windows, spawns new process and exits.
 // This enables automatic rebuild-on-change functionality for build scripts.
 // If rebuild fails or restart fails, logs error and exits. If up to date, continues execution.
-void qol_auto_rebuild(const char *src);
+QOLDEF void qol_auto_rebuild(const char *src);
 
 // Automatically rebuild the current executable if source file or any dependency is newer than the binary.
 // src: Path to the source file of the current build system (e.g., "build.c").
@@ -543,7 +542,7 @@ void qol_auto_rebuild(const char *src);
 // If any file is newer, rebuilds and restarts. Otherwise continues execution.
 // More comprehensive than qol_auto_rebuild() as it checks multiple dependencies.
 // The macro qol_auto_rebuild_plus() automatically appends NULL to the variadic arguments.
-void qol_auto_rebuild_plus_impl(const char *src, ...);
+QOLDEF void qol_auto_rebuild_plus_impl(const char *src, ...);
 
 // Macro to automatically append NULL to variadic args for qol_auto_rebuild_plus_impl().
 // Usage: qol_auto_rebuild_plus("build.c", "build.h", "config.h") - NULL is appended automatically.
@@ -556,7 +555,7 @@ void qol_auto_rebuild_plus_impl(const char *src, ...);
 // Caller must free the returned string. Returns NULL on allocation failure.
 // Handles both Unix '/' and Windows '\' path separators. Useful for auto-generating output names.
 // TODO: Should be in @FILE_OPS, not in @NO_BUILD
-char *qol_get_filename_no_ext(const char *path);
+QOLDEF char *qol_get_filename_no_ext(const char *path);
 
 //////////////////////////////////////////////////
 /// FILE_OPS /////////////////////////////////////
@@ -578,66 +577,66 @@ typedef struct {
 // Logs an error message if the directory creation fails.
 // SECURITY NOTE: Paths are used directly without validation. Only use trusted paths from your application.
 // Paths containing ".." or absolute paths could access unintended directories.
-bool qol_mkdir(const char *path);
+QOLDEF bool qol_mkdir(const char *path);
 
 // Create a directory at the specified path only if it doesn't already exist.
 // Returns true if the directory exists or was successfully created, false on failure.
 // This is a safe wrapper around qol_mkdir that checks for existence first.
-bool qol_mkdir_if_not_exists(const char *path);
+QOLDEF bool qol_mkdir_if_not_exists(const char *path);
 
 // Copy a file from src_path to dst_path. Returns true on success, false on failure.
 // Creates the destination file if it doesn't exist, overwrites if it does.
 // Uses a 4KB buffer for efficient copying. Logs errors if file operations fail.
 // SECURITY NOTE: Paths are used directly without validation. Only use trusted paths from your application.
 // Paths containing ".." could enable path traversal attacks.
-bool qol_copy_file(const char *src_path, const char *dst_path);
+QOLDEF bool qol_copy_file(const char *src_path, const char *dst_path);
 
 // Recursively copy a directory and all its contents from src_path to dst_path.
 // Returns true on success, false on failure. Creates destination directory if needed.
 // Handles both files and subdirectories recursively. Skips "." and ".." entries.
-bool qol_copy_dir_rec(const char *src_path, const char *dst_path);
+QOLDEF bool qol_copy_dir_rec(const char *src_path, const char *dst_path);
 
 // Read the contents of a directory and store full paths (parent/entry_name) in a QOL_String dynamic array.
 // Returns true on success, false on failure. The content parameter must be initialized (or zeroed).
 // Caller must free with qol_release_string. Skips "." and ".." entries.
-bool qol_read_dir(const char *parent, QOL_String *content);
+QOLDEF bool qol_read_dir(const char *parent, QOL_String *content);
 
 // Recursively read the contents of a directory and all subdirectories, storing full paths in a QOL_String dynamic array.
 // Returns true on success, false on failure. The content parameter must be initialized (or zero
 // ed). Caller must free with qol_release_string. Skips "." and ".." entries.
-bool qol_read_dir_recursive(const char *parent, QOL_String *content);
+QOLDEF bool qol_read_dir_recursive(const char *parent, QOL_String *content);
 
 // Read a file line by line into a QOL_String dynamic array. Each line becomes an element.
 // Returns true on success, false on failure. Strips trailing newlines from each line.
 // The content parameter must be initialized (or zeroed). Caller must free with qol_release_string.
-bool qol_read_file(const char *path, QOL_String* content);
+QOLDEF bool qol_read_file(const char *path, QOL_String* content);
 
 // Write binary data to a file. Creates the file if it doesn't exist, overwrites if it does.
 // Returns true if all bytes were written successfully, false on failure.
 // Logs an error if the file cannot be opened or if not all data was written.
-bool qol_write_file(const char *path, const void *data, size_t size);
+QOLDEF bool qol_write_file(const char *path, const void *data, size_t size);
 
 // Get the file extension from a file path. Returns pointer to extension (without dot),
 // or "no_ext" if no extension found, or "unknown" if path is NULL.
 // Example: "file.txt" returns "txt", "file" returns "no_ext".
-const char *qol_get_file_type(const char *path);
+QOLDEF const char *qol_get_file_type(const char *path);
 
 // Delete a file at the specified path. Returns true on success, false on failure.
 // Logs an error message if the file deletion fails. Works on both Unix and Windows.
-bool qol_delete_file(const char *path);
+QOLDEF bool qol_delete_file(const char *path);
 
 // Recursively delete a directory and all its contents. Returns true on success, false on failure.
 // Deletes all files and subdirectories recursively before removing the directory itself.
 // Skips "." and ".." entries. Logs errors if deletion fails at any step.
-bool qol_delete_dir(const char *path);
+QOLDEF bool qol_delete_dir(const char *path);
 
 // Free all memory associated with a QOL_String dynamic array. Frees each string element
 // and the array itself. Sets data to NULL and resets len and cap to 0.
 // Safe to call on NULL or already-freed content.
-void qol_release_string(QOL_String* content);
+QOLDEF void qol_release_string(QOL_String* content);
 
 // Get all Files of a Directory and store them in a QOL_String array, returns true on success, false on failure.
-bool qol_get_files_in_dir(const char *dir_path, QOL_String *files);
+QOLDEF bool qol_get_files_in_dir(const char *dir_path, QOL_String *files);
 
 //////////////////////////////////////////////////
 /// STRING UTILITIES /////////////////////////////
@@ -645,73 +644,73 @@ bool qol_get_files_in_dir(const char *dir_path, QOL_String *files);
 
 // Check if a string starts with a given prefix. Returns true if str starts with prefix, false otherwise.
 // Both parameters must be non-NULL. Returns false if prefix is longer than str.
-bool qol_str_starts_with(const char *str, const char *prefix);
+QOLDEF bool qol_str_starts_with(const char *str, const char *prefix);
 
 // Check if a string ends with a given suffix. Returns true if str ends with suffix, false otherwise.
 // Both parameters must be non-NULL. Returns false if suffix is longer than str.
-bool qol_str_ends_with(const char *str, const char *suffix);
+QOLDEF bool qol_str_ends_with(const char *str, const char *suffix);
 
 // Trim whitespace from both ends of a string in-place. Modifies the string directly.
 // Returns a pointer to the trimmed string (may be different from input if leading whitespace was removed).
 // The string is modified in-place, so ensure it's writable. Trims spaces, tabs, newlines, carriage returns.
-char *qol_str_trim(char *str);
+QOLDEF char *qol_str_trim(char *str);
 
 // Trim whitespace from the left (beginning) of a string in-place. Modifies the string directly.
 // Returns a pointer to the trimmed string (may be different from input if leading whitespace was removed).
-char *qol_str_ltrim(char *str);
+QOLDEF char *qol_str_ltrim(char *str);
 
 // Trim whitespace from the right (end) of a string in-place. Modifies the string directly.
 // Returns the same pointer as input (string is modified in-place).
-char *qol_str_rtrim(char *str);
+QOLDEF char *qol_str_rtrim(char *str);
 
 // Replace all occurrences of a substring in a string. Returns a newly allocated string with replacements.
 // Returns NULL on allocation failure. Caller must free the returned string.
 // This is a safe, non-regex replacement. If old_sub is empty or not found, returns a copy of str.
-char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub);
+QOLDEF char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub);
 
 // Split a string by a delimiter character into a QOL_String array. Returns true on success, false on failure.
 // The result parameter must be initialized (or zeroed). Each element in result will be a dynamically allocated string.
 // Caller must free with qol_release_string(). Empty strings between consecutive delimiters are included as empty strings.
-bool qol_str_split(const char *str, char delimiter, QOL_String *result);
+QOLDEF bool qol_str_split(const char *str, char delimiter, QOL_String *result);
 
 // Join strings from a QOL_String array into a single string using a separator. Returns newly allocated string.
 // Returns NULL on allocation failure. Caller must free the returned string.
 // If the array is empty, returns an empty string (allocated). The separator is inserted between each string.
-char *qol_str_join(QOL_String *strings, const char *separator);
+QOLDEF char *qol_str_join(QOL_String *strings, const char *separator);
 
 // Check if a string contains a substring. Returns true if substring is found, false otherwise.
 // Both parameters must be non-NULL. Returns false if substring is empty.
-bool qol_str_contains(const char *str, const char *substring);
+QOLDEF bool qol_str_contains(const char *str, const char *substring);
 
 // Case-insensitive string comparison. Returns 0 if strings are equal (ignoring case), negative if str1 < str2, positive if str1 > str2.
 // Similar to strcmp but case-insensitive. Both parameters must be non-NULL.
-int qol_str_icmp(const char *str1, const char *str2);
+QOLDEF int qol_str_icmp(const char *str1, const char *str2);
 
 // Path utilities
 
 // Extract the filename (basename) from a file path. Returns pointer to the filename portion.
 // Handles both Unix '/' and Windows '\' path separators. Returns the full path if no separator found.
 // Example: "/path/to/file.txt" returns "file.txt", "C:\\path\\file.txt" returns "file.txt".
-const char *qol_path_name(const char *path);
+QOLDEF const char *qol_path_name(const char *path);
 
 // Rename or move a file/directory from old_path to new_path. Returns true on success, false on failure.
 // On Windows, replaces existing file if new_path exists. On Unix, overwrites if permissions allow.
 // Logs an error message if the rename operation fails.
-bool qol_rename(const char *old_path, const char *new_path);
+QOLDEF bool qol_rename(const char *old_path, const char *new_path);
 
 // Get the current working directory as a string. Returns pointer to temp-allocated string.
 // The returned string is allocated from the temporary allocator and will be valid until
 // the next temp allocator reset. Returns NULL on failure. Logs errors if directory cannot be retrieved.
-const char *qol_get_current_dir_temp(void);
+QOLDEF const char *qol_get_current_dir_temp(void);
 
 // Change the current working directory to the specified path. Returns true on success, false on failure.
 // Logs an error message if the directory change fails. Affects all subsequent relative path operations.
-bool qol_set_current_dir(const char *path);
+QOLDEF bool qol_set_current_dir(const char *path);
 
 // Check if a file or directory exists at the specified path. Returns true if exists, false if not found.
 // On error, logs an error message and returns false. Useful for checking file existence before operations.
 // Changed return type from int (1/0/-1) to bool for consistency with other file operations.
-bool qol_file_exists(const char *file_path);
+QOLDEF bool qol_file_exists(const char *file_path);
 
 // Rebuild detection
 
@@ -719,12 +718,12 @@ bool qol_file_exists(const char *file_path);
 // Returns 1 if rebuild needed (any input is newer than output or output doesn't exist),
 // 0 if up to date, -1 on error. Compares modification times of all input_paths against output_path.
 // Logs errors if file operations fail. Used by build system to determine if compilation is needed.
-int qol_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count);
+QOLDEF int qol_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count);
 
 // Convenience wrapper for qol_needs_rebuild with a single input file.
 // Check if output_path needs to be rebuilt based on modification time of input_path.
 // Returns 1 if rebuild needed, 0 if up to date, -1 on error.
-int qol_needs_rebuild1(const char *output_path, const char *input_path);
+QOLDEF int qol_needs_rebuild1(const char *output_path, const char *input_path);
 
 //////////////////////////////////////////////////
 /// TEMP_ALLOCATOR ///////////////////////////////
@@ -748,24 +747,24 @@ int qol_needs_rebuild1(const char *output_path, const char *input_path);
 // Duplicate a C string using temporary allocator. Returns pointer to temp-allocated copy.
 // The returned string is valid until the next temp allocator reset. Returns NULL if allocation fails.
 // Memory is allocated from a fixed-size buffer (QOL_TEMP_CAPACITY bytes).
-char *qol_temp_strdup(const char *cstr);
+QOLDEF char *qol_temp_strdup(const char *cstr);
 
 // Allocate memory from the temporary allocator. Returns pointer to allocated memory, NULL on failure.
 // Memory is aligned and allocated from a fixed-size buffer. No manual freeing required.
 // All allocations are automatically freed when qol_temp_reset() is called.
 // Returns NULL if requested size exceeds available capacity.
-void *qol_temp_alloc(size_t size);
+QOLDEF void *qol_temp_alloc(size_t size);
 
 // Format a string using temporary allocator (like sprintf but returns temp-allocated string).
 // Returns pointer to formatted string allocated from temp allocator, NULL on failure.
 // The returned string is valid until the next temp allocator reset.
 // Uses vsnprintf internally to determine required size, then allocates and formats.
-char *qol_temp_sprintf(const char *format, ...);
+QOLDEF char *qol_temp_sprintf(const char *format, ...);
 
 // Reset the temporary allocator, freeing all previously allocated memory.
 // After calling this, all pointers returned by temp allocator functions become invalid.
 // Resets the internal allocation counter to zero, making all memory available again.
-void qol_temp_reset(void);
+QOLDEF void qol_temp_reset(void);
 
 // Save the current state of the temporary allocator. Returns a checkpoint value.
 // Can be used with qol_temp_rewind() to restore the allocator to this point.
@@ -775,7 +774,7 @@ size_t qol_temp_save(void);
 // Rewind the temporary allocator to a previously saved checkpoint.
 // All allocations made after the checkpoint are effectively freed.
 // The checkpoint value should be obtained from qol_temp_save().
-void qol_temp_rewind(size_t checkpoint);
+QOLDEF void qol_temp_rewind(size_t checkpoint);
 
 // Windows error handling
 
@@ -784,7 +783,7 @@ void qol_temp_rewind(size_t checkpoint);
     // Returns a pointer to a static buffer containing the formatted error message.
     // The message is formatted using FormatMessageA and has trailing whitespace removed.
     // Returns NULL only if formatting fails completely. Useful for error reporting.
-    char *qol_win32_error_message(DWORD err);
+    QOLDEF char *qol_win32_error_message(DWORD err);
 #endif
 
 //////////////////////////////////////////////////
@@ -996,7 +995,7 @@ typedef struct {
 // Create an empty hashmap with initial capacity of 4 buckets. Returns pointer to new hashmap, NULL on failure.
 // The hashmap uses open addressing with linear probing for collision resolution.
 // Automatically resizes when load factor exceeds 0.75. Caller must free with qol_hm_release().
-QOL_HashMap *qol_hm_create();
+QOLDEF QOL_HashMap *qol_hm_create();
 
 // Insert or update a key-value pair in the hashmap. Keys are strings (null-terminated), values are void* pointers.
 // If key already exists, updates the existing value. If key doesn't exist, creates new entry.
@@ -1006,42 +1005,42 @@ QOL_HashMap *qol_hm_create();
 // use stack-allocated values unless you guarantee they remain valid. Values are freed when the entry is
 // removed or the hashmap is cleared/released, but only the pointer storage is freed, not the data it points to.
 // The hashmap automatically resizes if load factor exceeds 0.75 after insertion.
-void qol_hm_put(QOL_HashMap *hm, void *key, void *value);
+QOLDEF void qol_hm_put(QOL_HashMap *hm, void *key, void *value);
 
 // Retrieve a value from the hashmap by key. Returns pointer to value if found, NULL if key doesn't exist.
 // Keys are compared as null-terminated strings. Returns NULL if hashmap is NULL or key is NULL.
 // The returned pointer is the same pointer that was stored with qol_hm_put(). The caller must not free
 // this pointer - it is managed by the hashmap. The pointer remains valid until the entry is removed
 // or the hashmap is cleared/released. However, the data the pointer points to must remain valid (see qol_hm_put).
-void *qol_hm_get(QOL_HashMap *hm, void *key);
+QOLDEF void *qol_hm_get(QOL_HashMap *hm, void *key);
 
 // Check if the hashmap contains a specific key. Returns true if key exists, false otherwise.
 // More efficient than qol_hm_get() when you only need to check existence (doesn't retrieve value).
 // Returns false if hashmap is NULL or key is NULL.
-bool qol_hm_contains(QOL_HashMap *hm, void *key);
+QOLDEF bool qol_hm_contains(QOL_HashMap *hm, void *key);
 
 // Remove a key-value pair from the hashmap by key. Returns true if key was found and removed, false otherwise.
 // Uses tombstone marking (DELETED state) for proper linear probing after deletion.
 // Frees the memory allocated for the key. Returns false if hashmap is NULL, key is NULL, or key not found.
-bool qol_hm_remove(QOL_HashMap *hm, void *key);
+QOLDEF bool qol_hm_remove(QOL_HashMap *hm, void *key);
 
 // Remove all entries from the hashmap, freeing all keys but keeping the hashmap structure intact.
 // The hashmap can be reused after clearing. Capacity remains unchanged (memory not freed).
 // Safe to call on NULL hashmap. After clearing, size is 0 but capacity is unchanged.
-void qol_hm_clear(QOL_HashMap* hm);
+QOLDEF void qol_hm_clear(QOL_HashMap* hm);
 
 // Free all memory associated with the hashmap, including the hashmap structure itself.
 // Calls qol_hm_clear() first to free all entries, then frees the bucket array and hashmap structure.
 // Safe to call on NULL hashmap. After release, the hashmap pointer is invalid and should not be used.
-void qol_hm_release(QOL_HashMap* hm);
+QOLDEF void qol_hm_release(QOL_HashMap* hm);
 
 // Get the number of key-value pairs currently stored in the hashmap. Returns 0 if hashmap is NULL.
 // This is the actual number of entries, not the capacity (number of buckets).
-size_t qol_hm_size(QOL_HashMap* hm);
+QOLDEF size_t qol_hm_size(QOL_HashMap* hm);
 
 // Check if the hashmap is empty (contains no entries). Returns true if empty or NULL, false otherwise.
 // More efficient than checking qol_hm_size() == 0. Returns true if hashmap is NULL.
-bool qol_hm_empty(QOL_HashMap* hm);
+QOLDEF bool qol_hm_empty(QOL_HashMap* hm);
 
 //////////////////////////////////////////////////
 /// THREAD SAFETY ////////////////////////////////
@@ -1134,21 +1133,21 @@ typedef struct {
 // Register a test function with the test framework. Called automatically by QOL_TEST macro.
 // Stores test name, source file, line number, and function pointer for later execution.
 // Tests are typically registered via the QOL_TEST macro using constructor attributes.
-void qol_test_register(const char *name, const char *file, int line, void (*test_func)(void));
+QOLDEF void qol_test_register(const char *name, const char *file, int line, void (*test_func)(void));
 
 // Mark the current test as failed. Should be called from within a test function.
 // Sets an internal flag that will cause the test to be reported as failed when it completes.
 // Usually called indirectly through assertion macros like QOL_TEST_ASSERT.
-void qol_test_fail(void);
+QOLDEF void qol_test_fail(void);
 
 // Run all registered tests and return exit code. Returns 0 if all tests passed, 1 if any failed.
 // Executes each registered test function and reports pass/fail status with colored output.
 // Prints a summary of total tests, passed tests, and failed tests at the end.
-int qol_test_run_all(void);
+QOLDEF int qol_test_run_all(void);
 
 // Print a summary of test results. Shows total tests, passed count, and failed count.
 // Should be called after qol_test_run_all() to display final statistics.
-void qol_test_print_summary(void);
+QOLDEF void qol_test_print_summary(void);
 
 // Internal failure message storage
 extern char qol_test_failure_msg[];
@@ -1230,31 +1229,31 @@ typedef struct {
 // Start a high-resolution timer. Records the current time for later elapsed time calculations.
 // Uses QueryPerformanceCounter on Windows and clock_gettime(CLOCK_MONOTONIC) on Unix.
 // Timer must be initialized before calling elapsed time functions. Safe to call with NULL.
-void qol_timer_start(QOL_Timer *timer);
+QOLDEF void qol_timer_start(QOL_Timer *timer);
 
 // Get elapsed time since timer was started, in seconds as a double precision float.
 // Returns 0.0 if timer is NULL. Uses high-resolution timing suitable for performance measurements.
 // On Windows uses QueryPerformanceCounter, on Unix uses clock_gettime(CLOCK_MONOTONIC).
-double qol_timer_elapsed(QOL_Timer *timer);
+QOLDEF double qol_timer_elapsed(QOL_Timer *timer);
 
 // Get elapsed time since timer was started, in milliseconds as a double precision float.
 // Returns elapsed time converted to milliseconds (seconds * 1000.0).
 // Useful for timing operations that take milliseconds to complete.
-double qol_timer_elapsed_ms(QOL_Timer *timer);
+QOLDEF double qol_timer_elapsed_ms(QOL_Timer *timer);
 
 // Get elapsed time since timer was started, in microseconds as a double precision float.
 // Returns elapsed time converted to microseconds (seconds * 1000000.0).
 // Useful for precise timing measurements of fast operations.
-double qol_timer_elapsed_us(QOL_Timer *timer);
+QOLDEF double qol_timer_elapsed_us(QOL_Timer *timer);
 
 // Get elapsed time since timer was started, in nanoseconds as a 64-bit unsigned integer.
 // Returns elapsed time converted to nanoseconds. Most precise timing available.
 // Useful for very high-resolution timing requirements. Returns 0 if timer is NULL.
-uint64_t qol_timer_elapsed_ns(QOL_Timer *timer);
+QOLDEF uint64_t qol_timer_elapsed_ns(QOL_Timer *timer);
 
 // Reset timer to current time, effectively restarting the elapsed time measurement.
 // Equivalent to calling qol_timer_start() again. Safe to call with NULL.
-void qol_timer_reset(QOL_Timer *timer);
+QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
 //////////////////////////////////////////////////
 /// QOL_IMPLEMENATION ////////////////////////////
@@ -1267,7 +1266,7 @@ void qol_timer_reset(QOL_Timer *timer);
     //////////////////////////////////////////////////
 
     // Initialize all mutexes (called automatically on first use, thread-safe)
-    static void qol_init_mutexes(void) {
+    QOLDEF void qol_init_mutexes(void) {
 #if defined(WINDOWS)
         // Simple spin-lock for initialization (Windows only, since CRITICAL_SECTION needs init)
         LONG expected = 0;
@@ -1315,7 +1314,7 @@ void qol_timer_reset(QOL_Timer *timer);
     // ENABLE_VIRTUAL_TERMINAL_PROCESSING: Allows ANSI escape sequences to work
     // DISABLE_NEWLINE_AUTO_RETURN: Prevents Windows from converting \n to \r\n automatically
     // On Unix-like systems, this is a no-op (ANSI codes work by default)
-    void QOL_enable_ansi(void) {
+    QOLDEF void QOL_enable_ansi(void) {
 // #if defined(WINDOWS)
 //         HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  // Get handle to stdout
 //         DWORD mode;
@@ -1342,12 +1341,12 @@ void qol_timer_reset(QOL_Timer *timer);
     #define QOL_COLOR_DEAD      QOL_BOLD QOL_FG_MAGENTA  // Bold magenta for critical (fatal)
 
     // Logger state: Static variables that persist across logger function calls
-    static qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
-    static bool qol_logger_color = false;                        // Whether to use ANSI colors (default: off)
-    static bool qol_logger_time = true;                          // Whether to show timestamps (default: on)
-    static FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
+    qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
+    bool qol_logger_color = false;                        // Whether to use ANSI colors (default: off)
+    bool qol_logger_time = true;                          // Whether to show timestamps (default: on)
+    FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
 
-    void qol_init_logger(qol_log_level_t level, bool color, bool time) {
+    QOLDEF void qol_init_logger(qol_log_level_t level, bool color, bool time) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_logger_mutex);
         qol_logger_min_level = level;
@@ -1357,7 +1356,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     // TODO: should be moved to file utils?
-    static char *qol_expand_path(const char *path) {
+    QOLDEF char *qol_expand_path(const char *path) {
         if (!path) return NULL;
 
         // Check if path starts with ~ (tilde expansion)
@@ -1395,28 +1394,28 @@ void qol_timer_reset(QOL_Timer *timer);
         return strdup(path);
     }
 
-    const char *qol_get_time(void) { // TODO: set the fmt as a parameter
+    QOLDEF const char *qol_get_time(void) { // TODO: set the fmt as a parameter
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
         strftime(qol_time_buf_tls, sizeof(qol_time_buf_tls), "%H-%M-%S", lt);
         return qol_time_buf_tls;
     }
 
-    const char *qol_get_date(void) { // TODO: set the fmt as a parameter
+    QOLDEF const char *qol_get_date(void) { // TODO: set the fmt as a parameter
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
         strftime(qol_date_buf_tls, sizeof(qol_date_buf_tls), "%Y-%m-%d", lt);
         return qol_date_buf_tls;
     }
 
-    const char *qol_get_datetime(void) { // TODO: set the fmt as a parameter
+    QOLDEF const char *qol_get_datetime(void) { // TODO: set the fmt as a parameter
         time_t t = time(NULL);
         struct tm *lt = localtime(&t);
         strftime(qol_datetime_buf_tls, sizeof(qol_datetime_buf_tls), "%Y-%m-%d_%H-%M-%S", lt);
         return qol_datetime_buf_tls;
     }
 
-    void qol_init_logger_logfile(const char *format, ...) {
+    QOLDEF void qol_init_logger_logfile(const char *format, ...) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_logger_mutex);
         // Close existing log file if open
@@ -1451,7 +1450,7 @@ void qol_timer_reset(QOL_Timer *timer);
         QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
-    static const char *qol_level_to_str(qol_log_level_t level) {
+    QOLDEF const char *qol_level_to_str(qol_log_level_t level) {
         switch (level) {
         case QOL_LOG_DIAG: return "DIAG";
         case QOL_LOG_INFO: return "INFO";
@@ -1464,7 +1463,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
     }
 
-    static const char *qol_level_to_color(qol_log_level_t level) {
+    QOLDEF const char *qol_level_to_color(qol_log_level_t level) {
         switch (level) {
         case QOL_LOG_DIAG: return QOL_COLOR_DIAG;
         case QOL_LOG_INFO: return QOL_COLOR_INFO;
@@ -1477,7 +1476,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
     }
 
-    void qol_log(qol_log_level_t level, const char *fmt, ...) {
+    QOLDEF void qol_log(qol_log_level_t level, const char *fmt, ...) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_logger_mutex);
         // Check level and read settings atomically
@@ -1580,7 +1579,7 @@ void qol_timer_reset(QOL_Timer *timer);
     /// CLI_PARSER ///////////////////////////////////
     //////////////////////////////////////////////////
 
-    void qol_init_argparser(int argc, char *argv[]) {
+    QOLDEF void qol_init_argparser(int argc, char *argv[]) {
         qol_init_mutexes();
         // Register built-in --help argument (no default value, flag-style)
         qol_add_argument("--help", NULL, "Show this help message");
@@ -1651,7 +1650,7 @@ void qol_timer_reset(QOL_Timer *timer);
     // Initialized to zero (empty). Persists throughout program execution.
     qol_argparser_t qol_parser = { .count = 0 };
 
-    void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
+    QOLDEF void qol_add_argument(const char *long_name, const char *default_val, const char *help_msg) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_argparser_mutex);
         // Check if we've reached the maximum number of arguments
@@ -1670,7 +1669,7 @@ void qol_timer_reset(QOL_Timer *timer);
         QOL_MUTEX_UNLOCK(qol_argparser_mutex);
     }
 
-    qol_arg_t *qol_get_argument(const char *long_name) {
+    QOLDEF qol_arg_t *qol_get_argument(const char *long_name) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_argparser_mutex);
         // Linear search through registered arguments
@@ -1685,12 +1684,12 @@ void qol_timer_reset(QOL_Timer *timer);
         return result; // Argument not found
     }
 
-    int qol_arg_as_int(qol_arg_t *arg) {
+    QOLDEF int qol_arg_as_int(qol_arg_t *arg) {
         if (!arg || !arg->value) return EXIT_SUCCESS;
         return atoi(arg->value);
     }
 
-    const char *qol_arg_as_string(qol_arg_t *arg) {
+    QOLDEF const char *qol_arg_as_string(qol_arg_t *arg) {
         if (!arg) return "";
         return arg->value ? arg->value : "";
     }
@@ -1699,7 +1698,7 @@ void qol_timer_reset(QOL_Timer *timer);
     /// NO_BUILD /////////////////////////////////////
     //////////////////////////////////////////////////
 
-    static void qol_ensure_dir_for_file(const char* filepath) {
+    QOLDEF void qol_ensure_dir_for_file(const char* filepath) {
         char dir[1024];
         // Copy filepath to mutable buffer (with size limit protection)
         strncpy(dir, filepath, sizeof(dir));
@@ -1718,7 +1717,7 @@ void qol_timer_reset(QOL_Timer *timer);
         // If no separator found, file is in current directory (no action needed)
     }
 
-    static inline char* qol_default_compiler_flags(void) {
+    QOLDEF char* qol_default_compiler_flags(void) {
 #if defined(WINDOWS)
         return ""; // Windows doesn't use these flags (different compiler)
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -1730,7 +1729,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    QOL_Cmd qol_default_c_build(const char *source, const char *output) {
+    QOLDEF QOL_Cmd qol_default_c_build(const char *source, const char *output) {
         QOL_Cmd cmd = {0}; // Initialize command structure to zero
 
         // Select compiler based on platform
@@ -1770,7 +1769,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return cmd; // Return constructed command structure
     }
 
-    static bool qol_is_path1_modified_after_path2(const char *path1, const char *path2) {
+    QOLDEF bool qol_is_path1_modified_after_path2(const char *path1, const char *path2) {
         struct stat stat1, stat2;
 
         // Get file stats (modification time)
@@ -1781,7 +1780,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return difftime(stat1.st_mtime, stat2.st_mtime) > 0;
     }
 
-    char *qol_get_filename_no_ext(const char *path) {
+    QOLDEF char *qol_get_filename_no_ext(const char *path) {
         // Find last path separator (Unix style)
         const char *slash = strrchr(path, '/');
         // Find last path separator (Windows style)
@@ -1809,7 +1808,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return copy; // Caller must free this string
     }
 
-    void qol_auto_rebuild(const char *src) {
+    QOLDEF void qol_auto_rebuild(const char *src) {
         if (!src) return;
 
         struct stat src_attr, out_attr;
@@ -1886,7 +1885,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
     }
 
-    void qol_auto_rebuild_plus_impl(const char *src, ...) {
+    QOLDEF void qol_auto_rebuild_plus_impl(const char *src, ...) {
         if (!src) return;
         struct stat src_attr, out_attr;
 #if defined(WINDOWS)
@@ -1982,7 +1981,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
     }
 
-    static const char* qol_cmd_get_source(QOL_Cmd* cmd) {
+    QOLDEF const char* qol_cmd_get_source(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len < 2) return NULL;
 
         for (size_t i = 0; i < cmd->len - 1; i++) {
@@ -2007,7 +2006,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return NULL;
     }
 
-    static const char* qol_cmd_get_output(QOL_Cmd* cmd) {
+    QOLDEF const char* qol_cmd_get_output(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len < 2) return NULL;
 
         for (size_t i = 0; i < cmd->len - 1; i++) {
@@ -2020,7 +2019,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
 #ifdef WINDOWS
-    char *qol_win32_error_message(DWORD err) {
+    QOLDEF char *qol_win32_error_message(DWORD err) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_win32_err_mutex);
         static char win32ErrMsg[QOL_WIN32_ERR_BUFFER_SIZE] = {0};
@@ -2056,7 +2055,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 #endif
 
-    static void qol_cmd_log(QOL_Cmd* cmd) {
+    QOLDEF void qol_cmd_log(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) return;
 
         // TODO: instead of printing the full command every time, only print a short variant? Basically this 
@@ -2089,7 +2088,7 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_log(QOL_LOG_EXEC, "%s\n", command);
     }
 
-    static QOL_Proc qol_cmd_execute_async(QOL_Cmd* cmd) {
+    QOLDEF QOL_Proc qol_cmd_execute_async(QOL_Cmd* cmd) {
         if (!cmd || !cmd->data || cmd->len == 0) {
             qol_log(QOL_LOG_ERRO, "Invalid command: empty or null\n");
             return QOL_INVALID_PROC;
@@ -2191,7 +2190,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_proc_wait(QOL_Proc proc) {
+    QOLDEF bool qol_proc_wait(QOL_Proc proc) {
         if (proc == QOL_INVALID_PROC) return false;
 
 #ifdef WINDOWS
@@ -2239,7 +2238,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_procs_wait(QOL_Procs *procs) {
+    QOLDEF bool qol_procs_wait(QOL_Procs *procs) {
         if (!procs) return false;
 
         bool all_success = true;
@@ -2254,7 +2253,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return all_success;
     }
 
-    bool qol_run_impl(QOL_Cmd* config, QOL_RunOptions opts) {
+    QOLDEF bool qol_run_impl(QOL_Cmd* config, QOL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
             qol_log(QOL_LOG_ERRO, "Invalid build configuration\n");
             if (config) qol_release(config);
@@ -2281,7 +2280,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return qol_run_always_impl(config, opts);
     }
 
-    bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts) {
+    QOLDEF bool qol_run_always_impl(QOL_Cmd* config, QOL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
             qol_log(QOL_LOG_ERRO, "Invalid build configuration\n");
             if (config) qol_release(config);
@@ -2320,9 +2319,9 @@ void qol_timer_reset(QOL_Timer *timer);
     // All allocations are automatically freed when qol_temp_reset() is called
     // No manual memory management needed - perfect for temporary strings and buffers
     static size_t qol_temp_size = 0; // Current allocation offset (bytes allocated so far)
-    static char qol_temp[QOL_TEMP_CAPACITY] = {0}; // Fixed-size buffer (8MB default)
+    char qol_temp[QOL_TEMP_CAPACITY] = {0}; // Fixed-size buffer (8MB default)
 
-    char *qol_temp_strdup(const char *cstr) {
+    QOLDEF char *qol_temp_strdup(const char *cstr) {
         if (!cstr) return NULL;
         size_t n = strlen(cstr);
         char *result = qol_temp_alloc(n + 1);
@@ -2332,7 +2331,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return result;
     }
 
-    void *qol_temp_alloc(size_t size) {
+    QOLDEF void *qol_temp_alloc(size_t size) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
         if (qol_temp_size + size > QOL_TEMP_CAPACITY) {
@@ -2345,7 +2344,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return result;
     }
 
-    char *qol_temp_sprintf(const char *format, ...) {
+    QOLDEF char *qol_temp_sprintf(const char *format, ...) {
         if (!format) return NULL;
         va_list args;
         // First pass: Determine required buffer size
@@ -2367,7 +2366,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return result; // Return temp-allocated formatted string
     }
 
-    void qol_temp_reset(void) {
+    QOLDEF void qol_temp_reset(void) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
         qol_temp_size = 0;
@@ -2382,7 +2381,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return checkpoint;
     }
 
-    void qol_temp_rewind(size_t checkpoint) {
+    QOLDEF void qol_temp_rewind(size_t checkpoint) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
         qol_temp_size = checkpoint;
@@ -2393,7 +2392,7 @@ void qol_timer_reset(QOL_Timer *timer);
     /// FILE_OPS /////////////////////////////////////
     //////////////////////////////////////////////////
 
-    bool qol_mkdir_if_not_exists(const char *path) {
+    QOLDEF bool qol_mkdir_if_not_exists(const char *path) {
         struct stat st;
 #if defined(WINDOWS)
         if (GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES) {
@@ -2407,7 +2406,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return qol_mkdir(path);
     }
 
-    bool qol_mkdir(const char *path) {
+    QOLDEF bool qol_mkdir(const char *path) {
 #ifdef _WIN32
         int result = _mkdir(path);
 #else
@@ -2421,7 +2420,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    bool qol_copy_file(const char *src_path, const char *dst_path) {
+    QOLDEF bool qol_copy_file(const char *src_path, const char *dst_path) {
         if (!src_path || !dst_path) return false;
 
         FILE *src = fopen(src_path, "rb");
@@ -2454,7 +2453,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    bool qol_copy_dir_rec(const char *src_path, const char *dst_path) {
+    QOLDEF bool qol_copy_dir_rec(const char *src_path, const char *dst_path) {
         if (!src_path || !dst_path) return false;
 
 #if defined(MACOS) || defined(LINUX)
@@ -2562,7 +2561,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_read_file(const char *path, QOL_String *content) {
+    QOLDEF bool qol_read_file(const char *path, QOL_String *content) {
         if (!path || !content) return false;
 
         FILE *fp = fopen(path, "r");
@@ -2600,7 +2599,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    bool qol_read_dir_recursive(const char *parent, QOL_String *content) {
+    QOLDEF bool qol_read_dir_recursive(const char *parent, QOL_String *content) {
         if (!parent || !content) return false;
 
         // Initialize content only on first call (when data is NULL)
@@ -2706,7 +2705,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_read_dir(const char *parent, QOL_String *content) {
+    QOLDEF bool qol_read_dir(const char *parent, QOL_String *content) {
         if (!parent || !content) return false;
 
         content->data = NULL;
@@ -2784,7 +2783,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_write_file(const char *path, const void *data, size_t size) {
+    QOLDEF bool qol_write_file(const char *path, const void *data, size_t size) {
         if (!path || !data) return false;
 
         FILE *fp = fopen(path, "wb");
@@ -2805,7 +2804,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    const char *qol_get_file_type(const char *path) {
+    QOLDEF const char *qol_get_file_type(const char *path) {
         if (!path) return "unknown";
 
         const char *dot = strrchr(path, '.');
@@ -2814,7 +2813,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return dot + 1; // Returns extension without the dot
     }
 
-    bool qol_delete_file(const char *path) {
+    QOLDEF bool qol_delete_file(const char *path) {
         if (!path) return false;
 
 #if defined(MACOS) || defined(LINUX)
@@ -2838,7 +2837,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_delete_dir(const char *path) {
+    QOLDEF bool qol_delete_dir(const char *path) {
         if (!path) return false;
 
 #if defined(MACOS) || defined(LINUX)
@@ -3001,7 +3000,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    void qol_release_string(QOL_String* content) {
+    QOLDEF void qol_release_string(QOL_String* content) {
         if (!content || !content->data) return;
 
         for (size_t i = 0; i < content->len; i++) {
@@ -3013,7 +3012,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     // String utilities
-    bool qol_str_starts_with(const char *str, const char *prefix) {
+    QOLDEF bool qol_str_starts_with(const char *str, const char *prefix) {
         if (!str || !prefix) return false;
         size_t str_len = strlen(str);
         size_t prefix_len = strlen(prefix);
@@ -3021,7 +3020,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return strncmp(str, prefix, prefix_len) == 0;
     }
 
-    bool qol_str_ends_with(const char *str, const char *suffix) {
+    QOLDEF bool qol_str_ends_with(const char *str, const char *suffix) {
         if (!str || !suffix) return false;
         size_t str_len = strlen(str);
         size_t suffix_len = strlen(suffix);
@@ -3029,7 +3028,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return strncmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
     }
 
-    char *qol_str_ltrim(char *str) {
+    QOLDEF char *qol_str_ltrim(char *str) {
         if (!str) return str;
         char *start = str;
         while (*start && isspace((unsigned char)*start)) {
@@ -3042,7 +3041,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return str;
     }
 
-    char *qol_str_rtrim(char *str) {
+    QOLDEF char *qol_str_rtrim(char *str) {
         if (!str) return str;
         char *end = str + strlen(str);
         while (end > str && isspace((unsigned char)*(end - 1))) {
@@ -3052,12 +3051,12 @@ void qol_timer_reset(QOL_Timer *timer);
         return str;
     }
 
-    char *qol_str_trim(char *str) {
+    QOLDEF char *qol_str_trim(char *str) {
         qol_str_rtrim(str);
         return qol_str_ltrim(str);
     }
 
-    char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub) {
+    QOLDEF char *qol_str_replace(const char *str, const char *old_sub, const char *new_sub) {
         if (!str || !old_sub || !new_sub) return NULL;
         if (strlen(old_sub) == 0) {
             char *result = (char*)malloc(strlen(str) + 1);
@@ -3100,7 +3099,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return result;
     }
 
-    bool qol_str_split(const char *str, char delimiter, QOL_String *result) {
+    QOLDEF bool qol_str_split(const char *str, char delimiter, QOL_String *result) {
         if (!str || !result) return false;
 
         result->data = NULL;
@@ -3140,7 +3139,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    char *qol_str_join(QOL_String *strings, const char *separator) {
+    QOLDEF char *qol_str_join(QOL_String *strings, const char *separator) {
         if (!strings || !separator) return NULL;
 
         if (strings->len == 0 || !strings->data) {
@@ -3183,13 +3182,13 @@ void qol_timer_reset(QOL_Timer *timer);
         return result;
     }
 
-    bool qol_str_contains(const char *str, const char *substring) {
+    QOLDEF bool qol_str_contains(const char *str, const char *substring) {
         if (!str || !substring) return false;
         if (strlen(substring) == 0) return false;
         return strstr(str, substring) != NULL;
     }
 
-    int qol_str_icmp(const char *str1, const char *str2) {
+    QOLDEF int qol_str_icmp(const char *str1, const char *str2) {
         if (!str1 || !str2) {
             if (!str1 && !str2) return 0;
             return str1 ? 1 : -1;
@@ -3209,7 +3208,7 @@ void qol_timer_reset(QOL_Timer *timer);
     }
 
     // Path utilities
-    const char *qol_path_name(const char *path) {
+    QOLDEF const char *qol_path_name(const char *path) {
 #ifdef WINDOWS
         const char *p1 = strrchr(path, '/');
         const char *p2 = strrchr(path, '\\');
@@ -3221,7 +3220,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_rename(const char *old_path, const char *new_path) {
+    QOLDEF bool qol_rename(const char *old_path, const char *new_path) {
         qol_log(QOL_LOG_INFO, "renaming %s -> %s\n", old_path, new_path);
 #ifdef WINDOWS
         if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
@@ -3237,7 +3236,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return true;
     }
 
-    const char *qol_get_current_dir_temp(void) {
+    QOLDEF const char *qol_get_current_dir_temp(void) {
 #ifdef WINDOWS
         DWORD nBufferLength = GetCurrentDirectory(0, NULL);
         if (nBufferLength == 0) {
@@ -3263,7 +3262,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_set_current_dir(const char *path) {
+    QOLDEF bool qol_set_current_dir(const char *path) {
 #ifdef WINDOWS
         if (!SetCurrentDirectory(path)) {
             qol_log(QOL_LOG_ERRO, "could not set current directory to %s: %s\n", path, qol_win32_error_message(GetLastError()));
@@ -3279,7 +3278,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    bool qol_file_exists(const char *file_path) {
+    QOLDEF bool qol_file_exists(const char *file_path) {
 #ifdef WINDOWS
         DWORD dwAttrib = GetFileAttributesA(file_path);
         return dwAttrib != INVALID_FILE_ATTRIBUTES;
@@ -3294,7 +3293,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    int qol_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count) {
+    QOLDEF int qol_needs_rebuild(const char *output_path, const char **input_paths, size_t input_paths_count) {
 #ifdef WINDOWS
         // Windows: Use FILETIME (100-nanosecond intervals since 1601) for precise comparison
         BOOL bSuccess;
@@ -3366,7 +3365,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    int qol_needs_rebuild1(const char *output_path, const char *input_path) {
+    QOLDEF int qol_needs_rebuild1(const char *output_path, const char *input_path) {
         return qol_needs_rebuild(output_path, &input_path, 1);
     }
 
@@ -3384,12 +3383,12 @@ void qol_timer_reset(QOL_Timer *timer);
         return hash % capacity;
     }
 
-    static bool qol_hm_keys_equal(void* key1, void* key2) {
+    QOLDEF bool qol_hm_keys_equal(void* key1, void* key2) {
         size_t key_size = strlen(key1) + 1;
         return memcmp(key1, key2, key_size) == 0;
     }
 
-    QOL_HashMap* qol_hm_create() {
+    QOLDEF QOL_HashMap* qol_hm_create() {
         QOL_HashMap* hm = (QOL_HashMap*)calloc(1, sizeof(QOL_HashMap));
         if (!hm) return NULL;
 
@@ -3405,7 +3404,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return hm;
     }
 
-    static void qol_hm_resize(QOL_HashMap* hm) {
+    QOLDEF void qol_hm_resize(QOL_HashMap* hm) {
         // Save old state before allocation (needed for rollback on failure)
         size_t old_capacity = hm->capacity;
         QOL_HashMapEntry* old_buckets = hm->buckets;
@@ -3460,7 +3459,7 @@ void qol_timer_reset(QOL_Timer *timer);
         qol_log(QOL_LOG_DIAG, "Hashmap resized to %zu buckets\n", hm->capacity);
     }
 
-    void qol_hm_put(QOL_HashMap* hm, void* key, void* value) {
+    QOLDEF void qol_hm_put(QOL_HashMap* hm, void* key, void* value) {
         if (!hm || !key || !value) return;
 
         // Keys are always strings (null-terminated)
@@ -3541,7 +3540,7 @@ void qol_timer_reset(QOL_Timer *timer);
         }
     }
 
-    void* qol_hm_get(QOL_HashMap* hm, void* key) {
+    QOLDEF void* qol_hm_get(QOL_HashMap* hm, void* key) {
         if (!hm || !key) return NULL;
 
         // Compute hash index (same algorithm as qol_hm_put)
@@ -3569,11 +3568,11 @@ void qol_timer_reset(QOL_Timer *timer);
         return NULL;
     }
 
-    bool qol_hm_contains(QOL_HashMap* hm, void* key) {
+    QOLDEF bool qol_hm_contains(QOL_HashMap* hm, void* key) {
         return qol_hm_get(hm, key) != NULL ? true : false;
     }
 
-    bool qol_hm_remove(QOL_HashMap* hm, void* key) {
+    QOLDEF bool qol_hm_remove(QOL_HashMap* hm, void* key) {
         if (!hm || !key) return false;
 
         size_t key_size = strlen(key) + 1;
@@ -3599,7 +3598,7 @@ void qol_timer_reset(QOL_Timer *timer);
         return false;
     }
 
-    void qol_hm_clear(QOL_HashMap* hm) {
+    QOLDEF void qol_hm_clear(QOL_HashMap* hm) {
         if (!hm) return;
 
         for (size_t i = 0; i < hm->capacity; i++) {
@@ -3614,18 +3613,18 @@ void qol_timer_reset(QOL_Timer *timer);
         hm->size = 0;
     }
 
-    void qol_hm_release(QOL_HashMap* hm) {
+    QOLDEF void qol_hm_release(QOL_HashMap* hm) {
         if (!hm) return;
         qol_hm_clear(hm);
         free(hm->buckets);
         free(hm);
     }
 
-    size_t qol_hm_size(QOL_HashMap* hm) {
+    QOLDEF size_t qol_hm_size(QOL_HashMap* hm) {
         return hm ? hm->size : 0;
     }
 
-    bool qol_hm_empty(QOL_HashMap* hm) {
+    QOLDEF bool qol_hm_empty(QOL_HashMap* hm) {
         return !hm || hm->size == 0;
     }
 
@@ -3640,10 +3639,10 @@ void qol_timer_reset(QOL_Timer *timer);
         size_t failed;
     } qol_test_suite_t;
 
-    static qol_test_suite_t qol_test_suite = {0};
+    qol_test_suite_t qol_test_suite = {0};
     char qol_test_failure_msg[256] = {0};
 
-    void qol_test_register(const char *name, const char *file, int line, void (*test_func)(void)) {
+    QOLDEF void qol_test_register(const char *name, const char *file, int line, void (*test_func)(void)) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_test_mutex);
         if (qol_test_suite.count >= QOL_ARRAY_LEN(qol_test_suite.tests)) {
@@ -3659,11 +3658,11 @@ void qol_timer_reset(QOL_Timer *timer);
         QOL_MUTEX_UNLOCK(qol_test_mutex);
     }
 
-    void qol_test_fail(void) {
+    QOLDEF void qol_test_fail(void) {
         qol_test_current_failed_tls = true;
     }
 
-    int qol_test_run_all(void) {
+    QOLDEF int qol_test_run_all(void) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_test_mutex);
         size_t test_count = qol_test_suite.count;
@@ -3752,7 +3751,7 @@ void qol_timer_reset(QOL_Timer *timer);
     /// TIMER ////////////////////////////////////////
     //////////////////////////////////////////////////
 
-    void qol_timer_start(QOL_Timer *timer) {
+    QOLDEF void qol_timer_start(QOL_Timer *timer) {
         if (!timer) return;
 
 #if defined(WINDOWS)
@@ -3763,7 +3762,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    double qol_timer_elapsed(QOL_Timer *timer) {
+    QOLDEF double qol_timer_elapsed(QOL_Timer *timer) {
         if (!timer) return 0.0;
 
 #if defined(WINDOWS)
@@ -3779,15 +3778,15 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    double qol_timer_elapsed_ms(QOL_Timer *timer) {
+    QOLDEF double qol_timer_elapsed_ms(QOL_Timer *timer) {
         return qol_timer_elapsed(timer) * 1000.0;
     }
 
-    double qol_timer_elapsed_us(QOL_Timer *timer) {
+    QOLDEF double qol_timer_elapsed_us(QOL_Timer *timer) {
         return qol_timer_elapsed(timer) * 1000000.0;
     }
 
-    uint64_t qol_timer_elapsed_ns(QOL_Timer *timer) {
+    QOLDEF uint64_t qol_timer_elapsed_ns(QOL_Timer *timer) {
         if (!timer) return EXIT_SUCCESS;
 
 #if defined(WINDOWS)
@@ -3805,7 +3804,7 @@ void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
-    void qol_timer_reset(QOL_Timer *timer) {
+    QOLDEF void qol_timer_reset(QOL_Timer *timer) {
         if (!timer) return;
         qol_timer_start(timer);
     }
