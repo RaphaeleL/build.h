@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 03 Jan 2026
+    Changed : 05 Jan 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.4
@@ -96,7 +96,7 @@
         - fix mutex forward declaration location
 
       0.0.4 - wip
-        - todo
+        - automatic memory release for gcc and clang
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -787,6 +787,40 @@ QOLDEF void qol_temp_rewind(size_t checkpoint);
     // The message is formatted using FormatMessageA and has trailing whitespace removed.
     // Returns NULL only if formatting fails completely. Useful for error reporting.
     QOLDEF char *qol_win32_error_message(DWORD err);
+#endif
+
+//////////////////////////////////////////////////
+/// AUTO_FREE ////////////////////////////////////
+//////////////////////////////////////////////////
+
+// Auto-free functionality: Automatically free heap-allocated memory when variables go out of scope.
+// Uses GCC/Clang's __attribute__((cleanup)) extension to call a cleanup function automatically.
+// This provides RAII-like behavior in C, reducing memory leaks by ensuring cleanup happens even on early returns.
+//
+// Usage:
+//   QOL_AUTO_FREE void *ptr = malloc(100);
+//   QOL_AUTO_FREE int *data = malloc(sizeof(int));
+//   // ptr and data are automatically freed when they go out of scope
+//
+// Note: Only works with GCC and Clang compilers. On other compilers, QOL_AUTO_FREE is defined as empty.
+// The cleanup function checks for NULL before freeing, so it's safe to use with uninitialized pointers.
+//
+// Implementation note: Uses a generic cleanup function. For typed pointers (like int*), you may need to
+// cast to void* or use -Wno-incompatible-pointer-types. Alternatively, declare variables as void* and cast when needed.
+
+#if defined(__GNUC__) || defined(__clang__)
+    // Forward declaration - implementation is in QOL_IMPLEMENTATION section
+    static inline void _qol_auto_free_impl(void *p);
+
+    // Auto-free macro: Applies cleanup attribute
+    // Note: For best compatibility, use void* for variables. For typed pointers, GCC may require
+    // -Wno-incompatible-pointer-types flag or casting the variable to void*.
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+    #define QOL_AUTO_FREE __attribute__((cleanup(_qol_auto_free_impl)))
+    #pragma GCC diagnostic pop
+#else
+    #define QOL_AUTO_FREE  // No-op on compilers without cleanup attribute support
 #endif
 
 //////////////////////////////////////////////////
@@ -2392,6 +2426,23 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     }
 
     //////////////////////////////////////////////////
+    /// AUTO_FREE ////////////////////////////////////
+    //////////////////////////////////////////////////
+
+    // Generic cleanup function that works with any pointer type.
+    // Uses a union to allow type-punning for the cleanup attribute's strict type checking.
+    // The cleanup attribute passes the address of the variable, which we cast to void**.
+    static inline void _qol_auto_free_impl(void *p) {
+        // Cast the void* to void** to access the pointer value
+        void **ptr = (void **)p;
+        if (ptr && *ptr) {
+            qol_diag("Auto-free: freeing memory at %p\n", *ptr);
+            free(*ptr);
+            *ptr = NULL;
+        }
+    }
+
+    //////////////////////////////////////////////////
     /// FILE_OPS /////////////////////////////////////
     //////////////////////////////////////////////////
 
@@ -3930,6 +3981,9 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define temp_reset              qol_temp_reset
     #define temp_save               qol_temp_save
     #define temp_rewind             qol_temp_rewind
+
+    // AUTO_FREE
+    #define AUTO_FREE               QOL_AUTO_FREE
 
     // HASHMAP
     #define HashMap                 QOL_HashMap

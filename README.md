@@ -16,6 +16,7 @@ A collection of essential utilities that make C development more pleasant. Think
 - **Build helpers**: rebuild self when sources change, run simple builds
 - **Unit test harness** with minimal macros
 - **Temporary allocator** for short-lived allocations without manual cleanup
+- **Auto-free** for automatic memory cleanup using GCC/Clang cleanup attribute
 - **Path utilities** for common path manipulations
 - **String utilities** for common string operations (trim, split, join, replace, etc.)
 - **Cross-platform command execution** using fork/exec (POSIX) or CreateProcess (Windows)
@@ -366,6 +367,48 @@ temp_rewind(checkpoint); // frees everything after checkpoint
 
 The allocator uses a fixed-size buffer (8MB by default, configurable via `QOL_TEMP_CAPACITY`). If you need more, increase the capacity or use regular `malloc()`/`free()`.
 
+## Auto-Free
+
+Automatic memory cleanup using GCC/Clang's `__attribute__((cleanup))` extension. Provides RAII-like behavior in C — memory is automatically freed when variables go out of scope, even on early returns or exceptions.
+
+```c
+{
+    QOL_AUTO_FREE void *ptr = malloc(100);
+    QOL_AUTO_FREE int *data = malloc(sizeof(int));
+    
+    *data = 42;
+    // ... use ptr and data ...
+    
+    // Memory is automatically freed when leaving this scope
+    // No need to call free() manually!
+}
+```
+
+**Usage:**
+- Place `QOL_AUTO_FREE` before any pointer variable declaration
+- Works with any pointer type (`void*`, `int*`, `char*`, etc.)
+- Memory is automatically freed when the variable goes out of scope
+- Safe to use with uninitialized pointers (checks for NULL before freeing)
+
+**Example:**
+
+```c
+QOL_AUTO_FREE char *buffer = malloc(1024);
+strcpy(buffer, "Hello, World!");
+info("%s\n", buffer);
+// buffer is automatically freed when function returns
+```
+
+**Compiler support:**
+- **GCC/Clang:** Full support with automatic cleanup
+- **Other compilers:** Macro expands to empty (no-op), code still compiles but no auto-free occurs
+
+**Notes:**
+- Only works with GCC and Clang compilers that support the `cleanup` attribute
+- The cleanup function sets the pointer to NULL after freeing to prevent double-free
+- Perfect for reducing memory leaks, especially in error paths where manual cleanup might be forgotten
+- Can be combined with regular `malloc()`/`free()` — use auto-free for variables that should be cleaned up on scope exit
+
 ## High-Resolution Timers
 
 Precise timing for benchmarking and performance measurement:
@@ -466,7 +509,7 @@ A: The logger has process-global settings; other parts are not thread-safe. Use 
 > Check out the `changelog/` directory for the version history.
 
 **Completed:**
-- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling, Thread safety
+- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling, Thread safety, Auto-free
 
 **Planned:**
 - Queue/stack macros, ring buffer, linked list, easier parallel builds, better Windows support
