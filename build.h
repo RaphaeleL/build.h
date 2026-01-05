@@ -288,14 +288,14 @@ QOLDEF void QOL_enable_ansi(void);
 // Lower numbers = more verbose, higher numbers = more critical
 // Messages below the minimum level set by qol_init_logger() are filtered out
 typedef enum {
-    QOL_LOG_DIAG = 0,   // Debug messages: Detailed information for debugging (most verbose)
-    QOL_LOG_INFO,        // Info messages: General informational messages about program flow
-    QOL_LOG_EXEC,         // Command messages: Logs executed shell commands (useful for build systems)
-    QOL_LOG_HINT,        // Hint messages: Helpful suggestions or tips (not errors or warnings)
-    QOL_LOG_WARN,        // Warning messages: Something unusual happened but execution can continue
-    QOL_LOG_ERRO,       // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
-    QOL_LOG_DEAD,    // Critical messages: Severe error, program will abort() after logging
-    QOL_LOG_NONE         // No logging: Disables all logging (useful for release builds)
+    QOL_LOG_DIAG = 0,  // Debug messages: Detailed information for debugging (most verbose)
+    QOL_LOG_INFO,      // Info messages: General informational messages about program flow
+    QOL_LOG_EXEC,      // Command messages: Logs executed shell commands (useful for build systems)
+    QOL_LOG_HINT,      // Hint messages: Helpful suggestions or tips (not errors or warnings)
+    QOL_LOG_WARN,      // Warning messages: Something unusual happened but execution can continue
+    QOL_LOG_ERRO,      // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
+    QOL_LOG_DEAD,      // Critical messages: Severe error, program will abort() after logging
+    QOL_LOG_NONE       // No logging: Disables all logging (useful for release builds)
 } qol_log_level_t;
 
 // Initialize the logger with minimum log level, color output, and timestamp display settings.
