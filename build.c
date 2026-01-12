@@ -7,10 +7,9 @@ Procs procs = {0};
 
 int main() {
     auto_rebuild_plus(__FILE__, "build.h");
-    init_logger(LOG_INFO, false, true);
+    init_logger(.level=LOG_INFO, .time=true, .color=true);
 
     // Read all .c files from examples/ and compile them into out/
-
     const char* src_folder = "examples";
     const char* out_folder = "out";
 

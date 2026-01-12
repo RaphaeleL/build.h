@@ -14,6 +14,6 @@
 #include "test_timer.h"
 
 int main() {
-    init_logger(LOG_HINT, true, true);
+    init_logger(.level=LOG_HINT, .time=true, .color=true);
     return test_run_all();
 }

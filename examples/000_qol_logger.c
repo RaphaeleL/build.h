@@ -18,14 +18,14 @@
 #include "../build.h"
 
 int main() {
-    init_logger(LOG_DIAG, true, true);
+    init_logger(.level=LOG_DIAG, .time=true, .color=true); 
     diag("This is a diag message\n");
     info("Starting program with pid=%d\n", 1234);
     exec("cc -o foo foo.c\n");
     hint("Starting program with pid=%d\n", 1234);
     warn("Low memory detected\n");
-    erro("Fatal erro: %s\n", "out of memory");    // will exit with failure
-    dead("Fatal erro: %s\n", "out of memory"); // will abort (never reached)
+    erro("Fatal error: %s\n", "out of memory");    // will exit with failure
+    dead("Fatal error: %s\n", "out of memory"); // will abort (never reached)
 
     return EXIT_SUCCESS;
 }

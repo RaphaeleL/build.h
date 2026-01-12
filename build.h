@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 05 Jan 2026
+    Changed : 12 Jan 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.4
@@ -97,6 +97,7 @@
 
       0.0.4 - wip
         - automatic memory release for gcc and clang
+        - redesign the logger api
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -298,12 +299,23 @@ typedef enum {
     QOL_LOG_NONE       // No logging: Disables all logging (useful for release builds)
 } qol_log_level_t;
 
-// Initialize the logger with minimum log level, color output, and timestamp display settings.
-// level: Minimum log level to display (messages below this level are filtered out).
-// color: Enable ANSI color codes for log level highlighting (requires QOL_enable_ansi() on Windows).
-// time: Display timestamps with each log message in format "YYYY-MM-DD HH:MM:SS".
+// Argument bundle for logger initialization.
+// Used via designated initializers through the qol_init_logger(...) macro.
+typedef struct {
+    qol_log_level_t level;  // Minimum log level to emit
+    bool color;             // Enable ANSI color output
+    bool time;              // Prefix log messages with timestamps
+} qol_init_logger_arguments;
+
+// Macro wrapper enabling named arguments via designated initializers.
+// Expands to a call to qol_init_logger_impl() with a compound literal.
+#define qol_init_logger(...) qol_init_logger_impl((qol_init_logger_arguments){ __VA_ARGS__ })
+
+// Initialize the logging subsystem.
+// This function is intended to be called through the qol_init_logger(...) macro,
+// which allows named arguments using designated initializers.
 // Must be called before using any logging functions. Defaults to INFO level if not initialized.
-QOLDEF void qol_init_logger(qol_log_level_t level, bool color, bool time);
+QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args);
 
 // Configure logger to also write messages to a file. The file path format string uses printf-style formatting.
 // format: printf-style format string for the log file path (e.g., "logs/app_%s.log", qol_get_time()).
@@ -1371,7 +1383,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define QOL_COLOR_RESET     QOL_RESET                // Reset color (default)
     #define QOL_COLOR_INFO      QOL_FG_BBLACK            // Bright black (gray) for info
     #define QOL_COLOR_EXEC      QOL_FG_CYAN              // Cyan for commands (distinctive)
-    #define QOL_COLOR_DIAG      QOL_FG_BLACK             // Green for debug (less intrusive)
+    #define QOL_COLOR_DIAG      QOL_FG_GREEN             // Green for debug (less intrusive)
     #define QOL_COLOR_HINT      QOL_FG_BLUE              // Blue for hints (informational)
     #define QOL_COLOR_WARN      QOL_FG_YELLOW            // Yellow for warnings (attention)
     #define QOL_COLOR_ERRO      QOL_BOLD QOL_FG_RED      // Bold red for errors (critical)
@@ -1383,12 +1395,12 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     bool qol_logger_time = true;                          // Whether to show timestamps (default: on)
     FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
 
-    QOLDEF void qol_init_logger(qol_log_level_t level, bool color, bool time) {
+    QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_logger_mutex);
-        qol_logger_min_level = level;
-        qol_logger_color = color;
-        qol_logger_time = time;
+        qol_logger_min_level = args.level;
+        qol_logger_color = args.color;
+        qol_logger_time = args.time;
         QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
