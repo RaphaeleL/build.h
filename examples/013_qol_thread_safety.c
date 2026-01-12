@@ -129,7 +129,7 @@ int main(void) {
     info("\n");
     
     // Initialize logger
-    init_logger(LOG_DIAG, true, true);
+   init_logger(.level=LOG_INFO, .time=true, .color=true); 
     
     ThreadHandle threads[NUM_THREADS];
     ThreadData thread_data[NUM_THREADS];
