@@ -1382,7 +1382,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     // These colors are applied to log level labels when color output is enabled
     #define QOL_COLOR_RESET     QOL_RESET                // Reset color (default)
     #define QOL_COLOR_INFO      QOL_FG_BBLACK            // Bright black (gray) for info
-    #define QOL_COLOR_EXEC      QOL_FG_CYAN              // Cyan for commands (distinctive)
+    #define QOL_COLOR_EXEC      QOL_FG_BCYAN             // Cyan for commands (distinctive)
     #define QOL_COLOR_DIAG      QOL_FG_GREEN             // Green for debug (less intrusive)
     #define QOL_COLOR_HINT      QOL_FG_BLUE              // Blue for hints (informational)
     #define QOL_COLOR_WARN      QOL_FG_YELLOW            // Yellow for warnings (attention)
