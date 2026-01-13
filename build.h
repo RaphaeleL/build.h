@@ -121,8 +121,6 @@
     SOFTWARE.
    ============================================================================ */
 
-#pragma once  // Prevent multiple header includes
-
 #ifndef QOL_BUILD_H  // include guard
 #define QOL_BUILD_H
 
