@@ -152,7 +152,7 @@ release(&cmd);
 Simple, colorful logging with levels and timestamps:
 
 ```c
-init_logger(.level=LOG_INFO, .time=true, .color=true);
+init_logger(.level=LOG_INFO, .time=true, .color=true, .time_color=true);
 debug("debug: %d\n", 1);
 info("info\n");
 warn("warning\n");

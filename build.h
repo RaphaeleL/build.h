@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 12 Jan 2026
+    Changed : 13 Jan 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.4
@@ -305,6 +305,7 @@ typedef struct {
     qol_log_level_t level;  // Minimum log level to emit
     bool color;             // Enable ANSI color output
     bool time;              // Prefix log messages with timestamps
+    bool time_color;        // Enable ANSI color output for the timestamp
 } qol_init_logger_arguments;
 
 // Macro wrapper enabling named arguments via designated initializers.
@@ -1393,6 +1394,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     qol_log_level_t qol_logger_min_level = QOL_LOG_INFO;  // Minimum level to display (default: INFO)
     bool qol_logger_color = false;                        // Whether to use ANSI colors (default: off)
     bool qol_logger_time = true;                          // Whether to show timestamps (default: on)
+    bool qol_logger_time_color = false;                   // Whether to show timestamps with color (default: on)
     FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
 
     QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args) {
@@ -1401,6 +1403,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         qol_logger_min_level = args.level;
         qol_logger_color = args.color;
         qol_logger_time = args.time;
+        qol_logger_time_color = args.time_color;
         QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
@@ -1528,40 +1531,33 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     QOLDEF void qol_log(qol_log_level_t level, const char *fmt, ...) {
         qol_init_mutexes();
         QOL_MUTEX_LOCK(qol_logger_mutex);
+
         // Check level and read settings atomically
-        qol_log_level_t min_level = qol_logger_min_level;
-        bool use_color = qol_logger_color;
-        bool use_time = qol_logger_time;
         FILE *log_file = qol_log_file;
 
-        if (level < min_level || level >= QOL_LOG_NONE) {
+        if (level < qol_logger_min_level || level >= QOL_LOG_NONE) {
             QOL_MUTEX_UNLOCK(qol_logger_mutex);
             return;
         }
 
         const char *level_str = qol_level_to_str(level);
 
-        const char *level_color = "";
-        if (use_color) {
-            level_color = qol_level_to_color(level);
-        }
-
-        // TODO: decide if we want to reset color for certain log levels or not.
-        // const char* reset_str = !(level == QOL_LOG_WARN || level == QOL_LOG_DIAG) ? QOL_COLOR_RESET : "";
+        const char *level_color = qol_logger_color ? qol_level_to_color(level) : "";
+        const char *time_color = qol_logger_time_color ? QOL_DIM : QOL_COLOR_RESET""QOL_DIM;
 
         char time_buf[32] = {0};
-        if (use_time) {
+        if (qol_logger_time) {
             time_t t = time(NULL);
             struct tm *lt = localtime(&t);
             strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
-            fprintf(stderr, "%s[%s]%s %s >>> %s", level_color, level_str, QOL_DIM, time_buf, QOL_COLOR_RESET);
+            fprintf(stderr, "%s[%s]%s %s >>> %s", level_color, level_str, time_color, time_buf, QOL_COLOR_RESET);
         } else {
             fprintf(stderr, "%s[%s]%s ", level_color, level_str, QOL_COLOR_RESET);
         }
 
         // Write to log file (without color codes) - protect file access
         if (log_file != NULL) {
-            if (use_time) {
+            if (qol_logger_time) {
                 fprintf(log_file, "[%s] %s >>> ", level_str, time_buf);
             } else {
                 fprintf(log_file, "[%s] ", level_str);
