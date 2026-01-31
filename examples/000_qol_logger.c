@@ -29,6 +29,10 @@ void example(bool with_dead) {
 
 int main() {
 
+    init_logger(.level=LOG_DIAG, .time=true, .color=false); 
+    printf("--------------------------\n");
+    example(false);
+
     init_logger(.level=LOG_DIAG, .time=false, .color=false); 
     printf("--------------------------\n");
     example(false);
