@@ -300,9 +300,9 @@ typedef enum {
 // Argument bundle for logger initialization.
 // Used via designated initializers through the qol_init_logger(...) macro.
 typedef struct {
-    qol_log_level_t level;      // Minimum log level to emit (ignored if only is set)
-    qol_log_level_t only;       // Only log messages at this exact level (set .only_set=true to enable)
-    bool only_set;              // Set to true to enable only mode
+    qol_log_level_t level;      // Minimum log level to emit (ignored if only_set is true)
+    qol_log_level_t only;       // Only log messages at this exact level
+    bool only_set;              // Enable only mode - only messages at .only level will be logged
     bool color;                 // Enable ANSI color output
     bool time;                  // Prefix log messages with timestamps
     bool time_color;            // Enable ANSI color output for the timestamp
@@ -316,7 +316,13 @@ typedef struct {
 // This function is intended to be called through the qol_init_logger(...) macro,
 // which allows named arguments using designated initializers.
 // Must be called before using any logging functions. Defaults to INFO level if not initialized.
-// only: Set to a log level to only log messages at that exact level (use with only_set=true).
+//
+// Examples:
+//   init_logger(.level=LOG_INFO);                         // Minimum level mode (INFO and above)
+//   init_logger(.level=LOG_DIAG, .color=true);            // Show all messages with colors
+//   init_logger(.only=LOG_WARN, .only_set=true);          // Only WARN messages
+//   init_logger(.only=LOG_HINT, .only_set=true);          // Only HINT messages
+//
 QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args);
 
 // Configure logger to also write messages to a file. The file path format string uses printf-style formatting.
@@ -344,7 +350,9 @@ QOLDEF const char *qol_get_datetime(void);
 // Log a message at the specified log level using printf-style formatting.
 // level: Log level (DIAG, INFO, EXEC, HINT, WARN, ERRO, DEAD).
 // fmt: printf-style format string with optional variadic arguments.
-// Messages below the minimum level set by qol_init_logger() are filtered out.
+// Messages are filtered based on init_logger() settings:
+//   - Minimum level mode: Messages at or above .level are logged
+//   - Only mode (.only_set=true): Only messages at exactly .only level are logged
 // ERRO level calls exit(EXIT_FAILURE) after logging. DEAD level calls abort() after logging.
 // Logs to stderr by default, and to file if qol_init_logger_logfile() was configured.
 QOLDEF void qol_log(qol_log_level_t level, const char *fmt, ...);
