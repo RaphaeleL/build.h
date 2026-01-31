@@ -2070,7 +2070,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
                                           sizeof(win32ErrMsg), NULL);
 
         if (errMsgSize == 0) {
-            if (GetLastError() != ERRO_MR_MID_NOT_FOUND) {
+            if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
                 if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "Could not get error message for 0x%lX", err) > 0) {
                     QOL_MUTEX_UNLOCK(qol_win32_err_mutex);
                     return (char *)&win32ErrMsg;
@@ -3362,7 +3362,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (output_path_fd == INVALID_HANDLE_VALUE) {
             // Output doesn't exist: rebuild needed
-            if (GetLastError() == ERRO_FILE_NOT_FOUND) return 1;
+            if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
             qol_log(QOL_LOG_ERRO, "Could not open file %s: %s\n", output_path, qol_win32_error_message(GetLastError()));
             return -1;
         }
