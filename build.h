@@ -300,10 +300,12 @@ typedef enum {
 // Argument bundle for logger initialization.
 // Used via designated initializers through the qol_init_logger(...) macro.
 typedef struct {
-    qol_log_level_t level;  // Minimum log level to emit
-    bool color;             // Enable ANSI color output
-    bool time;              // Prefix log messages with timestamps
-    bool time_color;        // Enable ANSI color output for the timestamp
+    qol_log_level_t level;      // Minimum log level to emit (ignored if only is set)
+    qol_log_level_t only;       // Only log messages at this exact level (set .only_set=true to enable)
+    bool only_set;              // Set to true to enable only mode
+    bool color;                 // Enable ANSI color output
+    bool time;                  // Prefix log messages with timestamps
+    bool time_color;            // Enable ANSI color output for the timestamp
 } qol_init_logger_arguments;
 
 // Macro wrapper enabling named arguments via designated initializers.
@@ -314,6 +316,7 @@ typedef struct {
 // This function is intended to be called through the qol_init_logger(...) macro,
 // which allows named arguments using designated initializers.
 // Must be called before using any logging functions. Defaults to INFO level if not initialized.
+// only: Set to a log level to only log messages at that exact level (use with only_set=true).
 QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args);
 
 // Configure logger to also write messages to a file. The file path format string uses printf-style formatting.
@@ -1394,6 +1397,8 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     bool qol_logger_time = true;                          // Whether to show timestamps (default: on)
     bool qol_logger_time_color = false;                   // Whether to show timestamps with color (default: on)
     FILE *qol_log_file = NULL;                            // Optional log file handle (NULL = no file logging)
+    bool qol_logger_only_mode = false;                    // Only log messages at exactly only_level (default: off)
+    qol_log_level_t qol_logger_only_level = QOL_LOG_DIAG; // Level to use when only_mode is enabled
 
     QOLDEF void qol_init_logger_impl(qol_init_logger_arguments args) {
         qol_init_mutexes();
@@ -1402,6 +1407,8 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         qol_logger_color = args.color;
         qol_logger_time = args.time;
         qol_logger_time_color = args.time_color;
+        qol_logger_only_mode = args.only_set;
+        qol_logger_only_level = args.only;
         QOL_MUTEX_UNLOCK(qol_logger_mutex);
     }
 
@@ -1533,7 +1540,14 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         // Check level and read settings atomically
         FILE *log_file = qol_log_file;
 
-        if (level < qol_logger_min_level || level >= QOL_LOG_NONE) {
+        bool should_log = false;
+        if (qol_logger_only_mode) {
+            should_log = (level == qol_logger_only_level);
+        } else {
+            should_log = (level >= qol_logger_min_level && level < QOL_LOG_NONE);
+        }
+
+        if (!should_log) {
             QOL_MUTEX_UNLOCK(qol_logger_mutex);
             return;
         }

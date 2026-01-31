@@ -28,26 +28,25 @@ void example(bool with_dead) {
 }
 
 int main() {
-
-    init_logger(.level=LOG_DIAG, .time=true, .color=false); 
-    printf("--------------------------\n");
+    printf("=== Minimum level mode (level=LOG_INFO, shows INFO and above) ===\n");
+    init_logger(.level=LOG_INFO, .time=true, .color=true);
     example(false);
 
-    init_logger(.level=LOG_DIAG, .time=false, .color=false); 
-    printf("--------------------------\n");
+    printf("\n=== Only mode (only=LOG_HINT, only_set=true, shows ONLY HINT) ===\n");
+    init_logger(.only=LOG_HINT, .only_set=true, .time=true, .color=false);
     example(false);
 
-    init_logger(.level=LOG_DIAG, .time=false, .color=true); 
-    printf("--------------------------\n");
+    printf("\n=== Minimum level mode (level=LOG_DIAG, shows all) ===\n");
+    init_logger(.level=LOG_DIAG, .time=true, .color=true, .time_color=true);
     example(false);
 
-    init_logger(.level=LOG_DIAG, .time=true, .color=true); 
-    printf("--------------------------\n");
+    printf("\n=== Minimum level mode (level=LOG_WARN, shows all) ===\n");
+    init_logger(.level=LOG_WARN, .time=true, .color=true);
     example(false);
 
-    init_logger(.level=LOG_DIAG, .time=true, .color=true, .time_color=true); 
-    printf("--------------------------\n");
-    example(true);
+    printf("\n=== Only mode (only=LOG_WARN, only_set=true, shows ONLY WARN) ===\n");
+    init_logger(.only=LOG_WARN, .only_set=true, .time=false, .color=true);
+    example(false);
 
     return EXIT_SUCCESS;
 }
