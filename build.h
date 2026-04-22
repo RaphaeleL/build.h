@@ -99,6 +99,7 @@
         - automatic memory release for gcc and clang
         - redesign the logger api
         - prevent qol_run() from detecting c flags, always
+        - workaround for the unittest alignment issue
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -3766,6 +3767,12 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         const size_t target_width = 60;
         const char *prefix = "Testcase: ";
 
+        // TODO: we are aligning the test message with dots. if the test case name 
+        // is longer then the amount of dots we are printing, we end up in a inf
+        // loop. The quick fix is to only print N dots like in legacy unix systems.
+        // this old and new behaviour can be toggled.
+        bool legacy = false;
+
         for (size_t i = 0; i < test_count; i++) {
             QOL_MUTEX_LOCK(qol_test_mutex);
             qol_test_t *test = &qol_test_suite.tests[i];
@@ -3784,11 +3791,10 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             if (qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
             if (!qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
 
+            // NOTE: not working as expected, see todo above the loop
             // Print dots for alignment (using thread-safe printf)
             for (size_t j = 0; j < dots_needed; j++) {
-                // TODO: if the line to print is longer then the needed dots, its
-                //       ending up in a inf loop.
-                // QUICK FIX: only print N dots like in legacy unix systems.
+                if (legacy && j == 3) break;
                 if (qol_logger_color) printf(QOL_FG_BBLACK "." QOL_RESET);
                 if (!qol_logger_color) printf(".");
             }
@@ -3801,15 +3807,15 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             QOL_MUTEX_LOCK(qol_test_mutex);
             const char *failure_msg = qol_test_failure_msg;
             if (failed) {
-                if (qol_logger_color) printf(QOL_FG_RED" [FAILED]"QOL_RESET"\n");
-                if (!qol_logger_color) printf(" [FAILED]\n");
+                if (qol_logger_color) printf(QOL_FG_RED" %s"QOL_RESET"\n", (legacy ? "FAIL" : "[FAIL]"));
+                if (!qol_logger_color) printf(" %s\n", (legacy ? "FAIL" : "[FAILED]"));
                 if (failure_msg[0] != '\0') {
                     printf("  %s\n", failure_msg);
                 }
                 qol_test_suite.failed++;
             } else {
-                if (qol_logger_color) printf(QOL_FG_GREEN" [OK]"QOL_RESET"\n");
-                if (!qol_logger_color) printf(" [OK]\n");
+                if (qol_logger_color) printf(QOL_FG_GREEN" %s"QOL_RESET"\n", (legacy ? "OK" : "[OK]"));
+                if (!qol_logger_color) printf(" %s\n", (legacy ? "OK" : "[OK]"));
                 qol_test_suite.passed++;
             }
             QOL_MUTEX_UNLOCK(qol_test_mutex);
