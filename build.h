@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 31 Jan 2026
+    Changed : 22 Apr 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.4
@@ -98,6 +98,7 @@
       0.0.4 - wip
         - automatic memory release for gcc and clang
         - redesign the logger api
+        - prevent qol_run() from detecting c flags, always
 
     ----------------------------------------------------------------------------
     Copyright (c) 2025 Raphaele Salvatore Licciardo
@@ -2327,11 +2328,12 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
         const char *source = qol_cmd_get_source(config);
         const char *output = qol_cmd_get_output(config);
-
+        
         if (!source || !output) {
-            qol_log(QOL_LOG_ERRO, "Could not extract source or output from command\n");
-            qol_release(config);
-            return false;
+            qol_log(QOL_LOG_DIAG, "Could not extract source or output from command. Run the command anyway.\n");
+            // TODO: should we rather exit with false and do something like this?
+            // if (opts.cmd) return qol_run_always_impl(config, opts);
+            return qol_run_always_impl(config, opts);
         }
 
         qol_ensure_dir_for_file(output);
