@@ -15,7 +15,7 @@
     Changed : 22 Apr 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
-    Version : 0.0.5 WIP 
+    Version : 0.0.4
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
@@ -101,11 +101,8 @@
         - prevent qol_run() from detecting c flags, always
         - workaround for the unittest alignment issue
 
-      0.0.5 - wip
-        - nothing new so far 
-
     ----------------------------------------------------------------------------
-    Copyright (c) 2026 Raphaele Salvatore Licciardo
+    Copyright (c) 2025 Raphaele Salvatore Licciardo
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
