@@ -6,8 +6,8 @@ Cmd cmd = {0};
 Procs procs = {0};
 
 int main() {
-    auto_rebuild_plus(__FILE__, "build.h");
     init_logger(.level=LOG_INFO, .time=true, .color=true, .time_color=!true);
+    auto_rebuild_plus(__FILE__, "build.h");
 
     // Read all .c files from examples/ and compile them into out/
     const char* src_folder = "examples";
@@ -29,6 +29,7 @@ int main() {
             continue;
         }
         cmd = default_c_build(src_path, new_path);
+
         if (is_windows && str_contains(src_path, "013_qol_thread_safety")) push(&cmd, "-pthread");
         if (!run(&cmd, .procs = &procs)) {
             free((void*)temp);
