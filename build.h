@@ -102,7 +102,7 @@
         - workaround for the unittest alignment issue
 
       0.0.5 - wip
-        - nothing new so far 
+        - implement a default c extend build
 
     ----------------------------------------------------------------------------
     Copyright (c) 2026 Raphaele Salvatore Licciardo
@@ -519,6 +519,11 @@ QOLDEF char *qol_default_compiler_flags(void);
 // SECURITY NOTE: Paths are used directly in command execution without sanitization. Only use trusted paths
 // from your application, not user input. Paths containing shell metacharacters could cause command injection.
 QOLDEF QOL_Cmd qol_default_c_build(const char *source, const char *output);
+
+// Build a default C compilation command structure, like qol_default_c_build, but with a custom compilter and 
+// custom flags.
+// Returns a QOL_Cmd structure ready to use with qol_run() or qol_run_always().
+QOLDEF QOL_Cmd qol_default_c_build_extended(const char *source, const char *output, const char *flags[], size_t flags_count, const char *compiler);
 
 // Run a build command only if source files are newer than the output (incremental build).
 // Checks modification times: if any source is newer than output, runs the command; otherwise skips.
@@ -1799,6 +1804,18 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
+    QOLDEF QOL_Cmd qol_default_c_build_extended(const char *source, const char *output, const char *flags[], size_t flags_count, const char *compiler) {
+        QOL_Cmd cmd = {0};
+        qol_push(&cmd, compiler);
+        qol_push(&cmd, source);
+        qol_push(&cmd, "-o");
+        qol_push(&cmd, output);
+        for (size_t i = 0; i < flags_count; i++) {
+            qol_push(&cmd, flags[i]);
+        }
+        return cmd;
+    }
+
     QOLDEF QOL_Cmd qol_default_c_build(const char *source, const char *output) {
         QOL_Cmd cmd = {0}; // Initialize command structure to zero
 
@@ -2332,7 +2349,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
         const char *source = qol_cmd_get_source(config);
         const char *output = qol_cmd_get_output(config);
-        
+
         if (!source || !output) {
             qol_log(QOL_LOG_DIAG, "Could not extract source or output from command. Run the command anyway.\n");
             // TODO: should we rather exit with false and do something like this?
@@ -3957,6 +3974,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define auto_rebuild_plus       qol_auto_rebuild_plus
     #define get_filename_no_ext     qol_get_filename_no_ext
     #define default_compiler_flags  qol_default_compiler_flags
+    #define default_c_build_extended qol_default_c_build_extended
     #define default_c_build         qol_default_c_build
     #define run                     qol_run
     #define run_always              qol_run_always
