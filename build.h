@@ -1,4 +1,4 @@
-/* build.h - v0.0.4 - https://github.com/RaphaeleL/build.h
+/* build.h - v0.0.5 - https://github.com/RaphaeleL/build.h
    ============================================================================
     File: build.h
     Description: Quality-of-life utilities and abstractions for C development.
@@ -12,10 +12,10 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 22 Apr 2026
+    Changed : 24 May 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
-    Version : 0.0.5 WIP 
+    Version : 0.0.5 WIP
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
@@ -95,7 +95,7 @@
         - add qol_read_dir_recursive() to read dirs recursively
         - fix mutex forward declaration location
 
-      0.0.4 - 22.04.2026 
+      0.0.4 - 22.04.2026
         - automatic memory release for gcc and clang
         - redesign the logger api
         - prevent qol_run() from detecting c flags, always
@@ -520,7 +520,7 @@ QOLDEF char *qol_default_compiler_flags(void);
 // from your application, not user input. Paths containing shell metacharacters could cause command injection.
 QOLDEF QOL_Cmd qol_default_c_build(const char *source, const char *output);
 
-// Build a default C compilation command structure, like qol_default_c_build, but with a custom compilter and 
+// Build a default C compilation command structure, like qol_default_c_build, but with a custom compilter and
 // custom flags.
 // Returns a QOL_Cmd structure ready to use with qol_run() or qol_run_always().
 QOLDEF QOL_Cmd qol_default_c_build_extended(const char *source, const char *output, const char *flags[], size_t flags_count, const char *compiler);
@@ -1573,7 +1573,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         const char *level_str = qol_level_to_str(level);
 
         const char *level_color = qol_logger_color ? qol_level_to_color(level) : "";
-        const char *time_color = qol_logger_time_color ? QOL_DIM : QOL_COLOR_RESET""QOL_DIM;
+        const char *time_color = qol_logger_time_color ? QOL_DIM : QOL_COLOR_RESET;
 
         char time_buf[32] = {0};
         if (qol_logger_time) {
@@ -3787,7 +3787,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         const size_t target_width = 60;
         const char *prefix = "Testcase: ";
 
-        // TODO: we are aligning the test message with dots. if the test case name 
+        // TODO: we are aligning the test message with dots. if the test case name
         // is longer then the amount of dots we are printing, we end up in a inf
         // loop. The quick fix is to only print N dots like in legacy unix systems.
         // this old and new behaviour can be toggled.
