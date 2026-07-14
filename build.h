@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 24 May 2026
+    Changed : 14 Jul 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.0.5 WIP
@@ -59,7 +59,7 @@
 
           UNUSED(progr);
 
-          if (strcmp(param, "hashmap")) {
+          if (strcmp(param, "hashmap") == 0) {
               info("Hashmap Demo selected\n");
               HashMap* hm = hm_create();
               hm_put(hm, (void*)"prename", (void*)"john");
@@ -103,6 +103,16 @@
 
       0.0.5 - wip
         - implement a default c extend build
+        - fix platform detection reporting is_windows=true on macOS/Linux
+        - fix use-after-free of auto-generated output names in default builds
+        - re-enable ANSI support on Windows (stdout and stderr)
+        - hashmap: reuse deleted slots on insert, safe key comparison
+        - unittest: fix runaway dot padding for long test names
+        - unittest: add qol_test_print_summary implementation
+        - temp allocator: 16-byte alignment and overflow-safe capacity check
+        - logger: no escape codes when colors are disabled
+        - define _POSIX_C_SOURCE before system includes
+        - use time_t for rebuild timestamp comparisons
 
     ----------------------------------------------------------------------------
     Copyright (c) 2026 Raphaele Salvatore Licciardo
@@ -128,6 +138,15 @@
 
 #ifndef QOL_BUILD_H  // include guard
 #define QOL_BUILD_H
+
+// Ensure POSIX.1-2008 features are available (clock_gettime, getline, strdup).
+// This must be defined before ANY system header is included, otherwise the
+// feature test macro has no effect on already-included headers.
+#if !defined(_WIN32) && !defined(_WIN64)
+    #ifndef _POSIX_C_SOURCE
+        #define _POSIX_C_SOURCE 200809L
+    #endif
+#endif
 
 // Check for C++ compilation and use C linkage for compatibility
 #ifdef __cplusplus
@@ -171,13 +190,13 @@
     static const char *qol_os_name = "Windows";
     #define WINDOWS 1
 #elif defined(__APPLE__) && defined(__MACH__)
-    static bool qol_is_windows = true;
+    static bool qol_is_windows = false;
     static bool qol_is_linux = false;
     static bool qol_is_macos = true;
     static const char *qol_os_name = "macOS";
     #define MACOS 1
 #elif defined(__linux__)
-    static bool qol_is_windows = true;
+    static bool qol_is_windows = false;
     static bool qol_is_linux = true;
     static bool qol_is_macos = false;
     static const char *qol_os_name = "Linux";
@@ -194,12 +213,6 @@
     #include <dirent.h>       // Directory reading (opendir, readdir, etc.)
     #include <sys/wait.h>     // Process waiting (waitpid, WEXITSTATUS, etc.)
     #include <fcntl.h>        // File control operations
-    // Ensure POSIX.1b (199309L) features are available (like clock_gettime)
-    // This must be defined before including time.h to get high-resolution timers
-    #ifndef _POSIX_C_SOURCE
-        #define _POSIX_C_SOURCE 199309L
-    #endif
-    #include <time.h>         // Time functions (clock_gettime for timers)
 #elif defined(WINDOWS)
     // Exclude rarely-used Windows APIs to reduce compilation time and header bloat
     #define WIN32_LEAN_AND_MEAN  // Exclude rarely used APIs
@@ -297,8 +310,8 @@ typedef enum {
     QOL_LOG_EXEC,      // Command messages: Logs executed shell commands (useful for build systems)
     QOL_LOG_HINT,      // Hint messages: Helpful suggestions or tips (not errors or warnings)
     QOL_LOG_WARN,      // Warning messages: Something unusual happened but execution can continue
-    QOL_LOG_ERRO,      // Error messages: Something went wrong, program will exit(EXIT_FAILURE) after logging
-    QOL_LOG_DEAD,      // Critical messages: Severe error, program will abort() after logging
+    QOL_LOG_ERRO,      // Error messages: Something went wrong, execution continues (caller decides how to handle)
+    QOL_LOG_DEAD,      // Critical messages: Severe error, program will exit(EXIT_FAILURE) after logging
     QOL_LOG_NONE       // No logging: Disables all logging (useful for release builds)
 } qol_log_level_t;
 
@@ -342,7 +355,7 @@ QOLDEF void qol_init_logger_logfile(const char *format, ...);
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
 QOLDEF const char *qol_get_time(void);
 
-// Get current time as a formatted string in format "DD-MM-YYYY".
+// Get current date as a formatted string in format "YYYY-MM-DD".
 // Returns pointer to a static buffer containing the formatted date string.
 // Useful for generating timestamped filenames or log entries. Thread-safe for read operations.
 QOLDEF const char *qol_get_date(void);
@@ -358,7 +371,7 @@ QOLDEF const char *qol_get_datetime(void);
 // Messages are filtered based on init_logger() settings:
 //   - Minimum level mode: Messages at or above .level are logged
 //   - Only mode (.only_set=true): Only messages at exactly .only level are logged
-// ERRO level calls exit(EXIT_FAILURE) after logging. DEAD level calls abort() after logging.
+// DEAD level calls exit(EXIT_FAILURE) after logging; all other levels return normally.
 // Logs to stderr by default, and to file if qol_init_logger_logfile() was configured.
 QOLDEF void qol_log(qol_log_level_t level, const char *fmt, ...);
 
@@ -882,14 +895,14 @@ QOLDEF void qol_temp_rewind(size_t checkpoint);
             while (newcap < (n)) newcap *= 2;                                                                \
             /* Log allocation event for debugging */                                                          \
             if ((vec)->cap == 0) {                                                                           \
-                qol_log(QOL_LOG_DIAG, "Dynamic array inits memory on %d.\n", newcap);                       \
+                qol_log(QOL_LOG_DIAG, "Dynamic array inits memory on %zu.\n", newcap);                      \
             } else {                                                                                         \
-                qol_log(QOL_LOG_DIAG, "Dynamic array needs more memory (%d -> %d)!\n", (vec)->cap, newcap); \
+                qol_log(QOL_LOG_DIAG, "Dynamic array needs more memory (%zu -> %zu)!\n", (vec)->cap, newcap); \
             }                                                                                                \
             /* Reallocate memory - realloc handles NULL pointer (first allocation) */                        \
             void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                                 \
             if (!tmp) {                                                                                      \
-                qol_log(QOL_LOG_ERRO, "Dynamic array out of memory (need %zu elements)\n", n);              \
+                qol_log(QOL_LOG_ERRO, "Dynamic array out of memory (need %zu elements)\n", (size_t)(n));    \
                 abort();                                                                                     \
             }                                                                                                \
             (vec)->data = tmp;                                                                               \
@@ -906,7 +919,7 @@ QOLDEF void qol_temp_rewind(size_t checkpoint);
     do {                                                                                                       \
         if ((vec)->len < (vec)->cap / 2 && (vec)->cap > QOL_INIT_CAP) {                                        \
             size_t newcap = (vec)->cap / 2;                                                                    \
-            qol_log(QOL_LOG_DIAG, "Dynamic array can release some memory (%d -> %d)!\n", (vec)->cap, newcap); \
+            qol_log(QOL_LOG_DIAG, "Dynamic array can release some memory (%zu -> %zu)!\n", (vec)->cap, newcap); \
             void *tmp = realloc((vec)->data, newcap * sizeof(*(vec)->data));                                   \
             if (tmp) {                                                                                         \
                 (vec)->data = tmp;                                                                             \
@@ -1132,6 +1145,10 @@ QOLDEF bool qol_hm_empty(QOL_HashMap* hm);
     #define QOL_MUTEX_DESTROY(mutex) pthread_mutex_destroy(&(mutex))
 #endif
 
+// Initialize all mutexes (called automatically on first use, thread-safe).
+// Declared here because macros like QOL_TEST_ASSERT expand in user code and call it.
+QOLDEF void qol_init_mutexes(void);
+
 // Mutexes for protecting global state
 #if defined(WINDOWS)
     // On Windows, CRITICAL_SECTION must be initialized dynamically
@@ -1162,7 +1179,7 @@ QOLDEF bool qol_hm_empty(QOL_HashMap* hm);
 #define QOL_UNUSED(value) (void)(value)
 
 // TODO macro: Mark code locations that need implementation
-// When executed, prints file:line and message, then aborts
+// When executed, prints file:line and message, then exits with failure
 // Usage: QOL_TODO("Implement feature X"); // Marks incomplete code
 #define QOL_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); exit(EXIT_FAILURE); } while(0)
 
@@ -1384,14 +1401,25 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     // DISABLE_NEWLINE_AUTO_RETURN: Prevents Windows from converting \n to \r\n automatically
     // On Unix-like systems, this is a no-op (ANSI codes work by default)
     QOLDEF void QOL_enable_ansi(void) {
-// #if defined(WINDOWS)
-//         HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);  // Get handle to stdout
-//         DWORD mode;
-//         GetConsoleMode(hStdout, &mode);                    // Read current console mode
-//         mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;        // Enable ANSI escape sequence support
-//         mode |= DISABLE_NEWLINE_AUTO_RETURN;               // Disable automatic \r insertion
-//         SetConsoleMode(hStdout, mode);                     // Apply new mode
-// #endif
+#if defined(WINDOWS)
+    #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+    #endif
+    #ifndef DISABLE_NEWLINE_AUTO_RETURN
+        #define DISABLE_NEWLINE_AUTO_RETURN 0x0008
+    #endif
+        // Enable virtual terminal processing on both stdout and stderr so that
+        // ANSI escape sequences work in the Windows console (Windows 10+).
+        HANDLE handles[2] = { GetStdHandle(STD_OUTPUT_HANDLE), GetStdHandle(STD_ERROR_HANDLE) };
+        for (int i = 0; i < 2; i++) {
+            DWORD mode = 0;
+            if (handles[i] == INVALID_HANDLE_VALUE || handles[i] == NULL) continue;
+            if (!GetConsoleMode(handles[i], &mode)) continue;  // Not a console (redirected)
+            mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;        // Enable ANSI escape sequence support
+            mode |= DISABLE_NEWLINE_AUTO_RETURN;               // Disable automatic \r insertion
+            SetConsoleMode(handles[i], mode);
+        }
+#endif
     }
 
     //////////////////////////////////////////////////
@@ -1572,17 +1600,21 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
         const char *level_str = qol_level_to_str(level);
 
+        // Only emit escape sequences when colors are enabled, so redirected
+        // output (files, pipes) stays clean
+        bool any_color = qol_logger_color || qol_logger_time_color;
         const char *level_color = qol_logger_color ? qol_level_to_color(level) : "";
-        const char *time_color = qol_logger_time_color ? QOL_DIM : QOL_COLOR_RESET;
+        const char *time_color = qol_logger_time_color ? QOL_DIM : (any_color ? QOL_COLOR_RESET : "");
+        const char *reset = any_color ? QOL_COLOR_RESET : "";
 
         char time_buf[32] = {0};
         if (qol_logger_time) {
             time_t t = time(NULL);
             struct tm *lt = localtime(&t);
             strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", lt);
-            fprintf(stderr, "%s[%s]%s %s >>> %s", level_color, level_str, time_color, time_buf, QOL_COLOR_RESET);
+            fprintf(stderr, "%s[%s]%s %s >>> %s", level_color, level_str, time_color, time_buf, reset);
         } else {
-            fprintf(stderr, "%s[%s]%s ", level_color, level_str, QOL_COLOR_RESET);
+            fprintf(stderr, "%s[%s]%s ", level_color, level_str, reset);
         }
 
         // Write to log file (without color codes) - protect file access
@@ -1806,12 +1838,21 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
     QOLDEF QOL_Cmd qol_default_c_build_extended(const char *source, const char *output, const char *flags[], size_t flags_count, const char *compiler) {
         QOL_Cmd cmd = {0};
-        qol_push(&cmd, compiler);
-        qol_push(&cmd, source);
-        qol_push(&cmd, "-o");
-        qol_push(&cmd, output);
+        qol_push(&cmd, compiler ? compiler : "cc");
+        // Flags go before the source/output pair, matching conventional compiler invocations
         for (size_t i = 0; i < flags_count; i++) {
             qol_push(&cmd, flags[i]);
+        }
+        qol_push(&cmd, source);
+        qol_push(&cmd, "-o");
+        if (output) {
+            qol_push(&cmd, output);
+        } else {
+            // Auto-generate output name from the source filename (like qol_default_c_build).
+            // NOTE: the string is intentionally NOT freed here - the command keeps a
+            // pointer to it until the command is executed and released.
+            char *auto_output = qol_get_filename_no_ext(source);
+            if (auto_output) qol_push(&cmd, auto_output);
         }
         return cmd;
     }
@@ -1845,12 +1886,13 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         if (output) {
             qol_push(&cmd, output); // Use provided output name
         } else {
-            // Auto-generate output name: remove extension from source filename
+            // Auto-generate output name: remove extension from source filename.
+            // NOTE: the string is intentionally NOT freed here - the command stores the
+            // pointer and would otherwise dangle (use-after-free) when executed later.
+            // The small allocation lives until the process exits, which is acceptable
+            // for a build script.
             char *auto_output = qol_get_filename_no_ext(source);
-            if (auto_output) {
-                qol_push(&cmd, auto_output);
-                free(auto_output); // Free the allocated string
-            }
+            if (auto_output) qol_push(&cmd, auto_output);
         }
 
         return cmd; // Return constructed command structure
@@ -2170,7 +2212,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         }
         command[sizeof(command) - 1] = '\0'; // Ensure null termination
         if (truncated) {
-            qol_log(QOL_LOG_WARN, "Command truncated (exceeds %zu bytes): %s...\n", QOL_EXEC_BUFFER_SIZE - 1, command);
+            qol_log(QOL_LOG_WARN, "Command truncated (exceeds %d bytes): %s...\n", QOL_EXEC_BUFFER_SIZE - 1, command);
         }
         qol_log(QOL_LOG_EXEC, "%s\n", command);
     }
@@ -2222,7 +2264,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         }
         cmdline[sizeof(cmdline) - 1] = '\0'; // Ensure null termination
         if (truncated) {
-            qol_log(QOL_LOG_ERRO, "Command line truncated (exceeds %zu bytes), command execution may fail\n", QOL_EXEC_BUFFER_SIZE - 1);
+            qol_log(QOL_LOG_ERRO, "Command line truncated (exceeds %d bytes), command execution may fail\n", QOL_EXEC_BUFFER_SIZE - 1);
             return QOL_INVALID_PROC;
         }
 
@@ -2375,28 +2417,23 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             return false;
         }
 
-        QOL_Proc proc;
+        QOL_Proc proc = qol_cmd_execute_async(config);
+        if (proc == QOL_INVALID_PROC) {
+            qol_release(config);
+            return false;
+        }
+
         if (opts.procs) {
-            proc = qol_cmd_execute_async(config);
-            if (proc == QOL_INVALID_PROC) {
-                qol_release(config);
-                return false;
-            }
-            if (opts.procs) {
-                qol_push(opts.procs, proc);
-            }
+            // Async mode: hand the process handle to the caller for later qol_procs_wait()
+            qol_push(opts.procs, proc);
             qol_release(config);
             return true;
-        } else {
-            proc = qol_cmd_execute_async(config);
-            if (proc == QOL_INVALID_PROC) {
-                qol_release(config);
-                return false;
-            }
-            bool success = qol_proc_wait(proc);
-            qol_release(config);
-            return success;
         }
+
+        // Sync mode: wait for the process to finish before returning
+        bool success = qol_proc_wait(proc);
+        qol_release(config);
+        return success;
     }
 
     //////////////////////////////////////////////////
@@ -2421,8 +2458,11 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
     QOLDEF void *qol_temp_alloc(size_t size) {
         qol_init_mutexes();
+        // Round up to 16 bytes so returned pointers are suitably aligned for any type
+        if (size > (size_t)-1 - 15) return NULL; // Overflow guard
+        size = (size + 15) & ~(size_t)15;
         QOL_MUTEX_LOCK(qol_temp_alloc_mutex);
-        if (qol_temp_size + size > QOL_TEMP_CAPACITY) {
+        if (size > QOL_TEMP_CAPACITY - qol_temp_size) {
             QOL_MUTEX_UNLOCK(qol_temp_alloc_mutex);
             return NULL;
         }
@@ -3452,7 +3492,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             qol_log(QOL_LOG_ERRO, "could not stat %s: %s\n", output_path, strerror(errno));
             return -1;
         }
-        int output_path_time = statbuf.st_mtime; // Modification time (seconds since epoch)
+        time_t output_path_time = statbuf.st_mtime; // Modification time (seconds since epoch)
 
         // Check each input file: if any is newer than output, rebuild needed
         for (size_t i = 0; i < input_paths_count; ++i) {
@@ -3461,7 +3501,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
                 qol_log(QOL_LOG_ERRO, "could not stat %s: %s\n", input_path, strerror(errno));
                 return -1;
             }
-            int input_path_time = statbuf.st_mtime;
+            time_t input_path_time = statbuf.st_mtime;
             // Simple integer comparison: newer files have larger timestamps
             if (input_path_time > output_path_time) return 1;
         }
@@ -3489,8 +3529,9 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     }
 
     QOLDEF bool qol_hm_keys_equal(void* key1, void* key2) {
-        size_t key_size = strlen(key1) + 1;
-        return memcmp(key1, key2, key_size) == 0;
+        // strcmp stops at the first difference or null terminator, so it never
+        // reads past the end of the shorter key (unlike a fixed-size memcmp).
+        return strcmp((const char*)key1, (const char*)key2) == 0;
     }
 
     QOLDEF QOL_HashMap* qol_hm_create() {
@@ -3587,9 +3628,16 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         size_t hash = qol_hm_hash(key, key_size, hm->capacity);
         size_t index = hash;
 
+        // Track the first tombstone we pass, so deleted slots get reused on insert
+        // (otherwise the table slowly fills with unusable DELETED entries)
+        size_t first_tombstone = (size_t)-1;
+
         // Linear probing: Handle collisions by checking next bucket
         // Continue until we find empty slot or matching key
         while (hm->buckets[index].state != QOL_HM_EMPTY) {
+            if (hm->buckets[index].state == QOL_HM_DELETED && first_tombstone == (size_t)-1) {
+                first_tombstone = index;
+            }
             // Check if this bucket contains our key (collision resolution)
             if (hm->buckets[index].state == QOL_HM_USED && qol_hm_keys_equal(hm->buckets[index].key, key)) {
                 qol_log(QOL_LOG_DIAG, "Updating entry for key: %s\n", (const char*)key);
@@ -3611,10 +3659,18 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             // Collision: Move to next bucket (wrap around if needed)
             index = (index + 1) % hm->capacity;
             if (index == hash) {
-                // Wrapped all the way around: table is full (shouldn't happen with proper resizing)
-                qol_log(QOL_LOG_ERRO, "Hashmap table is full\n");
-                return;
+                // Wrapped all the way around without an EMPTY slot
+                if (first_tombstone == (size_t)-1) {
+                    qol_log(QOL_LOG_ERRO, "Hashmap table is full\n");
+                    return;
+                }
+                break; // A tombstone is available for reuse below
             }
+        }
+
+        // Prefer reusing a tombstone over consuming a fresh empty slot
+        if (first_tombstone != (size_t)-1) {
+            index = first_tombstone;
         }
 
         // Found empty or deleted slot: Insert new entry
@@ -3775,22 +3831,11 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         qol_test_suite.failed = 0;
         QOL_MUTEX_UNLOCK(qol_test_mutex);
 
-        // Find the longest test name for alignment
-        QOL_MUTEX_LOCK(qol_test_mutex);
-        size_t max_name_len = 0;
-        for (size_t i = 0; i < test_count; i++) {
-            size_t len = strlen(qol_test_suite.tests[i].name);
-            if (len > max_name_len) max_name_len = len;
-        }
-        QOL_MUTEX_UNLOCK(qol_test_mutex);
-
         const size_t target_width = 60;
         const char *prefix = "Testcase: ";
 
-        // TODO: we are aligning the test message with dots. if the test case name
-        // is longer then the amount of dots we are printing, we end up in a inf
-        // loop. The quick fix is to only print N dots like in legacy unix systems.
-        // this old and new behaviour can be toggled.
+        // Set to true for classic three-dot output ("name ... OK") instead of
+        // aligned columns of dots.
         bool legacy = false;
 
         for (size_t i = 0; i < test_count; i++) {
@@ -3802,21 +3847,21 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             qol_test_failure_msg[0] = '\0'; // Reset failure message
             QOL_MUTEX_UNLOCK(qol_test_mutex);
 
-            // Calculate dots needed to reach alignment point
+            // Calculate dots needed to reach alignment point.
+            // Use signed math so names longer than the target width can't
+            // underflow into a huge unsigned count (previously looped ~forever).
             size_t name_len = strlen(test->name);
             size_t total_prefix = strlen(prefix) + name_len;
-            size_t space_needed = (target_width - total_prefix);
-            size_t dots_needed = space_needed;
+            size_t dots_needed = (total_prefix < target_width) ? (target_width - total_prefix) : 3;
 
-            if (qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
-            if (!qol_logger_color) qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
+            qol_log(QOL_LOG_HINT, "%s%s ", prefix, test->name);
 
-            // NOTE: not working as expected, see todo above the loop
-            // Print dots for alignment (using thread-safe printf)
+            // Print dots for alignment (stderr, same stream as the logger, so
+            // the name, dots and result stay on one line instead of interleaving)
             for (size_t j = 0; j < dots_needed; j++) {
                 if (legacy && j == 3) break;
-                if (qol_logger_color) printf(QOL_FG_BBLACK "." QOL_RESET);
-                if (!qol_logger_color) printf(".");
+                if (qol_logger_color) fprintf(stderr, QOL_FG_BBLACK "." QOL_RESET);
+                else fprintf(stderr, ".");
             }
 
             // Run the test
@@ -3827,15 +3872,15 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             QOL_MUTEX_LOCK(qol_test_mutex);
             const char *failure_msg = qol_test_failure_msg;
             if (failed) {
-                if (qol_logger_color) printf(QOL_FG_RED" %s"QOL_RESET"\n", (legacy ? "FAIL" : "[FAIL]"));
-                if (!qol_logger_color) printf(" %s\n", (legacy ? "FAIL" : "[FAILED]"));
+                if (qol_logger_color) fprintf(stderr, QOL_FG_RED" %s"QOL_RESET"\n", (legacy ? "FAIL" : "[FAIL]"));
+                else fprintf(stderr, " %s\n", (legacy ? "FAIL" : "[FAILED]"));
                 if (failure_msg[0] != '\0') {
-                    printf("  %s\n", failure_msg);
+                    fprintf(stderr, "  %s\n", failure_msg);
                 }
                 qol_test_suite.failed++;
             } else {
-                if (qol_logger_color) printf(QOL_FG_GREEN" %s"QOL_RESET"\n", (legacy ? "OK" : "[OK]"));
-                if (!qol_logger_color) printf(" %s\n", (legacy ? "OK" : "[OK]"));
+                if (qol_logger_color) fprintf(stderr, QOL_FG_GREEN" %s"QOL_RESET"\n", (legacy ? "OK" : "[OK]"));
+                else fprintf(stderr, " %s\n", (legacy ? "OK" : "[OK]"));
                 qol_test_suite.passed++;
             }
             QOL_MUTEX_UNLOCK(qol_test_mutex);
@@ -3855,6 +3900,22 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         }
 
         return failed > 0 ? 1 : 0;
+    }
+
+    QOLDEF void qol_test_print_summary(void) {
+        qol_init_mutexes();
+        QOL_MUTEX_LOCK(qol_test_mutex);
+        size_t total = qol_test_suite.count;
+        size_t passed = qol_test_suite.passed;
+        size_t failed = qol_test_suite.failed;
+        QOL_MUTEX_UNLOCK(qol_test_mutex);
+
+        if (qol_logger_color) {
+            qol_log(QOL_LOG_HINT, "Total: " QOL_FG_YELLOW "%zu" QOL_RESET ", Passed: " QOL_FG_GREEN "%zu" QOL_RESET
+                    ", Failed: " QOL_FG_RED "%zu" QOL_RESET "\n", total, passed, failed);
+        } else {
+            qol_log(QOL_LOG_INFO, "Total: %zu, Passed: %zu, Failed: %zu\n", total, passed, failed);
+        }
     }
 
     //////////////////////////////////////////////////
