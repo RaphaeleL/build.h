@@ -1,4 +1,4 @@
-/* build.h - v0.0.6 - https://github.com/RaphaeleL/build.h
+/* build.h - v0.0.5 - https://github.com/RaphaeleL/build.h
    ============================================================================
     File: build.h
     Description: Quality-of-life utilities and abstractions for C development.
