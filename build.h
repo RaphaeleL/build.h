@@ -12,10 +12,10 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 14 Jul 2026
+    Changed : 15 Sep 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
-    Version : 0.0.6 WIP
+    Version : 0.0.6
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
