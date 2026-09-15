@@ -17,7 +17,8 @@ A collection of essential utilities that make C development more pleasant. Think
 - **Unit test harness** with minimal macros
 - **Temporary allocator** for short-lived allocations without manual cleanup
 - **Auto-free** for automatic memory cleanup using GCC/Clang cleanup attribute
-- **Path utilities** for common path manipulations
+- **Path utilities** for common path manipulations (join, dir, basename)
+- **Stack, queue, and ring buffer** container macros
 - **String utilities** for common string operations (trim, split, join, replace, etc.)
 - **Cross-platform command execution** using fork/exec (POSIX) or CreateProcess (Windows)
 - **Thread-safe** implementation throughout with mutexes
@@ -88,6 +89,7 @@ The build helpers provide a simple way to compile C programs without a tradition
 
 - **`proc_wait(proc)`** — Wait for an async process to complete. Returns `true` on success, `false` on failure
 - **`procs_wait(&procs)`** — Wait for all processes in a `Procs` array to complete. Returns `true` if all succeed, `false` otherwise
+- **`run_parallel(cmds, count)`** / **`run_parallel_always(cmds, count)`** — Run an array of commands in parallel (async under the hood, waits for all at the end)
 
 ### Async Execution
 
@@ -231,6 +233,35 @@ release(&a);
 
 **Available macros:** `grow`, `shrink`, `push` (variadic), `drop`, `dropn`, `resize`, `release`, `back`, `swap`, `list(T)`
 
+## Stack, Queue, Ring Buffer
+
+Lightweight containers built on the dynamic array pattern:
+
+```c
+// Stack (LIFO)
+qol_stack(int) s = {0};
+stack_push(&s, 1);
+stack_push(&s, 2);
+int val = 0;
+stack_pop(&s, &val);  // val == 2
+stack_release(&s);
+
+// Queue (FIFO)
+qol_queue(const char *) q = {0};
+queue_push(&q, "first");
+queue_push(&q, "second");
+const char *item = NULL;
+queue_pop(&q, &item);  // item == "first"
+queue_release(&q);
+
+// Ring buffer (fixed capacity)
+qol_ring(int) r = {0};
+ring_init(&r, 8);
+ring_push(&r, 42);
+ring_pop(&r, &val);
+ring_free(&r);
+```
+
 **Note:** `QOL_Cmd` (used by build helpers) is a dynamic array of `const char*` — use these same macros to build commands dynamically.
 
 ## HashMap
@@ -272,10 +303,14 @@ Common path manipulation functions:
 
 ```c
 const char *name = path_name("/path/to/file.txt");  // returns "file.txt"
+char *dir = path_dir("/path/to/file.txt");          // returns "/path/to" (caller frees)
+char *full = path_join("out", "bin", "app");        // returns "out/bin/app" (caller frees)
 const char *cwd = get_current_dir_temp();           // get current directory (uses temp allocator)
 set_current_dir("subdir");                          // change directory
 rename("old.txt", "new.txt");                       // rename file/directory
-int exists = file_exists("file.txt");               // returns 1 if exists, 0 if not, -1 on error
+bool exists = file_exists("file.txt");              // returns true if exists
+free(dir);
+free(full);
 ```
 
 **Why `get_current_dir_temp()`?** It uses the temporary allocator (see below), so you don't need to free the result. Perfect for short-lived path operations.
@@ -509,10 +544,10 @@ A: The logger has process-global settings; other parts are not thread-safe. Use 
 > Check out the `changelog/` directory for the version history.
 
 **Completed:**
-- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling, Thread safety, Auto-free
+- Logger, Build helpers, Dynamic arrays, CLI parser, File operations, HashMap, Unit test runner, High-res timers, Temporary allocator, Path utilities, String utilities, Cross-platform command execution, Windows error handling, Thread safety, Auto-free, Stack/queue/ring buffer, Parallel build helpers (`run_parallel`)
 
 **Planned:**
-- Queue/stack macros, ring buffer, linked list, easier parallel builds, better Windows support
+- Linked list, better Windows support, more build-system conveniences
 
 ## License
 

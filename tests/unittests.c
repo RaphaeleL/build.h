@@ -4,6 +4,7 @@
 
 #include "test_build.h"
 #include "test_cli.h"
+#include "test_containers.h"
 #include "test_cmd_exec.h"
 #include "test_dynarray.h"
 #include "test_file_ops.h"
@@ -14,6 +15,6 @@
 #include "test_timer.h"
 
 int main() {
-    init_logger(.only=LOG_HINT, .only_set=true, .time=true, .color=true);
+    init_logger(.only=LOG_HINT, .only_set=true, .time=true, .color=!true);
     return test_run_all();
 }

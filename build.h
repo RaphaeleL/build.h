@@ -114,8 +114,10 @@
         - define _POSIX_C_SOURCE before system includes
         - use time_t for rebuild timestamp comparisons
 
-      0.0.6 - wip 
-        - todo
+      0.0.6 - wip
+        - stack, queue, and ring buffer container macros
+        - path_join() and path_dir() path utilities
+        - run_parallel() and run_parallel_always() for easier parallel builds
 
     ----------------------------------------------------------------------------
     Copyright (c) 2026 Raphaele Salvatore Licciardo
@@ -578,6 +580,16 @@ QOLDEF bool qol_proc_wait(QOL_Proc proc);
 // Useful for waiting on multiple parallel builds or commands executed asynchronously.
 QOLDEF bool qol_procs_wait(QOL_Procs *procs);
 
+// Run multiple build commands in parallel (incremental: skips up-to-date targets).
+// cmds: Array of QOL_Cmd structures. Each command is executed asynchronously and released on completion.
+// count: Number of commands in the array. Returns true if all commands succeeded or were skipped, false otherwise.
+QOLDEF bool qol_run_parallel(QOL_Cmd *cmds, size_t count);
+
+// Run multiple build commands in parallel unconditionally (always builds, no timestamp check).
+// cmds: Array of QOL_Cmd structures. Each command is executed asynchronously and released on completion.
+// count: Number of commands in the array. Returns true if all commands succeeded, false otherwise.
+QOLDEF bool qol_run_parallel_always(QOL_Cmd *cmds, size_t count);
+
 // Automatically rebuild the current executable if source file is newer than the binary.
 // src: Path to the source file of the current build system (e.g., "build.c").
 // Checks modification time of src against the executable. If src is newer, rebuilds and restarts.
@@ -743,6 +755,19 @@ QOLDEF int qol_str_icmp(const char *str1, const char *str2);
 // Handles both Unix '/' and Windows '\' path separators. Returns the full path if no separator found.
 // Example: "/path/to/file.txt" returns "file.txt", "C:\\path\\file.txt" returns "file.txt".
 QOLDEF const char *qol_path_name(const char *path);
+
+// Extract the directory portion of a file path. Returns a newly allocated string (caller must free).
+// Example: "/path/to/file.txt" returns "/path/to", "file.txt" returns ".".
+QOLDEF char *qol_path_dir(const char *path);
+
+// Join two path segments with the platform separator. Returns a newly allocated string (caller must free).
+// Skips duplicate separators between segments. Either argument may be NULL (treated as empty).
+QOLDEF char *qol_path_join2(const char *a, const char *b);
+
+// Join multiple path segments with the platform separator. Variadic, NULL-terminated internally.
+// Returns a newly allocated string (caller must free). Example: qol_path_join("a", "b", "c") -> "a/b/c".
+QOLDEF char *qol_path_join_impl(const char *first, ...);
+#define qol_path_join(...) qol_path_join_impl(__VA_ARGS__, NULL)
 
 // Rename or move a file/directory from old_path to new_path. Returns true on success, false on failure.
 // On Windows, replaces existing file if new_path exists. On Unix, overwrites if permissions allow.
@@ -1040,6 +1065,102 @@ QOLDEF void qol_temp_rewind(size_t checkpoint);
 // Convenience macro for declaring dynamic arrays without typing the full struct definition
 #define qol_list(T) \
     struct { T *data; size_t len, cap; }
+
+//////////////////////////////////////////////////
+/// STACK / QUEUE / RING /////////////////////////
+//////////////////////////////////////////////////
+
+// Stack: LIFO container built on the dynamic array. Uses the same memory layout as qol_list().
+#define qol_stack(T) qol_list(T)
+
+#define qol_stack_push(stack, val) qol_push((stack), (val))
+
+#define qol_stack_pop(stack, out)                      \
+    do {                                               \
+        if ((stack)->len == 0) {                       \
+            qol_log(QOL_LOG_ERRO, "stack pop on empty\n"); \
+            abort();                                   \
+        }                                              \
+        *(out) = (stack)->data[(stack)->len - 1];      \
+        qol_drop(stack);                               \
+    } while (0)
+
+#define qol_stack_top(stack) qol_back(stack)
+#define qol_stack_empty(stack) ((stack)->len == 0)
+#define qol_stack_release(stack) qol_release(stack)
+
+// Queue: FIFO container with O(1) push and pop (amortized). Compacts when drained.
+#define qol_queue(T) \
+    struct { T *data; size_t len, cap; size_t head; }
+
+#define qol_queue_push(queue, val) qol_push_impl((queue), (val))
+
+#define qol_queue_pop(queue, out)                      \
+    do {                                               \
+        if ((queue)->head >= (queue)->len) {           \
+            qol_log(QOL_LOG_ERRO, "queue pop on empty\n"); \
+            abort();                                   \
+        }                                              \
+        *(out) = (queue)->data[(queue)->head++];       \
+        if ((queue)->head == (queue)->len) {           \
+            (queue)->head = 0;                         \
+            (queue)->len = 0;                          \
+            qol_shrink(queue);                         \
+        }                                              \
+    } while (0)
+
+#define qol_queue_len(queue) ((queue)->len - (queue)->head)
+#define qol_queue_empty(queue) ((queue)->head >= (queue)->len)
+#define qol_queue_release(queue) \
+    do { qol_release(queue); (queue)->head = 0; } while (0)
+
+// Ring buffer: fixed-capacity circular buffer with O(1) push and pop.
+#define qol_ring(T) \
+    struct { T *data; size_t cap; size_t head; size_t count; }
+
+#define qol_ring_init(ring, capacity)                                      \
+    do {                                                                   \
+        (ring)->cap = (capacity);                                          \
+        (ring)->head = 0;                                                  \
+        (ring)->count = 0;                                                 \
+        (ring)->data = (capacity) > 0                                      \
+            ? (typeof((ring)->data))calloc((capacity), sizeof(*(ring)->data)) \
+            : NULL;                                                        \
+        if ((capacity) > 0 && !(ring)->data) {                             \
+            qol_log(QOL_LOG_ERRO, "ring buffer allocation failed\n");      \
+            abort();                                                       \
+        }                                                                  \
+    } while (0)
+
+#define qol_ring_free(ring) \
+    do { free((ring)->data); (ring)->data = NULL; (ring)->cap = (ring)->head = (ring)->count = 0; } while (0)
+
+#define qol_ring_push(ring, val)                                           \
+    do {                                                                   \
+        if ((ring)->count >= (ring)->cap) {                                \
+            qol_log(QOL_LOG_ERRO, "ring buffer push on full buffer\n");    \
+            abort();                                                       \
+        }                                                                  \
+        size_t __idx = ((ring)->head + (ring)->count) % (ring)->cap;       \
+        (ring)->data[__idx] = (val);                                       \
+        (ring)->count++;                                                   \
+    } while (0)
+
+#define qol_ring_pop(ring, out)                                            \
+    do {                                                                   \
+        if ((ring)->count == 0) {                                          \
+            qol_log(QOL_LOG_ERRO, "ring buffer pop on empty buffer\n");    \
+            abort();                                                       \
+        }                                                                  \
+        *(out) = (ring)->data[(ring)->head];                               \
+        (ring)->head = ((ring)->head + 1) % (ring)->cap;                   \
+        (ring)->count--;                                                   \
+    } while (0)
+
+#define qol_ring_empty(ring) ((ring)->count == 0)
+#define qol_ring_full(ring) ((ring)->count >= (ring)->cap)
+#define qol_ring_clear(ring) \
+    do { (ring)->head = 0; (ring)->count = 0; } while (0)
 
 //////////////////////////////////////////////////
 /// HASHMAP //////////////////////////////////////
@@ -2385,6 +2506,30 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         return all_success;
     }
 
+    QOLDEF bool qol_run_parallel_impl(QOL_Cmd *cmds, size_t count, bool always) {
+        if (!cmds || count == 0) return true;
+
+        QOL_Procs procs = {0};
+        bool ok = true;
+        for (size_t i = 0; i < count; i++) {
+            cmds[i].async = true;
+            QOL_RunOptions opts = {.procs = &procs};
+            bool result = always ? qol_run_always_impl(&cmds[i], opts)
+                                 : qol_run_impl(&cmds[i], opts);
+            if (!result) ok = false;
+        }
+        if (!qol_procs_wait(&procs)) ok = false;
+        return ok;
+    }
+
+    QOLDEF bool qol_run_parallel(QOL_Cmd *cmds, size_t count) {
+        return qol_run_parallel_impl(cmds, count, false);
+    }
+
+    QOLDEF bool qol_run_parallel_always(QOL_Cmd *cmds, size_t count) {
+        return qol_run_parallel_impl(cmds, count, true);
+    }
+
     QOLDEF bool qol_run_impl(QOL_Cmd* config, QOL_RunOptions opts) {
         if (!config || !config->data || config->len == 0) {
             qol_log(QOL_LOG_ERRO, "Invalid build configuration\n");
@@ -3368,6 +3513,91 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 #endif
     }
 
+    QOLDEF char *qol_path_dir(const char *path) {
+        if (!path || !*path) return strdup(".");
+
+        char *copy = strdup(path);
+        if (!copy) return NULL;
+
+        char *slash = strrchr(copy, '/');
+#ifdef WINDOWS
+        char *backslash = strrchr(copy, '\\');
+        if (backslash && (!slash || backslash > slash)) slash = backslash;
+#endif
+        if (!slash) {
+            free(copy);
+            return strdup(".");
+        }
+
+        if (slash == copy) {
+            slash[1] = '\0';
+        } else if (slash == copy + 2 && copy[1] == ':') {
+            slash[1] = '\0';
+        } else {
+            *slash = '\0';
+        }
+
+        return copy;
+    }
+
+    QOLDEF char *qol_path_join2(const char *a, const char *b) {
+        if (!a) a = "";
+        if (!b) b = "";
+
+#ifdef WINDOWS
+        const char *seps = "/\\";
+        const char sep = '\\';
+#else
+        const char *seps = "/";
+        const char sep = '/';
+#endif
+        size_t len_a = strlen(a);
+        size_t len_b = strlen(b);
+
+        while (len_b > 0 && strchr(seps, b[0])) {
+            b++;
+            len_b--;
+        }
+
+        bool need_sep = len_a > 0 && len_b > 0 && !strchr(seps, a[len_a - 1]);
+        size_t total = len_a + len_b + (need_sep ? 1 : 0) + 1;
+
+        char *result = (char *)malloc(total);
+        if (!result) return NULL;
+
+        size_t pos = 0;
+        if (len_a > 0) {
+            memcpy(result, a, len_a);
+            pos = len_a;
+        }
+        if (need_sep) result[pos++] = sep;
+        if (len_b > 0) {
+            memcpy(result + pos, b, len_b);
+            pos += len_b;
+        }
+        result[pos] = '\0';
+        return result;
+    }
+
+    QOLDEF char *qol_path_join_impl(const char *first, ...) {
+        char *result = first ? strdup(first) : strdup(".");
+        if (!result) return NULL;
+
+        va_list args;
+        va_start(args, first);
+        for (const char *part = va_arg(args, const char *); part != NULL; part = va_arg(args, const char *)) {
+            char *next = qol_path_join2(result, part);
+            free(result);
+            if (!next) {
+                va_end(args);
+                return NULL;
+            }
+            result = next;
+        }
+        va_end(args);
+        return result;
+    }
+
     QOLDEF bool qol_rename(const char *old_path, const char *new_path) {
         qol_log(QOL_LOG_INFO, "renaming %s -> %s\n", old_path, new_path);
 #ifdef WINDOWS
@@ -4042,6 +4272,8 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define default_c_build         qol_default_c_build
     #define run                     qol_run
     #define run_always              qol_run_always
+    #define run_parallel            qol_run_parallel
+    #define run_parallel_always     qol_run_parallel_always
     #define proc_wait               qol_proc_wait
     #define procs_wait              qol_procs_wait
     #define Cmd                     QOL_Cmd
@@ -4059,6 +4291,26 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define back                    qol_back
     #define swap                    qol_swap
     #define list                    qol_list
+    #define stack                   qol_stack
+    #define stack_push              qol_stack_push
+    #define stack_pop               qol_stack_pop
+    #define stack_top               qol_stack_top
+    #define stack_empty             qol_stack_empty
+    #define stack_release           qol_stack_release
+    #define queue                   qol_queue
+    #define queue_push              qol_queue_push
+    #define queue_pop               qol_queue_pop
+    #define queue_len               qol_queue_len
+    #define queue_empty             qol_queue_empty
+    #define queue_release           qol_queue_release
+    #define ring                    qol_ring
+    #define ring_init               qol_ring_init
+    #define ring_free               qol_ring_free
+    #define ring_push               qol_ring_push
+    #define ring_pop                qol_ring_pop
+    #define ring_empty              qol_ring_empty
+    #define ring_full               qol_ring_full
+    #define ring_clear              qol_ring_clear
 
     // FILE_OPS
     #define String                  QOL_String
@@ -4076,6 +4328,9 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define get_files_in_dir        qol_get_files_in_dir
     #define release_string          qol_release_string
     #define path_name               qol_path_name
+    #define path_dir                qol_path_dir
+    #define path_join               qol_path_join
+    #define path_join2              qol_path_join2
     #define rename                  qol_rename
     #define get_current_dir_temp    qol_get_current_dir_temp
     #define set_current_dir         qol_set_current_dir

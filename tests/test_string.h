@@ -128,3 +128,27 @@ QOL_TEST(test_str_icmp) {
     QOL_TEST_ASSERT(str_icmp("banana", "apple") > 0, "banana > apple");
     QOL_TEST_EQ(str_icmp("", ""), 0, "empty strings equal");
 }
+
+QOL_TEST(test_path_join) {
+    char *joined = path_join("a", "b", "c");
+    QOL_TEST_ASSERT(joined != NULL, "path_join succeeds");
+    QOL_TEST_STREQ(joined, "a/b/c", "path_join joins segments");
+    free(joined);
+
+    char *dup_sep = path_join2("a/b", "c");
+    QOL_TEST_ASSERT(dup_sep != NULL, "path_join2 succeeds");
+    QOL_TEST_STREQ(dup_sep, "a/b/c", "path_join2 skips duplicate separator");
+    free(dup_sep);
+}
+
+QOL_TEST(test_path_dir) {
+    char *dir = path_dir("/path/to/file.txt");
+    QOL_TEST_ASSERT(dir != NULL, "path_dir succeeds");
+    QOL_TEST_STREQ(dir, "/path/to", "path_dir extracts directory");
+    free(dir);
+
+    char *relative = path_dir("file.txt");
+    QOL_TEST_ASSERT(relative != NULL, "path_dir relative succeeds");
+    QOL_TEST_STREQ(relative, ".", "path_dir relative returns dot");
+    free(relative);
+}

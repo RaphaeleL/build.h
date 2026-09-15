@@ -16,11 +16,23 @@
 #include "../build.h"
 
 int main() {
-    info("Example 1: Extract filename from path\n");
+    info("Example 1: Extract filename and directory from path\n");
     const char *path1 = "/path/to/file.txt";
     const char *path2 = "simple.txt";
     info("path_name(\"%s\") = %s\n", path1, path_name(path1));
     info("path_name(\"%s\") = %s\n", path2, path_name(path2));
+    char *dir = path_dir(path1);
+    if (dir) {
+        info("path_dir(\"%s\") = %s\n", path1, dir);
+        free(dir);
+    }
+
+    info("Example 1b: Join path segments\n");
+    char *joined = path_join("out", "bin", "app");
+    if (joined) {
+        info("path_join(\"out\", \"bin\", \"app\") = %s\n", joined);
+        free(joined);
+    }
 
     info("Example 2: Get current directory\n");
     const char *cwd = get_current_dir_temp();
