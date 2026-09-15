@@ -1,4 +1,4 @@
-/* build.h - v0.1.1 - https://github.com/RaphaeleL/build.h
+/* build.h - v0.1.0 - https://github.com/RaphaeleL/build.h
    ============================================================================
     File: build.h
     Description: Quality-of-life utilities and abstractions for C development.
@@ -15,7 +15,7 @@
     Changed : 15 Sep 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
-    Version : 0.1.1 WIP
+    Version : 0.1.0
     ----------------------------------------------------------------------------
 
     Quick Example: Auto Rebuild the Build System
