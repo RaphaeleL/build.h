@@ -12,7 +12,7 @@
 
     ----------------------------------------------------------------------------
     Created : 02 Oct 2025
-    Changed : 15 Sep 2026
+    Changed : 26 Sep 2026
     Author  : Raphaele Salvatore Licciardo, M.Sc.
     License : MIT
     Version : 0.1.1 WIP
@@ -120,7 +120,11 @@
         - run_parallel() and run_parallel_always() for easier parallel builds
 
       0.1.1 - wip
-        - todo
+        - fix build script use-after-free: source paths must outlive run_parallel()
+        - never report "up to date" for a source that cannot be stat'd
+        - sub-second mtime comparison in qol_is_stat_newer() where available
+        - rebuild targets sharing a second with their source (qol_is_target_out_of_date())
+        - auto rebuild: ignore missing dependencies instead of restarting forever
 
     ----------------------------------------------------------------------------
     Copyright (c) 2026 Raphaele Salvatore Licciardo
@@ -622,6 +626,21 @@ QOLDEF void qol_auto_rebuild_plus_impl(const char *src, ...);
 // Handles both Unix '/' and Windows '\' path separators. Useful for auto-generating output names.
 // TODO: Should be in @FILE_OPS, not in @NO_BUILD
 QOLDEF char *qol_get_filename_no_ext(const char *path);
+
+// Compares two stat() results for freshness. Returns true if `a` was modified after `b`.
+// Uses sub-second precision where the platform exposes it, so a source edited in the same
+// second as the artifact it produced is not mistaken for an untouched source.
+QOLDEF bool qol_is_stat_newer(const struct stat *a, const struct stat *b);
+
+// Freshness check used by the build runners: returns true if `path1` is newer than `path2`,
+// or if `path2` does not exist yet. A `path1` that cannot be stat'd is reported as a warning
+// and treated as newer, so a bad path never silently marks a target as up to date.
+QOLDEF bool qol_is_path1_modified_after_path2(const char *path1, const char *path2);
+
+// Freshness check used by qol_run(): like qol_is_path1_modified_after_path2(), but a source
+// and a target sharing the same second also count as out of date, because 1-second
+// timestamps cannot prove the target is current.
+QOLDEF bool qol_is_target_out_of_date(const char *source, const char *output);
 
 //////////////////////////////////////////////////
 /// FILE_OPS /////////////////////////////////////
@@ -2025,15 +2044,60 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         return cmd; // Return constructed command structure
     }
 
+    QOLDEF bool qol_is_stat_newer(const struct stat *a, const struct stat *b) {
+        if (!a || !b) return false;
+        if (a->st_mtime != b->st_mtime) return difftime(a->st_mtime, b->st_mtime) > 0;
+        // st_mtime only has 1-second resolution, so a source touched in the same second
+        // as the artifact it produced looks untouched. Refine with the sub-second part
+        // when the platform exposes it. NOTE: macOS hides st_mtimespec behind
+        // __DARWIN_C_FULL, which build.h opts out of by defining _POSIX_C_SOURCE,
+        // so macOS falls back to the second-resolution comparison above.
+#if defined(LINUX)
+        return a->st_mtim.tv_nsec > b->st_mtim.tv_nsec;
+#else
+        return false;
+#endif
+    }
+
+    // Same comparison as qol_is_path1_modified_after_path2(), but for deciding whether a
+    // build target has to be (re)built. A target is out of date when it is missing, when
+    // the source is newer, or when both land in the same second: with only 1-second
+    // timestamps an equal pair cannot prove the target is current, so it is rebuilt.
+    // Rebuilding in that case is always safe because it makes the target newer than the
+    // source, so the following run reports it as up to date.
+    QOLDEF bool qol_is_target_out_of_date(const char *source, const char *output) {
+        if (!source || !output) return true;
+
+        struct stat src_attr, out_attr;
+        if (stat(source, &src_attr) != 0) {
+            // Never report "up to date" for a source we cannot even read, otherwise a bad
+            // path silently turns every target into a no-op. Warn so the cause is visible
+            // and let the compiler produce the real error.
+            qol_log(QOL_LOG_WARN, "Could not stat source `%s`, building anyway.\n", source);
+            return true;
+        }
+        if (stat(output, &out_attr) != 0) return true;  // target doesn't exist yet
+        if (qol_is_stat_newer(&src_attr, &out_attr)) return true;
+        return src_attr.st_mtime == out_attr.st_mtime;
+    }
+
     QOLDEF bool qol_is_path1_modified_after_path2(const char *path1, const char *path2) {
         struct stat stat1, stat2;
 
+        if (!path1 || !path2) return false;
+
         // Get file stats (modification time)
-        if (stat(path1, &stat1) != 0) return false; // path1 doesn't exist or error
+        if (stat(path1, &stat1) != 0) {
+            // Never report "not modified" silently: a bogus path1 would make callers
+            // skip work they should do (e.g. qol_run() would claim a target is up to
+            // date when the source is actually missing). Warn so the cause is visible.
+            qol_log(QOL_LOG_WARN, "Could not stat `%s`, assuming it is newer than `%s`.\n", path1, path2);
+            return true;
+        }
         if (stat(path2, &stat2) != 0) return true;  // path2 doesn't exist, path1 is "newer"
 
-        // Compare modification times: difftime returns positive if stat1 is newer
-        return difftime(stat1.st_mtime, stat2.st_mtime) > 0;
+        // Compare modification times: true if stat1 is newer
+        return qol_is_stat_newer(&stat1, &stat2);
     }
 
     QOLDEF char *qol_get_filename_no_ext(const char *path) {
@@ -2087,7 +2151,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         bool need_rebuild = false;
         if (stat(out, &out_attr) != 0) {
             need_rebuild = true;
-        } else if (difftime(src_attr.st_mtime, out_attr.st_mtime) > 0) {
+        } else if (qol_is_stat_newer(&src_attr, &out_attr)) {
             need_rebuild = true;
         }
 
@@ -2160,7 +2224,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
         bool need_rebuild = false;
         if (stat(out, &out_attr) != 0) {
             need_rebuild = true;
-        } else if (difftime(src_attr.st_mtime, out_attr.st_mtime) > 0) {
+        } else if (qol_is_stat_newer(&src_attr, &out_attr)) {
             need_rebuild = true;
         }
 
@@ -2172,8 +2236,14 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
             const char *dep_file = va_arg(args, const char*); // Get first dependency
             // Iterate through all dependencies until NULL terminator
             while (dep_file != NULL) {
-                // Check if this dependency is newer than output
-                if (qol_is_path1_modified_after_path2(dep_file, out)) {
+                // Skip dependencies that cannot be stat'd. Unlike a missing output,
+                // a missing dependency will never be "created" by the rebuild, so
+                // counting it as stale would make the rebuild/restart loop forever.
+                struct stat dep_attr;
+                if (stat(dep_file, &dep_attr) != 0) {
+                    qol_log(QOL_LOG_WARN, "Ignoring missing dependency `%s`.\n", dep_file);
+                } else if (qol_is_path1_modified_after_path2(dep_file, out)) {
+                    // Check if this dependency is newer than output
                     qol_log(QOL_LOG_DIAG, "Dependency %s is newer than binary, rebuild needed\n", dep_file);
                     need_rebuild = true;
                     // Don't break - continue checking all dependencies for complete logging
@@ -2552,7 +2622,7 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
 
         qol_ensure_dir_for_file(output);
 
-        if (!qol_is_path1_modified_after_path2(source, output)) {
+        if (!qol_is_target_out_of_date(source, output)) {
             qol_log(QOL_LOG_DIAG, "Up to date: %s\n", output);
             qol_release(config);
             return true;
@@ -4270,6 +4340,9 @@ QOLDEF void qol_timer_reset(QOL_Timer *timer);
     #define auto_rebuild            qol_auto_rebuild
     #define auto_rebuild_plus       qol_auto_rebuild_plus
     #define get_filename_no_ext     qol_get_filename_no_ext
+    #define is_stat_newer           qol_is_stat_newer
+    #define is_target_out_of_date   qol_is_target_out_of_date
+    #define is_path1_modified_after_path2 qol_is_path1_modified_after_path2
     #define default_compiler_flags  qol_default_compiler_flags
     #define default_c_build_extended qol_default_c_build_extended
     #define default_c_build         qol_default_c_build

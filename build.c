@@ -34,14 +34,17 @@ int main() {
         push(&owned, (char*)new_path);
     }
 
-    release_string(&contents);
-
     if (builds.len > 0 && !run_parallel(builds.data, builds.len)) {
+        release_string(&contents);
         for (size_t i = 0; i < owned.len; i++) free(owned.data[i]);
         release(&builds);
         release(&owned);
         return EXIT_FAILURE;
     }
+
+    // Every `Cmd` still points at the strings owned by `contents` (the source
+    // paths) and by `owned` (the output paths), so they must outlive the run.
+    release_string(&contents);
 
     for (size_t i = 0; i < owned.len; i++) free(owned.data[i]);
     release(&builds);
