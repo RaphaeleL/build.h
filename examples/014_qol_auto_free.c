@@ -18,7 +18,7 @@
 #include "../build.h"
 
 int main() {
-    init_logger(.level=LOG_INFO, .time=false, .color=true);
+    init_logger(.level=LOG_DIAG, .time=false, .color=true);
 
     AUTO_FREE int *data = malloc(sizeof(int));
 
